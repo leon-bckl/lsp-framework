@@ -7,6 +7,3 @@
 int main(){
 	unreal::initialize();
 }
-
-#include "unreal.cpp"
-#include "json.cpp"
