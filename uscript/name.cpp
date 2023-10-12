@@ -1,4 +1,4 @@
-#include "unreal.h"
+#include "name.h"
 #include <string>
 #include <cctype>
 #include <cassert>
@@ -7,8 +7,9 @@
 #include <algorithm>
 #include <string_view>
 #include <unordered_map>
+#include "names.h"
 
-namespace unreal{
+namespace uscript{
 namespace{
 
 struct NameEntry{
@@ -88,11 +89,12 @@ Name::index_type Name::findIndex(std::string_view name){
 	return InvalidIndex;
 }
 
-void initialize(){
+void Name::initialize(){
 #define REGISTER_NAME(name) createName(#name);
 #define REG_NAME_HIGH(name) createName(#name, Name::Highlighted);
-#include "unrealNames.h"
-	assert(Name::findIndex("None") == 0);
+#include "names.h"
+	static_assert(NAME_None == 0);
+	assert(Name::findIndex("None") == NAME_None);
 }
 
 }

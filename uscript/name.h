@@ -1,11 +1,8 @@
 #pragma once
 
 #include <string_view>
-#include "unrealNames.h"
 
-namespace unreal{
-
-void initialize();
+namespace uscript{
 
 class Name{
 public:
@@ -32,6 +29,9 @@ public:
 
 private:
 	index_type m_index = 0;
+
+	friend void initialize();
+	static void initialize();
 };
 
 }

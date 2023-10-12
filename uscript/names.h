@@ -11,7 +11,8 @@
 	#define REGISTER_NAME(name) NAME_ ## name,
 	#define REG_NAME_HIGH(name) NAME_ ## name,
 	#define REGISTERING_ENUM
-	enum{
+namespace uscript{
+enum{
 #endif
 
 /*-----------------------------------------------------------------------------
@@ -335,7 +336,9 @@ REGISTER_NAME(AILog)
 -----------------------------------------------------------------------------*/
 
 #ifdef REGISTERING_ENUM
-	};
+};
+static_assert(NAME_None == 0);
+}
 	#undef REGISTER_NAME
 	#undef REG_NAME_HIGH
 	#undef REGISTERING_ENUM
