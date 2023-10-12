@@ -17,8 +17,8 @@ std::size_t textOffset(const char* start, const char* pos){
 
 class Parser{
 public:
-	Parser(std::string_view text) : m_start{text.begin()},
-	                                m_end{text.end()},
+	Parser(std::string_view text) : m_start{text.data()},
+	                                m_end{text.data() + text.size()},
 	                                m_pos{m_start}{
 		m_stateStack.reserve(10);
 	}

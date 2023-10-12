@@ -4,7 +4,7 @@
 #include <vector>
 #include <cstddef>
 #include <variant>
-#include <exception>
+#include <stdexcept>
 #include <unordered_map>
 
 namespace json{
