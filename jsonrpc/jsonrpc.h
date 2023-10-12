@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <json/json.h>
+#include <string_view>
 
 namespace jsonrpc{
 	using Id = std::variant<json::String, json::Number, json::Null>;
@@ -15,6 +16,8 @@ namespace jsonrpc{
 		std::optional<Parameters> params;
 		std::optional<Id>         id;
 	};
+
+	Request parseRequest(std::string_view jsonText);
 
 	enum class ErrorCode{
 		ParseError     = -32700,
@@ -31,9 +34,11 @@ namespace jsonrpc{
 	};
 
 	struct Response{
-		json::String               jsonrpc = "2.0";
-		std::optional<json::Value> result;
-		std::optional<json::Value> error;
+		const json::String         jsonrpc = "2.0";
 		Id                         id;
+		std::optional<json::Value> result;
+		std::optional<Error>       error;
 	};
+
+	std::string responseToJsonString(const Response& response);
 }

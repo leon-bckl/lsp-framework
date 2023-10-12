@@ -93,7 +93,6 @@ void Name::initialize(){
 #define REGISTER_NAME(name) createName(#name);
 #define REG_NAME_HIGH(name) createName(#name, Name::Highlighted);
 #include "names.h"
-	static_assert(NAME_None == 0);
 	assert(Name::findIndex("None") == NAME_None);
 }
 

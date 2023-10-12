@@ -32,7 +32,7 @@ public:
 			skipWhitespace();
 
 			if(m_pos >= m_end)
-				throw JsonParseError{"Unexpected end of file", textOffset(m_start, m_pos)};
+				throw ParseError{"Unexpected end of file", textOffset(m_start, m_pos)};
 
 			switch(currentState()){
 			case State::Value:
@@ -103,14 +103,14 @@ private:
 		}else{
 			if(!currentValueWithType<Object>().empty()){
 				if(*m_pos != ',')
-					throw JsonParseError{"Expected ','", textOffset(m_start, m_pos)};
+					throw ParseError{"Expected ','", textOffset(m_start, m_pos)};
 
 				const char* pos = m_pos;
 				++m_pos;
 				skipWhitespace();
 
 				if(m_pos < m_end && *m_pos == '}')
-					throw JsonParseError{"Trailing ','", textOffset(m_start, pos)};
+					throw ParseError{"Trailing ','", textOffset(m_start, pos)};
 			}
 
 			pushState(State::ObjectKey, currentValue());
@@ -125,12 +125,12 @@ private:
 		auto key = parseString();
 
 		if(object.contains(key))
-			throw JsonParseError{"Duplicate key '" + key + "'", textOffset(m_start, keyPos)};
+			throw ParseError{"Duplicate key '" + key + "'", textOffset(m_start, keyPos)};
 
 		skipWhitespace();
 
 		if(m_pos < m_end && *m_pos != ':')
-			throw JsonParseError{"Expected ':'", textOffset(m_start, m_pos)};
+			throw ParseError{"Expected ':'", textOffset(m_start, m_pos)};
 
 		++m_pos;
 
@@ -150,14 +150,14 @@ private:
 
 			if(!array.empty()){
 				if(*m_pos != ',')
-					throw JsonParseError{"Expected ','", textOffset(m_start, m_pos)};
+					throw ParseError{"Expected ','", textOffset(m_start, m_pos)};
 
 				const char* pos = m_pos;
 				++m_pos;
 				skipWhitespace();
 
 				if(m_pos < m_end && *m_pos == ']')
-					throw JsonParseError{"Trailing ','", textOffset(m_start, pos)};
+					throw ParseError{"Trailing ','", textOffset(m_start, pos)};
 			}
 
 			pushState(State::Value, array.emplace_back());
@@ -196,7 +196,7 @@ private:
 
 	String parseString(){
 		if(m_pos >= m_end || *m_pos != '\"')
-			throw JsonParseError{"String expected", textOffset(m_start, m_pos)};
+			throw ParseError{"String expected", textOffset(m_start, m_pos)};
 
 		const char* stringStart = ++m_pos;
 
@@ -204,7 +204,7 @@ private:
 			++m_pos;
 
 			if(m_pos >= m_end || *m_pos == '\n')
-				throw JsonParseError{"Unmatched '\"'", textOffset(m_start, m_pos)};
+				throw ParseError{"Unmatched '\"'", textOffset(m_start, m_pos)};
 		}
 
 		const char* stringEnd = m_pos++;
@@ -223,7 +223,7 @@ private:
 		Number number = std::stod(std::string{numberStart, m_pos}, &idx);
 
 		if(idx < static_cast<std::size_t>(std::distance(numberStart, m_pos)))
-			throw JsonParseError{"Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(m_start, numberStart)};
+			throw ParseError{"Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(m_start, numberStart)};
 
 		return number;
 	}
@@ -245,7 +245,7 @@ private:
 		if(id == "null")
 			return {};
 
-		throw JsonParseError{"Unexpected '" + std::string{idStart, m_pos} + "'", textOffset(m_start, m_pos)};
+		throw ParseError{"Unexpected '" + std::string{idStart, m_pos} + "'", textOffset(m_start, m_pos)};
 	}
 
 	Value parseSimpleValue(){
@@ -258,7 +258,7 @@ private:
 		if(std::isalpha(*m_pos))
 			return parseIdentifier();
 
-		throw JsonParseError{"Unexpected token", textOffset(m_start, m_pos)};
+		throw ParseError{"Unexpected token", textOffset(m_start, m_pos)};
 	}
 };
 

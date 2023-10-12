@@ -1,13 +1,11 @@
 #include <lsp/server.h>
-#include <json/json.h>
 #include <uscript/uscript.h>
-#include <jsonrpc/jsonrpc.h>
 #include <iostream>
 
 int main(){
 	uscript::initialize();
 
-	lsp::Server server;
+	lsp::Server server{std::cin, std::cout};
 
-	return server.run(std::cin, std::cout);
+	return server.run();
 }

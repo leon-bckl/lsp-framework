@@ -25,9 +25,9 @@ public:
 	Value() : ValueVariant{nullptr}{}
 };
 
-class JsonParseError : public std::runtime_error{
+class ParseError : public std::runtime_error{
 public:
-	JsonParseError(const std::string& message, std::size_t textPos) : std::runtime_error{message},
+	ParseError(const std::string& message, std::size_t textPos) : std::runtime_error{message},
 	                                                                  m_textPos{textPos}{}
 
 	std::size_t textPos() const noexcept{ return m_textPos; }
