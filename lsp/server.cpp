@@ -5,9 +5,6 @@
 #include <charconv>
 #include <string_view>
 
-#include <json/json.h>
-#include <jsonrpc/jsonrpc.h>
-
 namespace stringutil{
 	std::string_view trimLeft(std::string_view str){
 		str.remove_prefix(std::distance(str.begin(), std::find_if(str.begin(), str.end(), [](char c){ return !std::isspace(c); })));

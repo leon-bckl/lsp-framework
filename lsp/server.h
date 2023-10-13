@@ -2,7 +2,7 @@
 
 #include <istream>
 #include <ostream>
-#include <jsonrpc/jsonrpc.h>
+#include "jsonrpc.h"
 
 namespace lsp{
 

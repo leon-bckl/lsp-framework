@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.10)
 
 project(lsp)
 
@@ -11,18 +11,18 @@ else()
 endif()
 
 set(HEADERS
-	src/json/json.h
-	src/jsonrpc/jsonrpc.h
-	src/lsp/message.h
-	src/lsp/server.h
+	lsp/json.h
+	lsp/jsonrpc.h
+	lsp/message.h
+	lsp/server.h
 )
 
 set(SOURCES
-	src/json/json.cpp
-	src/jsonrpc/jsonrpc.cpp
-	src/lsp/server.cpp
+	lsp/json.cpp
+	lsp/jsonrpc.cpp
+	lsp/server.cpp
 )
 
 add_library(lsp STATIC)
-target_include_directories(lsp PUBLIC src)
-target_sources(lsp PUBLIC ${SOURCES})
+target_include_directories(lsp PUBLIC .)
+target_sources(lsp PRIVATE ${SOURCES})
