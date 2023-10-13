@@ -41,12 +41,18 @@ Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
 void Connection::writeMessage(const jsonrpc::Response& response){
 	std::string content = jsonrpc::responseToJsonString(response);
 	assert(!content.empty());
-	std::string header = "Content-Length: " + std::to_string(content.size()) + "\r\n"
-	                     "Content-Type: utf-8\r\n\r\n";
-
-	m_out.write(header.data(), static_cast<std::streamsize>(header.size()));
+	MessageHeader header{content.size()};
+	writeMessageHeader(header);
 	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));
 	m_out.flush();
+}
+
+void Connection::writeMessageHeader(const MessageHeader& header){
+	assert(header.contentLength > 0);
+	assert(!header.contentType.empty());
+	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n"
+	                        "Content-Type: utf-8\r\n\r\n";
+	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }
 
 jsonrpc::Request Connection::readNextMessage(){
@@ -55,15 +61,38 @@ jsonrpc::Request Connection::readNextMessage(){
 	m_in.get(); // \r
 	m_in.get(); // \n
 
-	std::string message;
-	message.resize(header.contentLength);
-	m_in.read(&message[0], static_cast<std::streamsize>(header.contentLength));
+	std::string content;
+	content.resize(header.contentLength);
+	m_in.read(&content[0], static_cast<std::streamsize>(header.contentLength));
 
-	if(header.contentType != "utf-8" && header.contentType != "utf8"){
+	// Verify only after reading the entire message so no partial unread message is left in the stream
+
+	std::string_view contentType{header.contentType};
+
+	if(!contentType.starts_with("application/vscode-jsonrpc")){
 		// ERROR: Unsupported content type
 	}
 
-	return jsonrpc::parseRequest(message);
+	const std::string_view charsetKey{"charset="};
+	if(auto idx = contentType.find(charsetKey); idx != std::string_view::npos){
+		auto charset = contentType.substr(idx + charsetKey.size());
+		charset = charset.substr(0, charset.find(';'));
+		stringutil::trim(charset);
+
+		if(charset != "utf-8" && charset != "utf8"){
+			// ERROR: Unsupported charset
+		}
+	}
+
+	return jsonrpc::parseRequest(content);
+}
+
+Connection::MessageHeader Connection::readMessageHeader(){
+	MessageHeader header;
+
+	while(readMessageHeaderField(header)){}
+
+	return header;
 }
 
 bool Connection::readMessageHeaderField(MessageHeader& header){
@@ -89,14 +118,6 @@ bool Connection::readMessageHeaderField(MessageHeader& header){
 	}
 
 	return false;
-}
-
-Connection::MessageHeader Connection::readMessageHeader(){
-	MessageHeader header;
-
-	while(readMessageHeaderField(header)){}
-
-	return header;
 }
 
 /*

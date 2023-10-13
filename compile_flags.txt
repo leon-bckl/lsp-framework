@@ -3,4 +3,4 @@
 -Wall
 -Wextra
 -pedantic
--I.
+-I./src

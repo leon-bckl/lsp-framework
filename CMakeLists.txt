@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.23)
 
-project(ucls)
+project(lsp)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -10,25 +10,19 @@ else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic")
 endif()
 
-include_directories(src)
-
 set(HEADERS
 	src/json/json.h
 	src/jsonrpc/jsonrpc.h
 	src/lsp/message.h
 	src/lsp/server.h
-	src/uscript/name.h
-	src/uscript/names.h
-	src/uscript/uscript.h
 )
 
 set(SOURCES
-	src/main.cpp
 	src/json/json.cpp
 	src/jsonrpc/jsonrpc.cpp
 	src/lsp/server.cpp
-	src/uscript/name.cpp
-	src/uscript/uscript.cpp
 )
 
-add_executable(ucls ${SOURCES} ${HEADERS})
+add_library(lsp STATIC)
+target_include_directories(lsp PUBLIC src)
+target_sources(lsp PUBLIC ${SOURCES})
