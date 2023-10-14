@@ -11,16 +11,25 @@ else()
 endif()
 
 set(HEADERS
-	lsp/json.h
-	lsp/jsonrpc.h
-	lsp/message.h
-	lsp/server.h
+	# json
+	lsp/json/json.h
+	# jsonrpc
+	lsp/json/jsonrpc.h
+	# server
+	lsp/server/languageadapter.h.h
+	lsp/server/message.h
+	lsp/server/server.h
+	# util
+	lsp/util/util.h
 )
 
 set(SOURCES
-	lsp/json.cpp
-	lsp/jsonrpc.cpp
-	lsp/server.cpp
+	# json
+	lsp/json/json.cpp
+	# jsonrpc
+	lsp/jsonrpc/jsonrpc.cpp
+	# server
+	lsp/server/server.cpp
 )
 
 add_library(lsp STATIC)

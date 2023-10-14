@@ -4,7 +4,7 @@
 #include <cassert>
 #include <string>
 
-namespace json{
+namespace lsp::json{
 namespace{
 
 /*

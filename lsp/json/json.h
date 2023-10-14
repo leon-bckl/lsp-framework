@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
-namespace json{
+namespace lsp::json{
 
 class Value;
 

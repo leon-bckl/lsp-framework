@@ -1,6 +1,6 @@
 #include "jsonrpc.h"
 
-namespace jsonrpc{
+namespace lsp::jsonrpc{
 namespace{
 
 json::Value idToJson(const Id& id){

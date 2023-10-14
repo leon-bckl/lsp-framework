@@ -2,9 +2,10 @@
 
 #include <istream>
 #include <ostream>
-#include "jsonrpc.h"
+#include <stdexcept>
+#include <lsp/jsonrpc/jsonrpc.h>
 
-namespace lsp{
+namespace lsp::server{
 
 class Connection{
 public:
@@ -23,17 +24,15 @@ private:
 	};
 
 	MessageHeader readMessageHeader();
-	bool readMessageHeaderField(MessageHeader& header);
+	bool readNextMessageHeaderField(MessageHeader& header);
 	void writeMessageHeader(const MessageHeader& header);
 };
 
-class Server{
+class ProtocolError : public std::runtime_error{
+	using std::runtime_error::runtime_error;
 public:
-	Server(std::istream& in, std::ostream& out);
-	int run();
-
-private:
-	Connection m_connection;
 };
+
+int start(std::istream& in, std::ostream& out);
 
 }

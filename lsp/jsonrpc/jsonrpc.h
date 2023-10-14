@@ -2,9 +2,9 @@
 
 #include <optional>
 #include <string_view>
-#include "json.h"
+#include <lsp/json/json.h>
 
-namespace jsonrpc{
+namespace lsp::jsonrpc{
 	using Id = std::variant<json::String, json::Number, json::Null>;
 	using Parameters = std::variant<json::Object, json::Array>;
 
