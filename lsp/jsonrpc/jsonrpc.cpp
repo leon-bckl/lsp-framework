@@ -27,8 +27,7 @@ json::Object errorToJson(const Error& error){
 
 }
 
-Request parseRequest(std::string_view jsonText){
-	auto json = json::parse(jsonText);
+Request requestFromJson(const json::Value& json){
 	Request request;
 
 	if(!std::holds_alternative<json::Object>(json))
@@ -48,7 +47,7 @@ Request parseRequest(std::string_view jsonText){
 	return request;
 }
 
-std::string responseToJsonString(const Response& response){
+json::Value responseToJson(const Response& response){
 	json::Object json;
 
 	json["jsonrpc"] = response.jsonrpc;
@@ -60,7 +59,7 @@ std::string responseToJsonString(const Response& response){
 	if(response.error.has_value())
 		json["error"] = errorToJson(response.error.value());
 
-	return json::stringify(json);
+	return json;
 }
 
 }

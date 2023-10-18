@@ -9,14 +9,14 @@
 namespace lsp::server{
 
 /*
- * Connectoin
+ * Connection
  */
 
 Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
 
 void Connection::writeMessage(const jsonrpc::Response& response){
-	std::string content = jsonrpc::responseToJsonString(response);
+	std::string content = json::stringify(jsonrpc::responseToJson(response));
 	assert(!content.empty());
 	MessageHeader header{content.size()};
 	writeMessageHeader(header);
@@ -28,15 +28,12 @@ void Connection::writeMessageHeader(const MessageHeader& header){
 	assert(header.contentLength > 0);
 	assert(!header.contentType.empty());
 	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n"
-	                        "Content-Type: utf-8\r\n\r\n";
+	                        "Content-Type: " + header.contentType + "\r\n\r\n";
 	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }
 
 jsonrpc::Request Connection::readNextMessage(){
 	auto header = readMessageHeader();
-	// TODO: Error check
-	m_in.get(); // \r
-	m_in.get(); // \n
 
 	std::string content;
 	content.resize(header.contentLength);
@@ -60,13 +57,17 @@ jsonrpc::Request Connection::readNextMessage(){
 		}
 	}
 
-	return jsonrpc::parseRequest(content);
+	return jsonrpc::requestFromJson(json::parse(content));
 }
 
 Connection::MessageHeader Connection::readMessageHeader(){
 	MessageHeader header;
 
 	while(readNextMessageHeaderField(header)){}
+
+	// TODO: Error check
+	m_in.get(); // \r
+	m_in.get(); // \n
 
 	return header;
 }
@@ -98,15 +99,18 @@ bool Connection::readNextMessageHeaderField(MessageHeader& header){
  * Server
  */
 
-int start(std::istream& in, std::ostream& out){
+int start(std::istream& in, std::ostream& out, LanguageAdapter& languageAdapter){
+	static_cast<void>(languageAdapter);
 	Connection connection{in, out};
 
-	try{
-		auto message = connection.readNextMessage();
-	}catch(const json::ParseError& e){
+	for(;;){
+		try{
+			auto message = connection.readNextMessage();
+		}catch(const json::ParseError& e){
 
-	}catch(...){
-		return -1;
+		}catch(...){
+			return -1;
+		}
 	}
 
 	return EXIT_SUCCESS;

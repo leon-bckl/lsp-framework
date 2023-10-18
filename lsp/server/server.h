@@ -33,6 +33,8 @@ class ProtocolError : public std::runtime_error{
 public:
 };
 
-int start(std::istream& in, std::ostream& out);
+class LanguageAdapter;
+
+int start(std::istream& in, std::ostream& out, LanguageAdapter& languageAdapter);
 
 }

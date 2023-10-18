@@ -32,7 +32,7 @@ public:
 			skipWhitespace();
 
 			if(m_pos >= m_end)
-				throw ParseError{"Unexpected end of file", textOffset(m_start, m_pos)};
+				throw ParseError{"Unexpected end of input", textOffset(m_start, m_pos)};
 
 			switch(currentState()){
 			case State::Value:
@@ -263,11 +263,11 @@ private:
 };
 
 void stringifyImplementation(const Value& json, std::string& str){
-	if(std::holds_alternative<Null>(json)){
+	if(json.isNull()){
 		str += "null";
-	}else if(std::holds_alternative<Boolean>(json)){
+	}else if(json.isBoolean()){
 		str += std::get<Boolean>(json) ? "true" : "false";
-	}else if(std::holds_alternative<Number>(json)){
+	}else if(json.isNumber()){
 		auto numberStr = std::to_string(std::get<Number>(json));
 
 		while(!numberStr.empty()){
@@ -281,41 +281,37 @@ void stringifyImplementation(const Value& json, std::string& str){
 			numberStr.pop_back();
 
 		str += numberStr;
-	}else if(std::holds_alternative<String>(json)){
+	}else if(json.isString()){
 		str += '\"' + std::get<String>(json) + '\"'; // TODO: Escape string if necessary
-	}else if(std::holds_alternative<Object>(json)){
+	}else if(json.isObject()){
 		const auto& obj = std::get<Object>(json);
 
 		str += '{';
 
-		auto it = obj.begin();
-
-		if(it != obj.end()){
+		if(auto it = obj.begin(); it != obj.end()){
 			str += '\"' + it->first + "\":" + stringify(it->second);
 			++it;
-		}
 
-		while(it != obj.end()){
-			str += ",\"" + it->first + "\":" + stringify(it->second);
-			++it;
+			while(it != obj.end()){
+				str += ",\"" + it->first + "\":" + stringify(it->second);
+				++it;
+			}
 		}
 
 		str += '}';
-	}else if(std::holds_alternative<Array>(json)){
+	}else if(json.isArray()){
 		const auto& array = std::get<Array>(json);
 
 		str += '[';
 
-		auto it = array.begin();
-
-		if(it != array.end()){
+		if(auto it = array.begin(); it != array.end()){
 			str += stringify(*it);
 			++it;
-		}
 
-		while(it != array.end()){
-			str += ',' + stringify(*it);
-			++it;
+			while(it != array.end()){
+				str += ',' + stringify(*it);
+				++it;
+			}
 		}
 
 		str += ']';
