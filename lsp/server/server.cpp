@@ -5,6 +5,8 @@
 #include <charconv>
 #include <string_view>
 #include <lsp/util/util.h>
+#include <lsp/server/message.h>
+#include <lsp/server/languageadapter.h>
 
 namespace lsp::server{
 
@@ -27,12 +29,14 @@ void Connection::writeMessage(const jsonrpc::Response& response){
 void Connection::writeMessageHeader(const MessageHeader& header){
 	assert(header.contentLength > 0);
 	assert(!header.contentType.empty());
-	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n"
-	                        "Content-Type: " + header.contentType + "\r\n\r\n";
+	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
 	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }
 
 jsonrpc::Request Connection::readNextMessage(){
+	if(m_in.peek() == std::char_traits<char>::eof())
+		throw ConnectionError{"Connection lost"};
+
 	auto header = readMessageHeader();
 
 	std::string content;
@@ -43,18 +47,16 @@ jsonrpc::Request Connection::readNextMessage(){
 
 	std::string_view contentType{header.contentType};
 
-	if(!contentType.starts_with("application/vscode-jsonrpc")){
-		// ERROR: Unsupported content type
-	}
+	if(!contentType.starts_with("application/vscode-jsonrpc"))
+		throw ProtocolError{"Unsupported or invalid content type: " + header.contentType};
 
 	const std::string_view charsetKey{"charset="};
 	if(auto idx = contentType.find(charsetKey); idx != std::string_view::npos){
 		auto charset = contentType.substr(idx + charsetKey.size());
 		charset = util::str::trimView(charset.substr(0, charset.find(';')));
 
-		if(charset != "utf-8" && charset != "utf8"){
-			// ERROR: Unsupported charset
-		}
+		if(charset != "utf-8" && charset != "utf8")
+			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
 	}
 
 	return jsonrpc::requestFromJson(json::parse(content));
@@ -63,18 +65,22 @@ jsonrpc::Request Connection::readNextMessage(){
 Connection::MessageHeader Connection::readMessageHeader(){
 	MessageHeader header;
 
-	while(readNextMessageHeaderField(header)){}
+	while(m_in.peek() != '\r')
+		readNextMessageHeaderField(header);
 
-	// TODO: Error check
 	m_in.get(); // \r
+
+	if(m_in.peek() != '\n')
+		throw ProtocolError{"Invalid message header format"};
+
 	m_in.get(); // \n
 
 	return header;
 }
 
-bool Connection::readNextMessageHeaderField(MessageHeader& header){
-	if(m_in.peek() == '\r')
-		return false;
+void Connection::readNextMessageHeaderField(MessageHeader& header){
+	if(m_in.peek() == std::char_traits<char>::eof())
+		throw ConnectionError{"Connection lost"};
 
 	std::string lineData;
 	std::getline(m_in, lineData); // This also consumes the newline so it's only necessary to check for one \r\n before the content
@@ -89,10 +95,8 @@ bool Connection::readNextMessageHeaderField(MessageHeader& header){
 		if(key == "Content-Length")
 			std::from_chars(value.data(), value.data() + value.size(), header.contentLength);
 		else if(key == "Content-Type")
-			header.contentType = {value.data(), value.size()};
+			header.contentType = std::string{value.data(), value.size()};
 	}
-
-	return false;
 }
 
 /*
@@ -105,11 +109,21 @@ int start(std::istream& in, std::ostream& out, LanguageAdapter& languageAdapter)
 
 	for(;;){
 		try{
-			auto message = connection.readNextMessage();
-		}catch(const json::ParseError& e){
+			jsonrpc::Request request = connection.readNextMessage();
 
+			if(request.method == "initialize"){
+				ClientCapapbilities clientCapabilities;
+				clientCapabilities.fromJson(std::get<json::Object>(request.params.value()));
+				languageAdapter.initialize(clientCapabilities);
+			}
+		}catch(const json::ParseError&){
+			throw;
+		}catch(const ProtocolError&){
+			throw;
+		}catch(const ConnectionError&){
+			throw;
 		}catch(...){
-			return -1;
+			throw;
 		}
 	}
 

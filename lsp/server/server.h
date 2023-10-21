@@ -24,13 +24,19 @@ private:
 	};
 
 	MessageHeader readMessageHeader();
-	bool readNextMessageHeaderField(MessageHeader& header);
+	void readNextMessageHeaderField(MessageHeader& header);
 	void writeMessageHeader(const MessageHeader& header);
 };
 
 class ProtocolError : public std::runtime_error{
-	using std::runtime_error::runtime_error;
 public:
+	using std::runtime_error::runtime_error;
+};
+
+
+class ConnectionError : public std::runtime_error{
+public:
+	using std::runtime_error::runtime_error;
 };
 
 class LanguageAdapter;

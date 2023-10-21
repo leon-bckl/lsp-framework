@@ -39,10 +39,36 @@ Request requestFromJson(const json::Value& json){
 	if(it == object.end() || !std::holds_alternative<json::String>(it->second) || std::get<json::String>(it->second) != "2.0")
 		return {}; // ERROR: Unsupported or missing jsonrpc version
 
+	request.jsonrpc = std::get<json::String>(it->second);
+
 	it = object.find("method");
 
 	if(it == object.end() || !std::holds_alternative<json::String>(it->second))
 		return {}; // ERROR: Missing or invalid method
+
+	request.method = std::get<json::String>(it->second);
+
+	it = object.find("id");
+
+	if(it != object.end()){
+		if(it->second.isString())
+			request.id = std::get<json::String>(it->second);
+		else if(it->second.isNumber())
+			request.id = std::get<json::Number>(it->second);
+		else if(it->second.isNull())
+			request.id = json::Null{};
+		// else: ERROR: Id must be string, number or null
+	}
+
+	it = object.find("params");
+
+	if(it != object.end()){
+		if(it->second.isObject())
+			request.params = std::get<json::Object>(it->second);
+		else if(it->second.isArray())
+			request.params = std::get<json::Array>(it->second);
+		// else: ERROR: params must be object or array
+	}
 
 	return request;
 }

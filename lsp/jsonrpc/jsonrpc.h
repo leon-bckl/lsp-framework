@@ -10,11 +10,10 @@ namespace lsp::jsonrpc{
 	using Parameters = std::variant<json::Object, json::Array>;
 
 	struct Request{
-		bool isNotification() const{ return !id.has_value(); }
 		std::string               jsonrpc;
 		std::string               method;
-		std::optional<Parameters> params;
 		std::optional<Id>         id;
+		std::optional<Parameters> params;
 	};
 
 	Request requestFromJson(const json::Value& json);

@@ -75,7 +75,7 @@ public: \
 			if(it != json.end()) \
 				(this->*p.second.fromJson)(it->second); \
 			else if(!p.second.optional) \
-				throw ::lsp::json::TypeError{"Missing property: " + p.first}; \
+				throw ::lsp::json::TypeError{"Missing required property: " + p.first}; \
 		} \
 	} \
 	::lsp::json::Object toJson() const{ \
@@ -98,7 +98,7 @@ private: \
 	::lsp::json::Optional<::lsp::json::Value> name ## ToJson() const{ \
 		return ::lsp::json::impl::hasValue(name) ? ::lsp::json::Optional<::lsp::json::Value>{::lsp::json::impl::toJson(::lsp::json::impl::value(name))} : std::nullopt; \
 	} \
-	inline static const bool _ ## name ## JsonImpl = propertyMap().insert({#name, {::lsp::json::impl::IsOptional<decltype(name)>::value, &ThisClass::name ## FromJson, &ThisClass::name ## ToJson}}).second; \
+	inline static const bool _ ## name ## JsonImpl = propertyMap().insert({#name, Property{::lsp::json::impl::IsOptional<decltype(name)>::value, &ThisClass::name ## FromJson, &ThisClass::name ## ToJson}}).second; \
 public:
 
 namespace impl{
@@ -143,6 +143,17 @@ inline Value toJson(const T& t){
 }
 
 template<typename T>
+inline Value toJson(const std::vector<T>& t){
+	Array array;
+	array.resize(t.size());
+
+	for(std::size_t i = 0; i < array.size(); ++i)
+		array[i] = toJson(t[i]);
+
+	return array;
+}
+
+template<typename T>
 inline Value toJson(const Nullable<T>& n){
 	return n.isNull() ? Value{} : toJson(n.value());
 }
@@ -152,17 +163,6 @@ inline Value toJson(const Optional<T>&){
 	assert(!"toJson should never be called for Optional");
 	std::abort();
 	return {};
-}
-
-template<typename T>
-inline Value toJson(const std::vector<T>& t){
-	Array array;
-	array.resize(t.size());
-
-	for(std::size_t i = 0; i < array.size(); ++i)
-		array[i] = toJson(t[i]);
-
-	return array;
 }
 
 template<>
@@ -189,6 +189,9 @@ inline Value toJson(const double& d){ return d; }
 template<>
 inline Value toJson(const std::string& s){ return s; }
 
+template<>
+inline Value toJson(const Value& v){ return v; }
+
 /*
  * From JSON
  */
@@ -209,6 +212,15 @@ inline void fromJson(T& t, const Value& json){
 }
 
 template<typename T>
+inline void fromJson(std::vector<T>& t, const Value& json){
+	checkType<Array>(json);
+	const auto& array = std::get<Array>(json);
+	t.resize(array.size());
+	for(std::size_t i = 0; i < t.size(); ++i)
+		fromJson(t[i], array[i]);
+}
+
+template<typename T>
 inline void fromJson(Nullable<T>& n, const Value& json){
 	if(json.isNull()){
 		n.reset();
@@ -219,18 +231,9 @@ inline void fromJson(Nullable<T>& n, const Value& json){
 }
 
 template<typename T>
-inline void fromJson(Optional<T>&, const Value&){
-	assert(!"fromJson should never be called for Optional");
-	std::abort();
-}
-
-template<typename T>
-inline void fromJson(std::vector<T>& t, const Value& json){
-	checkType<Array>(json);
-	const auto& array = std::get<Array>(json);
-	t.resize(array.size());
-	for(std::size_t i = 0; i < t.size(); ++i)
-		fromJson(t[i], array[i]);
+inline void fromJson(Optional<T>& o, const Value& json){
+	o = T{};
+	fromJson(o.value(), json);
 }
 
 template<>
@@ -279,6 +282,11 @@ template<>
 inline void fromJson(std::string& s, const Value& json){
 	checkType<std::string>(json);
 	s = std::get<std::string>(json);
+}
+
+template<>
+inline void fromJson(Value& v, const Value& json){
+	v = json;
 }
 
 }
