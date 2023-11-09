@@ -141,6 +141,29 @@ std::string stringify(const Any& json);
  * To/From json
  */
 
+template<typename T>
+class Nullable{
+public:
+	Nullable() = default;
+
+	Nullable& operator=(const T& t){
+		m_value = t;
+		return *this;
+	}
+
+	Nullable& operator=(std::nullptr_t){
+		m_value = std::nullopt;
+		return *this;
+	}
+
+	bool isNull() const{ return !m_value.has_value(); }
+	T& value(){ return m_value.value(); }
+	const T& value() const{ return m_value.value(); }
+
+private:
+	std::optional<T> m_value;
+};
+
 // toJson
 
 template<typename T>
@@ -182,6 +205,14 @@ json::Any toJson(const std::vector<T>& vector){
 template<typename... Args>
 json::Any toJson(const std::variant<Args...>& variant){
 	return std::visit([](auto& v){ return toJson(v); }, variant);
+}
+
+template<typename T>
+json::Any toJson(const Nullable<T>& nullable){
+	if(nullable.isNull())
+		return nullptr;
+
+	return toJson(nullable.value());
 }
 
 template<typename T>
@@ -309,6 +340,14 @@ void variantFromJson(const json::Any& json, VariantType& value){
 template<typename... Args>
 void fromJson(const json::Any& json, std::variant<Args...>& value){
 	variantFromJson<0, Args...>(json, value);
+}
+
+template<typename T>
+void fromJson(const json::Any& json, Nullable<T>& nullable){
+	if(nullable.isNull())
+		nullable = T{};
+
+	fromJson(json, nullable.value());
 }
 
 template<typename T>

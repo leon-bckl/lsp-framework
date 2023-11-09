@@ -944,22 +944,35 @@ private:
 				const auto& orType = type->as<OrType>();
 
 				if(orType.typeList.size() > 1){
-					std::string cppOrType = "std::variant<";
+					int nullableTypeIndex = -1;
 
-					if(auto it = orType.typeList.begin(); it != orType.typeList.end()){
-						cppOrType += cppTypeName(*it);
-						++it;
-
-						while(it != orType.typeList.end()){
-							cppOrType += ", " + cppTypeName(*it);
-							++it;
-						}
+					if(orType.typeList.size() == 2){
+						if(orType.typeList[0]->isA<BaseType>() && orType.typeList[0]->as<BaseType>().kind == BaseType::Null)
+							nullableTypeIndex = 1;
+						else if(orType.typeList[1]->isA<BaseType>() && orType.typeList[1]->as<BaseType>().kind == BaseType::Null)
+							nullableTypeIndex = 0;
 					}
 
-					cppOrType += '>';
+					if(nullableTypeIndex < 0){
+						std::string cppOrType = "std::variant<";
 
-					typeName += cppOrType;
-					break;
+						if(auto it = orType.typeList.begin(); it != orType.typeList.end()){
+							cppOrType += cppTypeName(*it);
+							++it;
+
+							while(it != orType.typeList.end()){
+								cppOrType += ", " + cppTypeName(*it);
+								++it;
+							}
+						}
+
+						cppOrType += '>';
+
+						typeName += cppOrType;
+						break;
+					}else{
+						typeName += "Nullable<" + cppTypeName(orType.typeList[nullableTypeIndex]) + '>';
+					}
 				}else{
 					assert(!orType.typeList.empty());
 					typeName += cppTypeName(orType.typeList[0]);
