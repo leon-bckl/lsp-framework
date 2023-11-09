@@ -72,7 +72,7 @@ public:
 	T& get(){
 		try{
 			return std::get<T>(*this);
-		}catch(const std::bad_variant_access& e){
+		}catch(const std::bad_variant_access&){
 			throw TypeError{};
 		}
 	}
@@ -86,7 +86,7 @@ public:
 	const T& get() const{
 		try{
 			return std::get<T>(*this);
-		}catch(const std::bad_variant_access& e){
+		}catch(const std::bad_variant_access&){
 			throw TypeError{};
 		}
 	}

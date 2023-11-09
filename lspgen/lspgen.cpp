@@ -687,6 +687,9 @@ namespace lsp{
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4100) // unreferenced formal parameter
 #endif
 
 )";
@@ -694,6 +697,8 @@ namespace lsp{
 static constexpr const char* TypesSourceEnd =
 R"(#if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
 #endif
 } // namespace lsp
 )";
@@ -740,7 +745,7 @@ private:
 	static const CppBaseType s_stringBaseType;
 	static const CppBaseType s_baseTypeMapping[BaseType::MAX];
 
-	static void writeFile(std::string_view name, std::string_view content){
+	static void writeFile(const std::string& name, std::string_view content){
 		std::ofstream file{name, std::ios::trunc | std::ios::binary};
 		file.write(content.data(), static_cast<std::streamsize>(content.size()));
 	}
@@ -1231,15 +1236,15 @@ const CppGenerator::CppBaseType CppGenerator::s_stringBaseType{
 };
 
 const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] = {
-	[BaseType::Boolean]     = {"bool", "bool", "bool", "bool"},
-	[BaseType::String]      = s_stringBaseType,
-	[BaseType::Integer]     = {"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
-	[BaseType::UInteger]    = {"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
-	[BaseType::Decimal]     = {"json::Decimal", "json::Decimal", "json::Decimal", "json::Decimal"},
-	[BaseType::URI]         = s_stringBaseType,
-	[BaseType::DocumentUri] = s_stringBaseType,
-	[BaseType::RegExp]      = s_stringBaseType,
-	[BaseType::Null]        = {"json::Null", "json::Null", "json::Null", "json::Null"}
+	{"bool", "bool", "bool", "bool"},
+	s_stringBaseType,
+	{"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
+	{"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
+	{"json::Decimal", "json::Decimal", "json::Decimal", "json::Decimal"},
+	s_stringBaseType,
+	s_stringBaseType,
+	s_stringBaseType,
+	{"json::Null", "json::Null", "json::Null", "json::Null"}
 };
 
 int main(int argc, char** argv){

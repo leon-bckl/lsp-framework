@@ -4,6 +4,7 @@
 #include <cctype>
 #include <string>
 #include <vector>
+#include <optional>
 #include <string_view>
 
 namespace lsp::util{
