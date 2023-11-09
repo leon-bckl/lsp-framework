@@ -3,6 +3,8 @@
 #include <vector>
 #include <cassert>
 #include <string>
+#include <charconv>
+#include <lsp/util/util.h>
 
 namespace lsp::json{
 namespace{
@@ -23,8 +25,8 @@ public:
 		m_stateStack.reserve(10);
 	}
 
-	Value parse(){
-		Value result;
+	Any parse(){
+		Any result;
 
 		pushState(State::Value, result);
 
@@ -68,7 +70,7 @@ private:
 
 	struct StateStackEntry{
 		State context;
-		Value*    value;
+		Any*    value;
 	};
 
 	std::vector<StateStackEntry> m_stateStack;
@@ -169,18 +171,17 @@ private:
 		return m_stateStack.back().context;
 	}
 
-	Value& currentValue(){
+	Any& currentValue(){
 		assert(!m_stateStack.empty());
 		return *m_stateStack.back().value;
 	}
 
 	template<typename T>
 	T& currentValueWithType(){
-		assert(std::holds_alternative<T>(currentValue()));
-		return std::get<T>(currentValue());
+		return currentValue().get<T>();
 	}
 
-	void pushState(State state, Value& value){
+	void pushState(State state, Any& value){
 		m_stateStack.push_back({state, &value});
 	}
 
@@ -209,26 +210,40 @@ private:
 
 		const char* stringEnd = m_pos++;
 
-		// TODO: Unescape string if necessary
-		return {stringStart, stringEnd};
+		return util::str::unescape(std::string_view{stringStart, stringEnd});
 	}
 
-	Number parseNumber(){
+	Any parseNumber(){
 		const char* numberStart = m_pos;
+		bool isDecimal = false;
 
-		while(m_pos < m_end && (std::isalnum(*m_pos) || *m_pos == '-' || *m_pos == '.'))
+		while(m_pos < m_end && (std::isalnum(*m_pos) || *m_pos == '-' || *m_pos == '.')){
+			if(*m_pos == '.' || *m_pos == 'e')
+				isDecimal = true;
+
 			++m_pos;
+		}
 
-		std::size_t idx = 0;
-		Number number = std::stod(std::string{numberStart, m_pos}, &idx);
+		if(isDecimal){
+			std::size_t idx = 0;
+			Decimal decimal = std::stod(std::string{numberStart, m_pos}, &idx);
 
-		if(idx < static_cast<std::size_t>(std::distance(numberStart, m_pos)))
+			if(idx < static_cast<std::size_t>(std::distance(numberStart, m_pos)))
+				throw ParseError{"Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(m_start, numberStart)};
+
+			return decimal;
+		}
+
+		Integer intValue;
+		auto [ptr, ec] = std::from_chars(numberStart, m_pos, intValue);
+
+		if(ec != std::errc{} || ptr != m_pos)
 			throw ParseError{"Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(m_start, numberStart)};
 
-		return number;
+		return intValue;
 	}
 
-	Value parseIdentifier(){
+	Any parseIdentifier(){
 		const char* idStart = m_pos;
 
 		while(m_pos < m_end && std::isalnum(*m_pos))
@@ -248,7 +263,7 @@ private:
 		throw ParseError{"Unexpected '" + std::string{idStart, m_pos} + "'", textOffset(m_start, m_pos)};
 	}
 
-	Value parseSimpleValue(){
+	Any parseSimpleValue(){
 		if(*m_pos == '\"')
 			return parseString();
 
@@ -262,13 +277,13 @@ private:
 	}
 };
 
-void stringifyImplementation(const Value& json, std::string& str){
+void stringifyImplementation(const Any& json, std::string& str){
 	if(json.isNull()){
 		str += "null";
 	}else if(json.isBoolean()){
-		str += std::get<Boolean>(json) ? "true" : "false";
+		str += json.get<Boolean>() ? "true" : "false";
 	}else if(json.isNumber()){
-		auto numberStr = std::to_string(std::get<Number>(json));
+		auto numberStr = std::to_string(json.numberValue());
 
 		while(!numberStr.empty()){
 			if(numberStr.back() != '0')
@@ -282,9 +297,9 @@ void stringifyImplementation(const Value& json, std::string& str){
 
 		str += numberStr;
 	}else if(json.isString()){
-		str += '\"' + std::get<String>(json) + '\"'; // TODO: Escape string if necessary
+		str += '\"' + util::str::escape(json.get<String>()) + '\"';
 	}else if(json.isObject()){
-		const auto& obj = std::get<Object>(json);
+		const auto& obj = json.get<Object>();
 
 		str += '{';
 
@@ -300,7 +315,7 @@ void stringifyImplementation(const Value& json, std::string& str){
 
 		str += '}';
 	}else if(json.isArray()){
-		const auto& array = std::get<Array>(json);
+		const auto& array = json.get<Array>();
 
 		str += '[';
 
@@ -320,13 +335,27 @@ void stringifyImplementation(const Value& json, std::string& str){
 
 }
 
-Value parse(std::string_view text){
+Any& Object::get(const std::string& key){
+	if(auto it = find(key); it != end())
+		return it->second;
+
+	throw TypeError{"Missing key '" + key + '\''};
+}
+
+const Any& Object::get(const std::string& key) const{
+	if(auto it = find(key); it != end())
+		return it->second;
+
+	throw TypeError{"Missing key '" + key + '\''};
+}
+
+Any parse(std::string_view text){
 	Parser parser{text};
 
 	return parser.parse();
 }
 
-std::string stringify(const Value& json){
+std::string stringify(const Any& json){
 	std::string str;
 	stringifyImplementation(json, str);
 	return str;

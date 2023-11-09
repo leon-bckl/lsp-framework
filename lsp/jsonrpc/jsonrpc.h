@@ -6,7 +6,7 @@
 
 namespace lsp::jsonrpc{
 
-	using Id = std::variant<json::String, json::Number, json::Null>;
+	using Id = std::variant<json::String, json::Integer, json::Null>;
 	using Parameters = std::variant<json::Object, json::Array>;
 
 	struct Request{
@@ -16,7 +16,7 @@ namespace lsp::jsonrpc{
 		std::optional<Parameters> params;
 	};
 
-	Request requestFromJson(const json::Value& json);
+	Request requestFromJson(const json::Any& json);
 
 	enum class ErrorCode{
 		ParseError     = -32700,
@@ -27,18 +27,18 @@ namespace lsp::jsonrpc{
 	};
 
 	struct Error{
-		int                        code;
-		json::String               message;
-		std::optional<json::Value> data;
+		int                      code;
+		json::String             message;
+		std::optional<json::Any> data;
 	};
 
 	struct Response{
-		const std::string          jsonrpc = "2.0";
-		Id                         id;
-		std::optional<json::Value> result;
-		std::optional<Error>       error;
+		const std::string        jsonrpc = "2.0";
+		Id                       id;
+		std::optional<json::Any> result;
+		std::optional<Error>     error;
 	};
 
-	json::Value responseToJson(const Response& response);
+	json::Any responseToJson(const Response& response);
 
 }

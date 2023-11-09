@@ -4,3 +4,5 @@
 -Wextra
 -pedantic
 -I.
+-I./build/generated
+-I../build/lsp/generated

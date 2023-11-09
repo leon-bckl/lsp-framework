@@ -4,8 +4,8 @@
 #include <cassert>
 #include <charconv>
 #include <string_view>
+#include <lsp/types.h>
 #include <lsp/util/util.h>
-#include <lsp/server/message.h>
 #include <lsp/server/languageadapter.h>
 
 namespace lsp::server{
@@ -104,7 +104,6 @@ void Connection::readNextMessageHeaderField(MessageHeader& header){
  */
 
 int start(std::istream& in, std::ostream& out, LanguageAdapter& languageAdapter){
-	static_cast<void>(languageAdapter);
 	Connection connection{in, out};
 
 	for(;;){
@@ -112,9 +111,9 @@ int start(std::istream& in, std::ostream& out, LanguageAdapter& languageAdapter)
 			jsonrpc::Request request = connection.readNextMessage();
 
 			if(request.method == "initialize"){
-				ClientCapapbilities clientCapabilities;
-				clientCapabilities.fromJson(std::get<json::Object>(request.params.value()));
-				languageAdapter.initialize(clientCapabilities);
+				InitializeParams initializeParams;
+				initializeParams.initWithJson(std::get<json::Object>(request.params.value()));
+				languageAdapter.initialize(initializeParams.capabilities);
 			}
 		}catch(const json::ParseError&){
 			throw;

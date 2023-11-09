@@ -1,14 +1,18 @@
 #pragma once
 
-namespace lsp::server{
+namespace lsp{
 
-struct ClientCapapbilities;
+struct ClientCapabilities;
+
+namespace server{
+
 
 class LanguageAdapter{
 public:
 	virtual ~LanguageAdapter() = default;
 
-	virtual void initialize(const ClientCapapbilities& clientCapabilities) = 0;
+	virtual void initialize(const ClientCapabilities& clientCapabilities) = 0;
 };
 
+}
 }
