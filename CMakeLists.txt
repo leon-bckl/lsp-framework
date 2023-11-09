@@ -23,8 +23,8 @@ set(HEADERS
 	# jsonrpc
 	lsp/json/jsonrpc.h
 	# server
-	lsp/server/languageadapter.h.h
-	lsp/server/message.h
+	lsp/server/connection.h
+	lsp/server/languageadapter.h
 	lsp/server/server.h
 	# util
 	lsp/util/util.h
@@ -38,6 +38,7 @@ set(SOURCES
 	# jsonrpc
 	lsp/jsonrpc/jsonrpc.cpp
 	# server
+	lsp/server/connection.cpp
 	lsp/server/server.cpp
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.cpp
