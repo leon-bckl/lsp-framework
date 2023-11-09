@@ -1,44 +1,63 @@
 #pragma once
 
+#include <memory>
+#include <string>
 #include <optional>
-#include <string_view>
 #include <lsp/json/json.h>
 
 namespace lsp::jsonrpc{
+	struct Message{
+		std::string jsonrpc = "2.0";
 
-	using Id = std::variant<json::String, json::Integer, json::Null>;
-	using Parameters = std::variant<json::Object, json::Array>;
-
-	struct Request{
-		std::string               jsonrpc;
-		std::string               method;
-		std::optional<Id>         id;
-		std::optional<Parameters> params;
+		virtual ~Message() = default;
+		virtual json::Any toJson() const = 0;
+		virtual bool isRequest() const{ return false; }
+		virtual bool isResponse() const{ return false; }
 	};
 
-	Request requestFromJson(const json::Any& json);
+	using MessagePtr = std::unique_ptr<Message>;
+	using MessageId = std::variant<json::String, json::Integer>;
 
-	enum class ErrorCode{
-		ParseError     = -32700,
-		InvalidRequest = -32600,
-		MethodNotFound = -32601,
-		InvalidParams  = -32602,
-		InternalError  = -32603
+	/*
+	 * Request
+	 */
+
+	using RequestParameters = std::variant<json::Object, json::Array>;
+
+	struct Request final : Message{
+		std::optional<MessageId>         id;
+		std::string                      method;
+		std::optional<RequestParameters> params;
+
+		json::Any toJson() const override;
+		bool isRequest() const override{ return true; }
+		bool isNotification(){ return !id.has_value(); }
 	};
 
-	struct Error{
-		int                      code;
+	/*
+	 * Response
+	 */
+
+	struct ResponseError{
+		json::Integer            code;
 		json::String             message;
 		std::optional<json::Any> data;
 	};
 
-	struct Response{
-		const std::string        jsonrpc = "2.0";
-		Id                       id;
-		std::optional<json::Any> result;
-		std::optional<Error>     error;
+	struct Response final : Message{
+		MessageId                    id;
+		std::optional<json::Any>     result;
+		std::optional<ResponseError> error;
+
+		json::Any toJson() const override;
+		bool isResponse() const override{ return true; }
 	};
 
-	json::Any responseToJson(const Response& response);
+	MessagePtr messageFromJson(const json::Any& json);
+
+	class ProtocolError : std::runtime_error{
+	public:
+		using std::runtime_error::runtime_error;
+	};
 
 }

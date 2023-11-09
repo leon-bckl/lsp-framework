@@ -11,8 +11,8 @@ class Connection{
 public:
 	Connection(std::istream& in, std::ostream& out);
 
-	void writeMessage(const jsonrpc::Response& response);
-	jsonrpc::Request readNextMessage();
+	jsonrpc::MessagePtr readNextMessage();
+	void writeMessage(const jsonrpc::Message& message);
 
 private:
 	std::istream& m_in;

@@ -17,23 +17,7 @@ namespace lsp::server{
 Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
 
-void Connection::writeMessage(const jsonrpc::Response& response){
-	std::string content = json::stringify(jsonrpc::responseToJson(response));
-	assert(!content.empty());
-	MessageHeader header{content.size()};
-	writeMessageHeader(header);
-	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));
-	m_out.flush();
-}
-
-void Connection::writeMessageHeader(const MessageHeader& header){
-	assert(header.contentLength > 0);
-	assert(!header.contentType.empty());
-	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
-	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
-}
-
-jsonrpc::Request Connection::readNextMessage(){
+jsonrpc::MessagePtr Connection::readNextMessage(){
 	if(m_in.peek() == std::char_traits<char>::eof())
 		throw ConnectionError{"Connection lost"};
 
@@ -59,8 +43,25 @@ jsonrpc::Request Connection::readNextMessage(){
 			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
 	}
 
-	return jsonrpc::requestFromJson(json::parse(content));
+	return jsonrpc::messageFromJson(json::parse(content));
 }
+
+void Connection::writeMessage(const jsonrpc::Message& message){
+	std::string content = json::stringify(message.toJson());
+	assert(!content.empty());
+	MessageHeader header{content.size()};
+	writeMessageHeader(header);
+	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));
+	m_out.flush();
+}
+
+void Connection::writeMessageHeader(const MessageHeader& header){
+	assert(header.contentLength > 0);
+	assert(!header.contentType.empty());
+	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
+	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
+}
+
 
 Connection::MessageHeader Connection::readMessageHeader(){
 	MessageHeader header;
@@ -108,21 +109,19 @@ int start(std::istream& in, std::ostream& out, LanguageAdapter& languageAdapter)
 
 	for(;;){
 		try{
-			jsonrpc::Request request = connection.readNextMessage();
-
-			if(request.method == "initialize"){
-				InitializeParams initializeParams;
-				initializeParams.initWithJson(std::get<json::Object>(request.params.value()));
-				languageAdapter.initialize(initializeParams.capabilities);
-			}
+			jsonrpc::MessagePtr message = connection.readNextMessage();
+			static_cast<void>(message);
+			static_cast<void>(languageAdapter);
 		}catch(const json::ParseError&){
-			throw;
+			return EXIT_FAILURE;
 		}catch(const ProtocolError&){
-			throw;
+			return EXIT_FAILURE;
 		}catch(const ConnectionError&){
-			throw;
+			return EXIT_FAILURE;
+		}catch(const jsonrpc::ProtocolError&){
+			return EXIT_FAILURE;
 		}catch(...){
-			throw;
+			return EXIT_FAILURE;
 		}
 	}
 

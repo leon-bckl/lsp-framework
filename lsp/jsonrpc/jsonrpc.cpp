@@ -3,86 +3,153 @@
 namespace lsp::jsonrpc{
 namespace{
 
-json::Any idToJson(const Id& id){
-	if(std::holds_alternative<json::String>(id))
-		return std::get<json::String>(id);
+MessageId messageIdFromJson(const json::Any& json){
+	if(json.isString())
+		return json.get<json::String>();
 
-	if(std::holds_alternative<json::Integer>(id))
-		return std::get<json::Integer>(id);
+	if(json.isNumber())
+		return static_cast<json::Integer>(json.numberValue());
 
-	return {};
+	if(json.isNull())
+		return nullptr;
+
+	throw ProtocolError{"Request id type must be string, number or null"};
 }
 
-json::Object errorToJson(const Error& error){
-	json::Object json;
+std::unique_ptr<Request> requestFromJson(const json::Object& json){
+	auto request = std::make_unique<Request>();
 
-	json["code"] = json::Integer{error.code};
-	json["message"] = error.message;
+	request->jsonrpc = json.get<json::String>("jsonrpc");
+	request->method = json.get<json::String>("jsonrpc");
 
-	if(error.data.has_value())
-		json["data"] = error.data.value();
+	if(json.contains("id"))
+		request->id = messageIdFromJson(json.get("id"));
 
-	return json;
-}
+	if(json.contains("params")){
+		const auto& params = json.get("params");
 
-}
-
-Request requestFromJson(const json::Any& json){
-	Request request;
-
-	const auto& object = json.get<json::Object>();
-	auto it = object.find("jsonrpc");
-
-	if(it == object.end() || !it->second.isString() || it->second.get<json::String>() != "2.0")
-		return {}; // ERROR: Unsupported or missing jsonrpc version
-
-	request.jsonrpc = it->second.get<json::String>();
-
-	it = object.find("method");
-
-	if(it == object.end() || !it->second.isString())
-		return {}; // ERROR: Missing or invalid method
-
-	request.method = it->second.get<json::String>();
-
-	it = object.find("id");
-
-	if(it != object.end()){
-		if(it->second.isString())
-			request.id = it->second.get<json::String>();
-		else if(it->second.isNumber())
-			request.id = static_cast<json::Integer>(it->second.numberValue());
-		else if(it->second.isNull())
-			request.id = json::Null{};
-		// else: ERROR: Id must be string, number or null
-	}
-
-	it = object.find("params");
-
-	if(it != object.end()){
-		if(it->second.isObject())
-			request.params = it->second.get<json::Object>();
-		else if(it->second.isArray())
-			request.params = it->second.get<json::Array>();
-		// else: ERROR: params must be object or array
+		if(params.isObject())
+			request->params = params.get<json::Object>();
+		else if(params.isArray())
+			request->params = params.get<json::Array>();
+		else
+			throw ProtocolError{"Params type must be object or array"};
 	}
 
 	return request;
 }
 
-json::Any responseToJson(const Response& response){
+std::unique_ptr<Response> responseFromJson(const json::Object& json){
+	auto response = std::make_unique<Response>();
+
+	if(json.contains("id"))
+		response->id = messageIdFromJson(json.get("id"));
+
+	if(json.contains("result"))
+		response->result = json.get("result");
+
+	if(json.contains("error")){
+		const auto& errorJson = json.get<json::Object>("error");
+		response->error.emplace();
+		auto& error = response->error.value();
+
+		if(!errorJson.contains("code"))
+			throw ProtocolError{"Response error is missing the error code"};
+
+		const auto& errorCode = errorJson.get("code");
+
+		if(!errorCode.isNumber())
+			throw ProtocolError{"Response error code must be a number"};
+
+		error.code = static_cast<json::Integer>(errorCode.numberValue());
+
+		if(!errorJson.contains("message"))
+			throw ProtocolError{"Response error is missing the error message"};
+
+		const auto& errorMessage = errorJson.get("message");
+
+		if(!errorMessage.isString())
+			throw ProtocolError{"Response error message must be a string"};
+
+		error.message = errorMessage.get<json::String>();
+
+		if(errorJson.contains("data"))
+			error.data = errorJson.get("data");
+	}
+
+	if((response->result.has_value() && response->error.has_value()) || (!response->result.has_value() && !response->error.has_value()))
+		throw ProtocolError{"Response must have either 'result' or 'error'"};
+
+	return response;
+}
+
+} // namespace
+
+json::Any Request::toJson() const{
 	json::Object json;
 
-	json["jsonrpc"] = response.jsonrpc;
-	json["id"] = idToJson(response.id);
+	assert(jsonrpc == "2.0");
+	json["jsonrpc"] = jsonrpc;
 
-	if(response.result.has_value())
-		json["result"] = response.result.value();
+	if(id.has_value())
+		std::visit([&json](const auto& v){ json["id"] = v; }, id.value());
 
-	if(response.error.has_value())
-		json["error"] = errorToJson(response.error.value());
+	json["method"] = method;
+
+	if(params.has_value())
+		std::visit([&json](const auto& v){ json["params"] = v; }, params.value());
 
 	return json;
 }
 
+json::Any Response::toJson() const{
+	assert(jsonrpc == "2.0");
+	assert(result.has_value() != error.has_value());
+
+	json::Object json;
+	json["jsonrpc"] = jsonrpc;
+	std::visit([&json](const auto& v){ json["id"] = v; }, id);
+
+	if(result.has_value())
+		json["result"] = result.value();
+
+	if(error.has_value()){
+		const auto& responseError = error.value();
+		json::Object error;
+
+		error["code"] = responseError.code;
+		error["message"] = responseError.message;
+
+		if(responseError.data.has_value())
+			json["data"] = responseError.data.value();
+
+		json["error"] = error;
+	}
+
+	return json;
 }
+
+MessagePtr messageFromJson(const json::Any& json){
+	if(!json.isObject())
+		throw ProtocolError{"Message must be a json object"};
+
+	const auto& obj = json.get<json::Object>();
+
+	if(!obj.contains("jsonrpc"))
+		throw ProtocolError{"jsonrpc property is missing"};
+
+	const auto& jsonrpc = obj.get("jsonrpc");
+
+	if(!jsonrpc.isString())
+		throw ProtocolError{"jsonrpc property expected to be a string"};
+
+	if(jsonrpc.get<json::String>() != "2.0")
+		throw ProtocolError{"Invalid or unsupported jsonrpc version"};
+
+	if(obj.contains("method"))
+		return requestFromJson(obj);
+
+	return responseFromJson(obj);
+}
+
+} // namespace lsp::jsonrpc
