@@ -45,7 +45,7 @@ namespace lsp::jsonrpc{
 	};
 
 	struct Response final : Message{
-		MessageId                    id;
+		MessageId                    id = json::Null{};
 		std::optional<json::Any>     result;
 		std::optional<ResponseError> error;
 
@@ -55,7 +55,7 @@ namespace lsp::jsonrpc{
 
 	MessagePtr messageFromJson(const json::Any& json);
 
-	class ProtocolError : std::runtime_error{
+	class ProtocolError : public std::runtime_error{
 	public:
 		using std::runtime_error::runtime_error;
 	};
