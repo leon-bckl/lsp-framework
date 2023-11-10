@@ -1,37 +1,41 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 
 namespace lsp{
 namespace json{
-
 class Any;
+}
 
+namespace message{
+enum class Method;
 }
 
 /*
  * Message
  */
 
-enum class MessageMethod;
 
 using MessagePtr = std::unique_ptr<struct Message>;
 
 struct Message{
 	virtual ~Message() = default;
-	virtual MessageMethod method() const = 0;
+	virtual message::Method method() const = 0;
 
 	template<typename T>
+	requires std::derived_from<T, Message>
 	T& as(){
 		return dynamic_cast<T&>(*this);
 	}
 
 	template<typename T>
+	requires std::derived_from<T, Message>
 	const T& as() const{
 		return dynamic_cast<T&>(*this);
 	}
 
-	static MessagePtr createFromMethod(MessageMethod method);
+	static MessagePtr createFromMethod(message::Method method);
 };
 
 struct ClientToServerMessage : virtual Message{

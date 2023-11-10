@@ -854,41 +854,45 @@ R"(#pragma once
 #include "types.h"
 #include <lsp/messageBase.h>
 
-namespace lsp{
+namespace lsp::message{
 
-std::string_view messageMethodToString(MessageMethod method);
-MessageMethod messageMethodFromString(std::string_view str);
+std::string_view methodToString(Method method);
+Method methodFromString(std::string_view str);
 
 )";
 
 static constexpr const char* MessagesHeaderEnd =
-R"(} // namespace lsp
+R"(} // namespace lsp::message
 )";
 
 static constexpr const char* MessagesSourceBegin =
 R"(#include "messages.h"
 
+/*#############################################################
+ * NOTE: This is a generated file and it shouldn't be modified!
+ *#############################################################*/
+
 #include <unordered_map>
 
-namespace lsp{
+namespace lsp::message{
 
 )";
 
 static constexpr const char* MessagesSourceEnd =
-R"(std::string_view messageMethodToString(MessageMethod method){
-	return MessageMethodStrings[static_cast<int>(method)];
+R"(std::string_view methodToString(Method method){
+	return MethodStrings[static_cast<int>(method)];
 }
 
-MessageMethod messageMethodFromString(std::string_view str){
-	auto it = MessageMethodsByString.find(str);
+Method methodFromString(std::string_view str){
+	auto it = MethodsByString.find(str);
 
-	if(it != MessageMethodsByString.end())
+	if(it != MethodsByString.end())
 		return it->second;
 
-	return MessageMethod::INVALID;
+	return Method::INVALID;
 }
 
-} // namespace lsp
+} // namespace lsp::message
 )";
 
 class CppGenerator{
@@ -945,25 +949,25 @@ private:
 	void generateMessages(){
 		// Message method enum
 
-		m_messagesHeaderFileContent = std::string{MessagesHeaderBegin} + "enum class MessageMethod{\n"
+		m_messagesHeaderFileContent = std::string{MessagesHeaderBegin} + "enum class Method{\n"
 		                              "\tINVALID = -1,\n\n"
 		                              "\t// Requests\n\n";
-		m_messagesSourceFileContent = std::string{MessagesSourceBegin} + "static constexpr std::string_view MessageMethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
+		m_messagesSourceFileContent = std::string{MessagesSourceBegin} + "static constexpr std::string_view MethodStrings[static_cast<int>(Method::MAX_VALUE)] = {\n";
 
-		std::string messageMethodsByString = "static auto methodStringPair(MessageMethod method){\n"
-		                                     "\treturn std::make_pair(MessageMethodStrings[static_cast<int>(method)], method);\n"
+		std::string messageMethodsByString = "static auto methodStringPair(Method method){\n"
+		                                     "\treturn std::make_pair(MethodStrings[static_cast<int>(method)], method);\n"
 		                                     "}\n\n"
-		                                     "static const std::unordered_map<std::string_view, MessageMethod> MessageMethodsByString = {\n";
-		std::string messageCreateFromMethod = "MessagePtr Message::createFromMethod(MessageMethod method){\n"
+		                                     "static const std::unordered_map<std::string_view, Method> MethodsByString = {\n";
+		std::string messageCreateFromMethod = "MessagePtr Message::createFromMethod(message::Method method){\n"
 		                                      "\tswitch(method){\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request)){
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
-			messageMethodsByString += "\tmethodStringPair(MessageMethod::" + id + "),\n";
-			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
-			messageCreateFromMethod += "\t\treturn std::make_unique<" + id + ">();\n";
+			messageMethodsByString += "\tmethodStringPair(Method::" + id + "),\n";
+			messageCreateFromMethod += "\tcase message::Method::" + id + ":\n";
+			messageCreateFromMethod += "\t\treturn std::make_unique<message::" + id + ">();\n";
 		}
 
 		m_messagesHeaderFileContent += "\n\t// Notifications\n\n";
@@ -972,9 +976,9 @@ private:
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
-			messageMethodsByString += "\tmethodStringPair(MessageMethod::" + id + "),\n";
-			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
-			messageCreateFromMethod += "\t\treturn std::make_unique<" + id + ">();\n";
+			messageMethodsByString += "\tmethodStringPair(Method::" + id + "),\n";
+			messageCreateFromMethod += "\tcase message::Method::" + id + ":\n";
+			messageCreateFromMethod += "\t\treturn std::make_unique<message::" + id + ">();\n";
 		}
 
 		m_messagesHeaderFileContent += "\tMAX_VALUE\n};\n\n";
@@ -987,9 +991,8 @@ private:
 		m_messagesSourceFileContent += messageMethodsByString;
 		messageCreateFromMethod += "\tdefault:\n"
 		                           "\t\treturn nullptr;\n"
-		                           "\t}"
+		                           "\t}\n"
 		                           "}\n\n";
-		m_messagesSourceFileContent += messageCreateFromMethod;
 
 		// Structs
 
@@ -1004,7 +1007,7 @@ private:
 			generateMessage(method, message, true);
 
 		m_messagesHeaderFileContent += MessagesHeaderEnd;
-		m_messagesSourceFileContent += MessagesSourceEnd;
+		m_messagesSourceFileContent += std::string{MessagesSourceEnd} + "\nnamespace lsp{\n\n" + messageCreateFromMethod + "\n\n} // namespace lsp\n";
 	}
 
 	void generateMessage(const std::string& method, const Message& message, bool isNotification){
@@ -1039,7 +1042,7 @@ private:
 		if(hasPartialResult)
 			m_messagesHeaderFileContent += "\tstd::optional<" + upperCaseIdentifier(message.partialResultTypeName) + "> partialResult;\n";
 
-		m_messagesHeaderFileContent += "\n\tMessageMethod method() const override{ return MessageMethod::" + messageCppName + "; }\n";
+		m_messagesHeaderFileContent += "\n\tMethod method() const override{ return Method::" + messageCppName + "; }\n";
 
 		if(message.direction == Message::Direction::ClientToServer || message.direction == Message::Direction::Both){
 			m_messagesHeaderFileContent += "\tvoid initParams(const json::Any&";
