@@ -3,6 +3,7 @@
 #include <lsp/types.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 #include <lsp/server/languageadapter.h>
+#include <lsp/messages.h>
 
 #include "connection.h"
 

@@ -18,6 +18,8 @@ set(GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GENERATED_FILES_DIR}/lsp)
 
 set(HEADERS
+	# lsp
+	lsp/messageBase.h
 	# json
 	lsp/json/json.h
 	# jsonrpc
@@ -30,6 +32,7 @@ set(HEADERS
 	lsp/util/util.h
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.h
+	${GENERATED_FILES_DIR}/lsp/messages.h
 )
 
 set(SOURCES
@@ -42,6 +45,7 @@ set(SOURCES
 	lsp/server/server.cpp
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.cpp
+	${GENERATED_FILES_DIR}/lsp/messages.cpp
 )
 
 set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/lspmetamodel.json)
@@ -52,6 +56,8 @@ add_custom_command(
 	OUTPUT
 		${GENERATED_FILES_DIR}/lsp/types.h
 		${GENERATED_FILES_DIR}/lsp/types.cpp
+		${GENERATED_FILES_DIR}/lsp/messages.h
+		${GENERATED_FILES_DIR}/lsp/messages.cpp
 	DEPENDS lspgen ${LSP_METAMODEL_JSON}
 	COMMENT "Generating lsp types from meta model..."
 )

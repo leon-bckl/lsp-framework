@@ -55,6 +55,9 @@ namespace lsp::jsonrpc{
 
 	MessagePtr messageFromJson(const json::Any& json);
 
+	/*
+	 * Error thrown when a message has an invalid structure
+	 */
 	class ProtocolError : public std::runtime_error{
 	public:
 		using std::runtime_error::runtime_error;

@@ -35,12 +35,12 @@ namespace str{
 
 		for(std::size_t idx = str.find(separator); idx != std::string_view::npos; idx = str.find(separator, srcIdx)){
 			auto part = str.substr(srcIdx, idx - srcIdx);
+			srcIdx = idx + separator.size();
 
 			if(part.empty() && skipEmpty)
 				continue;
 
 			result.push_back(part);
-			srcIdx = idx + separator.size();
 		}
 
 		if(srcIdx < str.size())
@@ -50,6 +50,48 @@ namespace str{
 	}
 
 	inline std::vector<std::string_view> splitView(std::string&&, char, bool) = delete;
+
+	template<typename F>
+	[[nodiscard]] std::string join(const std::vector<std::string>& strings, const std::string& separator, F&& transform){
+		std::string result;
+
+		if(auto it = strings.begin(); it != strings.end()){
+			result = transform(*it);
+			++it;
+
+			while(it != strings.end()){
+				result += separator + transform(*it);
+				++it;
+			}
+		}
+
+		return result;
+	}
+
+	inline std::string join(const std::vector<std::string>& strings, const std::string& separator){
+		return join(strings, separator, [](const std::string& str)->const std::string&{ return str; });
+	}
+
+	template<typename F>
+	[[nodiscard]] std::string join(const std::vector<std::string_view>& strings, const std::string& separator, F&& transform){
+		std::string result;
+
+		if(auto it = strings.begin(); it != strings.end()){
+			result = transform(*it);
+			++it;
+
+			while(it != strings.end()){
+				result += separator + transform(*it);
+				++it;
+			}
+		}
+
+		return result;
+	}
+
+	inline std::string join(const std::vector<std::string_view>& strings, const std::string& separator){
+		return join(strings, separator, [](std::string_view str)->std::string{ return std::string{str}; });
+	}
 
 	[[nodiscard]] inline std::string replace(std::string_view str, std::string_view pattern, std::string_view replacement){
 		std::string result;
@@ -82,6 +124,15 @@ namespace str{
 		if(!result.empty())
 			result[0] = static_cast<char>(std::tolower(result[0]));
 
+		return result;
+	}
+
+	[[nodiscard]] inline std::string quote(std::string_view str){
+		std::string result;
+		result.reserve(str.size() + 2);
+		result += '\"';
+		result += str;
+		result += '\"';
 		return result;
 	}
 
