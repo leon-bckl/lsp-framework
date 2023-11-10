@@ -44,8 +44,6 @@ int start(std::istream& in, std::ostream& out, LanguageAdapter& languageAdapter)
 			return EXIT_FAILURE;
 		}
 	}
-
-	return EXIT_SUCCESS;
 }
 
 } // namespace lsp::server

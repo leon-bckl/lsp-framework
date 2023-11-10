@@ -51,7 +51,7 @@ std::unique_ptr<Response> responseFromJson(const json::Object& json){
 	if(json.contains("error")){
 		const auto& errorJson = json.get<json::Object>("error");
 		response->error.emplace();
-		auto& error = response->error.value();
+		auto& responseError = response->error.value();
 
 		if(!errorJson.contains("code"))
 			throw ProtocolError{"Response error is missing the error code"};
@@ -61,7 +61,7 @@ std::unique_ptr<Response> responseFromJson(const json::Object& json){
 		if(!errorCode.isNumber())
 			throw ProtocolError{"Response error code must be a number"};
 
-		error.code = static_cast<json::Integer>(errorCode.numberValue());
+		responseError.code = static_cast<json::Integer>(errorCode.numberValue());
 
 		if(!errorJson.contains("message"))
 			throw ProtocolError{"Response error is missing the error message"};
@@ -71,10 +71,10 @@ std::unique_ptr<Response> responseFromJson(const json::Object& json){
 		if(!errorMessage.isString())
 			throw ProtocolError{"Response error message must be a string"};
 
-		error.message = errorMessage.get<json::String>();
+		responseError.message = errorMessage.get<json::String>();
 
 		if(errorJson.contains("data"))
-			error.data = errorJson.get("data");
+			responseError.data = errorJson.get("data");
 	}
 
 	if((response->result.has_value() && response->error.has_value()) || (!response->result.has_value() && !response->error.has_value()))
@@ -115,15 +115,15 @@ json::Any Response::toJson() const{
 
 	if(error.has_value()){
 		const auto& responseError = error.value();
-		json::Object error;
+		json::Object errorJson;
 
-		error["code"] = responseError.code;
-		error["message"] = responseError.message;
+		errorJson["code"] = responseError.code;
+		errorJson["message"] = responseError.message;
 
 		if(responseError.data.has_value())
 			json["data"] = responseError.data.value();
 
-		json["error"] = error;
+		json["error"] = errorJson;
 	}
 
 	return json;

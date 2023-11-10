@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
 #include <lsp/json/json.h>
