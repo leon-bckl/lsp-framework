@@ -10,8 +10,21 @@ class Nullable{
 public:
 	Nullable() = default;
 
+	Nullable(const T& t){
+		*this = t;
+	}
+
+	Nullable(T&& t){
+		*this = std::forward<T>(t);
+	}
+
 	Nullable& operator=(const T& t){
-		m_value = t;
+		m_value.emplace(t);
+		return *this;
+	}
+
+	Nullable& operator=(T&& t){
+		m_value.emplace(std::forward<T>(t));
 		return *this;
 	}
 

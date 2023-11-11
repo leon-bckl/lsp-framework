@@ -558,8 +558,6 @@ struct Message{
 	// Those should be omitted if the strings are empty
 	std::string paramsTypeName;
 	std::string resultTypeName;
-	std::string partialResultTypeName;
-	std::string registrationOptionsTypeName;
 
 	static std::string memberTypeName(const json::Object& json, const std::string& key){
 		if(!json.contains(key))
@@ -588,8 +586,6 @@ struct Message{
 
 		paramsTypeName = memberTypeName(json, strings::params);
 		resultTypeName = memberTypeName(json, strings::result);
-		partialResultTypeName = memberTypeName(json, strings::partialResult);
-		registrationOptionsTypeName = memberTypeName(json, strings::registrationOptions);
 	}
 };
 
@@ -1038,9 +1034,8 @@ private:
 
 		const bool hasParams = !message.paramsTypeName.empty();
 		const bool hasResult = !message.resultTypeName.empty();
-		const bool hasPartialResult = !message.partialResultTypeName.empty();
 
-		if(hasParams || hasResult || hasPartialResult)
+		if(hasParams || hasResult)
 			m_messagesHeaderFileContent += '\n';
 
 		if(hasParams)
@@ -1049,54 +1044,27 @@ private:
 		if(hasResult)
 			m_messagesHeaderFileContent += "\ttypes::" + upperCaseIdentifier(message.resultTypeName) + " result;\n";
 
-		if(hasPartialResult)
-			m_messagesHeaderFileContent += "\tstd::optional<types::" + upperCaseIdentifier(message.partialResultTypeName) + "> partialResult;\n";
+		m_messagesHeaderFileContent += "\n\tMethod method() const override;\n";
+		m_messagesSourceFileContent += "Method " + messageCppName + "::method() const{ return MessageMethod; }\n";
 
-		m_messagesHeaderFileContent += "\n\tMethod method() const override{ return MessageMethod; }\n";
-
-		if(message.direction == Message::Direction::ClientToServer || message.direction == Message::Direction::Both){
-			m_messagesHeaderFileContent += "\tvoid initParams(const json::Any&";
-
-			if(hasParams)
-				m_messagesHeaderFileContent += " json) override{ fromJson(json, params); }\n";
-			else
-				m_messagesHeaderFileContent += ") override{}\n";
+		if(hasParams){
+			m_messagesHeaderFileContent += "\tvoid initParams(const json::Any& json) override;\n";
+			m_messagesSourceFileContent += "void " + messageCppName + "::initParams(const json::Any& json){ fromJson(json, params); }\n";
 		}
 
-		if(message.direction == Message::Direction::ServerToClient || message.direction == Message::Direction::Both){
-			m_messagesHeaderFileContent += "\tjson::Any paramsJson() override{ return ";
-
-			if(hasParams)
-				m_messagesHeaderFileContent += "toJson(params); }\n";
-			else
-				m_messagesHeaderFileContent += "{}; }\n";
+		if(hasResult){
+			m_messagesHeaderFileContent += "\tvoid initResult(const json::Any& json) override;\n";
+			m_messagesSourceFileContent += "void " + messageCppName + "::initResult(const json::Any& json){ fromJson(json, result); }\n";
 		}
 
-		if(!isNotification){
-			if(message.direction == Message::Direction::ClientToServer || message.direction == Message::Direction::Both){
-				if(hasPartialResult)
-					m_messagesHeaderFileContent += '\n';
+		if(hasParams){
+			m_messagesHeaderFileContent += "\tjson::Any paramsJson() override;\n";
+			m_messagesSourceFileContent += "json::Any " + messageCppName + "::paramsJson(){ return toJson(params); }\n";
+		}
 
-				m_messagesHeaderFileContent += "\tjson::Any resultJson() override{";
-
-				if(hasResult){
-					if(hasPartialResult){
-						m_messagesHeaderFileContent += "\n\t\tif(partialResult.has_value())\n"
-						                               "\t\t\treturn toJson(partialResult);\n\n\t\t";
-					}else{
-						m_messagesHeaderFileContent += ' ';
-					}
-
-					m_messagesHeaderFileContent += "return toJson(result);";
-
-					if(hasPartialResult)
-						m_messagesHeaderFileContent += "\n\t}\n";
-					else
-						m_messagesHeaderFileContent += " }\n";
-				}else{
-					m_messagesHeaderFileContent += " return {}; }\n";
-				}
-			}
+		if(hasResult){
+			m_messagesHeaderFileContent += "\tjson::Any resultJson() override;\n";
+			m_messagesSourceFileContent += "json::Any " + messageCppName + "::resultJson(){ return toJson(result); }\n";
 		}
 
 		m_messagesHeaderFileContent += "};\n\n";
