@@ -11,7 +11,7 @@ else()
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined")
 endif()
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp)
+add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/util/str.cpp)
 target_include_directories(lspgen PRIVATE .)
 
 set(GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
@@ -31,6 +31,7 @@ set(HEADERS
 	lsp/server/languageadapter.h
 	lsp/server/server.h
 	# util
+	lsp/util/str.h
 	lsp/util/util.h
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.h
@@ -46,6 +47,8 @@ set(SOURCES
 	lsp/jsonrpc/jsonrpc.cpp
 	# server
 	lsp/server/server.cpp
+	# util
+	lsp/util/str.cpp
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.cpp
 	${GENERATED_FILES_DIR}/lsp/messages.cpp

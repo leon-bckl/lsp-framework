@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <lsp/json/json.h>
-#include <lsp/util/util.h>
+#include <lsp/util/str.h>
 
 /*
  * This is a huge mess because it started out as an experiment only.

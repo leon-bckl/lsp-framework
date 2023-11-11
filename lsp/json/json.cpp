@@ -4,7 +4,7 @@
 #include <cassert>
 #include <string>
 #include <charconv>
-#include <lsp/util/util.h>
+#include <lsp/util/str.h>
 
 namespace lsp::json{
 namespace{

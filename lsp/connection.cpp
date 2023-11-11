@@ -3,7 +3,7 @@
 #include <cassert>
 #include <charconv>
 #include <string_view>
-#include <lsp/util/util.h>
+#include <lsp/util/str.h>
 
 namespace lsp{
 
