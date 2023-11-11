@@ -20,7 +20,7 @@ std::unique_ptr<Request> requestFromJson(const json::Object& json){
 	auto request = std::make_unique<Request>();
 
 	request->jsonrpc = json.get<json::String>("jsonrpc");
-	request->method = json.get<json::String>("jsonrpc");
+	request->method = json.get<json::String>("method");
 
 	if(json.contains("id"))
 		request->id = messageIdFromJson(json.get("id"));
