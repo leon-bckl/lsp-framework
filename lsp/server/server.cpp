@@ -1,13 +1,9 @@
 #include "server.h"
 
+#include <lsp/messages.h>
+#include <lsp/connection.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 #include <lsp/server/languageadapter.h>
-#include <lsp/messages.h>
-
-#include "connection.h"
-
-#include <functional>
-#include <unordered_map>
 
 namespace lsp::server{
 namespace{

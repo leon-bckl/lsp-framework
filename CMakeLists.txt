@@ -19,6 +19,7 @@ file(MAKE_DIRECTORY ${GENERATED_FILES_DIR}/lsp)
 
 set(HEADERS
 	# lsp
+	lsp/connection.h
 	lsp/messagebase.h
 	lsp/nullable.h
 	lsp/serialization.h
@@ -27,7 +28,6 @@ set(HEADERS
 	# jsonrpc
 	lsp/json/jsonrpc.h
 	# server
-	lsp/server/connection.h
 	lsp/server/languageadapter.h
 	lsp/server/server.h
 	# util
@@ -38,12 +38,13 @@ set(HEADERS
 )
 
 set(SOURCES
+	# lsp
+	lsp/connection.cpp
 	# json
 	lsp/json/json.cpp
 	# jsonrpc
 	lsp/jsonrpc/jsonrpc.cpp
 	# server
-	lsp/server/connection.cpp
 	lsp/server/server.cpp
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.cpp
