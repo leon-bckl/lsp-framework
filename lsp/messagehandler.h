@@ -20,25 +20,25 @@ concept HasResult = requires(T t){
 
 template<typename MessageType, typename F>
 requires HasParams<MessageType> && (!HasResult<MessageType>)
-void handleMessage(MessageType& message, F&& handler){
+void processMessage(MessageType& message, F&& handler){
 	handler(std::as_const(message.params));
 }
 
 template<typename MessageType, typename F>
 requires HasResult<MessageType> && (!HasParams<MessageType>)
-void handleMessage(MessageType& message, F&& handler){
+void processMessage(MessageType& message, F&& handler){
 	handler(message.result);
 }
 
 template<typename MessageType, typename F>
 requires HasParams<MessageType> && HasResult<MessageType>
-void handleMessage(MessageType& message, F&& handler){
+void processMessage(MessageType& message, F&& handler){
 	handler(std::as_const(message.params), message.result);
 }
 
 template<typename MessageType, typename F>
 requires (!HasParams<MessageType>) && (!HasResult<MessageType>)
-void handleMessage(MessageType&, F&& handler){
+void processMessage(MessageType&, F&& handler){
 	handler();
 }
 
@@ -53,7 +53,7 @@ public:
 			m_handlers.resize(index + 1);
 
 		m_handlers[index] = [handlerFunc](Message& message){
-			handleMessage(dynamic_cast<MessageType&>(message), handlerFunc);
+			lsp::processMessage(dynamic_cast<MessageType&>(message), handlerFunc);
 		};
 
 		return *this;

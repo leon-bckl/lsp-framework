@@ -10,7 +10,7 @@ namespace lsp{
 Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
 
-jsonrpc::MessagePtr Connection::readNextMessage(){
+std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::receiveMessage(){
 	if(m_in.peek() == std::char_traits<char>::eof())
 		throw ConnectionError{"Connection lost"};
 
@@ -39,9 +39,34 @@ jsonrpc::MessagePtr Connection::readNextMessage(){
 	return jsonrpc::messageFromJson(json::parse(content));
 }
 
-void Connection::writeMessage(const jsonrpc::Message& message){
-	std::string content = json::stringify(message.toJson());
-	assert(!content.empty());
+void Connection::sendMessage(const std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch>& message){
+	json::Any content;
+
+	if(std::holds_alternative<jsonrpc::MessagePtr>(message)){
+		content = std::get<jsonrpc::MessagePtr>(message)->toJson();
+	}else if(std::holds_alternative<jsonrpc::MessageBatch>(message)){
+		const auto& batch = std::get<jsonrpc::MessageBatch>(message);
+		content = json::Array{};
+		auto& array = content.get<json::Array>();
+		array.reserve(batch.size());
+
+		for(const auto& m : batch)
+			array.push_back(m->toJson());
+	}else{
+		return;
+	}
+
+	writeJsonMessage(content);
+}
+
+void Connection::writeJsonMessage(const json::Any& content){
+	std::string contentStr = json::stringify(content);
+	assert(!contentStr.empty());
+	MessageHeader header{contentStr.size()};
+	writeMessage(contentStr);
+}
+
+void Connection::writeMessage(const std::string& content){
 	MessageHeader header{content.size()};
 	writeMessageHeader(header);
 	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));
@@ -54,7 +79,6 @@ void Connection::writeMessageHeader(const MessageHeader& header){
 	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
 	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }
-
 
 Connection::MessageHeader Connection::readMessageHeader(){
 	MessageHeader header;

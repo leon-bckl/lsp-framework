@@ -15,8 +15,8 @@ class Connection{
 public:
 	Connection(std::istream& in, std::ostream& out);
 
-	jsonrpc::MessagePtr readNextMessage();
-	void writeMessage(const jsonrpc::Message& message);
+	std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> receiveMessage();
+	void sendMessage(const std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch>& message);
 
 private:
 	std::istream& m_in;
@@ -30,6 +30,8 @@ private:
 
 	MessageHeader readMessageHeader();
 	void readNextMessageHeaderField(MessageHeader& header);
+	void writeJsonMessage(const json::Any& content);
+	void writeMessage(const std::string& content);
 	void writeMessageHeader(const MessageHeader& header);
 };
 
