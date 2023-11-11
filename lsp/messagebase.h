@@ -45,7 +45,7 @@ struct ServerToClientMessage : virtual Message{
 	virtual json::Any paramsJson() = 0;
 };
 
-struct BidirectionalMessage : ClientToServerMessage, ServerToClientMessage{
+struct BidirectionalMessage : virtual ClientToServerMessage, virtual ServerToClientMessage{
 
 };
 
@@ -53,31 +53,31 @@ struct BidirectionalMessage : ClientToServerMessage, ServerToClientMessage{
  * Request
  */
 
-struct ClientToServerRequest : ClientToServerMessage{
+struct ClientToServerRequest : virtual ClientToServerMessage{
 	virtual json::Any resultJson() = 0;
 };
 
-struct ServerToClientRequest : ServerToClientMessage{
+struct ServerToClientRequest : virtual ServerToClientMessage{
 
 };
 
-struct BidirectionalRequest : BidirectionalMessage{
-	virtual json::Any resultJson() = 0;
+struct BidirectionalRequest : virtual ClientToServerRequest, virtual ServerToClientRequest{
+
 };
 
 /*
  * Notification
  */
 
-struct ClientToServerNotification : ClientToServerMessage{
+struct ClientToServerNotification : virtual ClientToServerMessage{
 
 };
 
-struct ServerToClientNotification : ServerToClientMessage{
+struct ServerToClientNotification : virtual ServerToClientMessage{
 
 };
 
-struct BidirectionalNotification : BidirectionalMessage{
+struct BidirectionalNotification : virtual ClientToServerNotification, virtual ServerToClientNotification{
 
 };
 

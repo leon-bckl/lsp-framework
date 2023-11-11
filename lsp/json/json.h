@@ -1,17 +1,11 @@
 #pragma once
 
-#include <tuple>
-#include <memory>
 #include <string>
 #include <vector>
-#include <cassert>
-#include <cstddef>
 #include <variant>
 #include <stdexcept>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
-#include <lsp/util/util.h>
 
 namespace lsp::json{
 

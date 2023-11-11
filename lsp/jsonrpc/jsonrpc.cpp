@@ -1,5 +1,7 @@
 #include "jsonrpc.h"
 
+#include <cassert>
+
 namespace lsp::jsonrpc{
 namespace{
 
