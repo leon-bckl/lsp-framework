@@ -21,6 +21,7 @@ set(HEADERS
 	# lsp
 	lsp/connection.h
 	lsp/messagebase.h
+	lsp/messagehandler.h
 	lsp/nullable.h
 	lsp/serialization.h
 	# json
