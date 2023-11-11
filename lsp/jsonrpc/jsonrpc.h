@@ -16,7 +16,7 @@ namespace lsp::jsonrpc{
 	};
 
 	using MessagePtr = std::unique_ptr<Message>;
-	using MessageId = std::variant<json::String, json::Integer>;
+	using MessageId = std::variant<json::String, json::Integer, json::Null>;
 
 	/*
 	 * Request
