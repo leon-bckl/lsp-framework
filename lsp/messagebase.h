@@ -8,7 +8,7 @@ namespace json{
 class Any;
 }
 
-namespace message{
+namespace messages{
 enum class Method;
 }
 
@@ -16,12 +16,11 @@ enum class Method;
  * Message
  */
 
-
 using MessagePtr = std::unique_ptr<struct Message>;
 
 struct Message{
 	virtual ~Message() = default;
-	virtual message::Method method() const = 0;
+	virtual messages::Method method() const = 0;
 
 	template<typename T>
 	requires std::derived_from<T, Message>
@@ -35,7 +34,7 @@ struct Message{
 		return dynamic_cast<T&>(*this);
 	}
 
-	static MessagePtr createFromMethod(message::Method method);
+	static MessagePtr createFromMethod(messages::Method method);
 };
 
 struct ClientToServerMessage : virtual Message{

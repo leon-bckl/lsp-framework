@@ -19,7 +19,9 @@ file(MAKE_DIRECTORY ${GENERATED_FILES_DIR}/lsp)
 
 set(HEADERS
 	# lsp
-	lsp/messageBase.h
+	lsp/messagebase.h
+	lsp/nullable.h
+	lsp/serialization.h
 	# json
 	lsp/json/json.h
 	# jsonrpc

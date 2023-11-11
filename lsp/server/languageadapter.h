@@ -2,7 +2,7 @@
 
 namespace lsp{
 
-struct ClientCapabilities;
+struct Message;
 
 namespace server{
 
@@ -11,7 +11,7 @@ class LanguageAdapter{
 public:
 	virtual ~LanguageAdapter() = default;
 
-	virtual void initialize(const ClientCapabilities& clientCapabilities) = 0;
+	virtual void processMessage(Message* message) = 0;
 };
 
 }

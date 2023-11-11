@@ -4,6 +4,7 @@
 #include <istream>
 #include <ostream>
 #include <lsp/jsonrpc/jsonrpc.h>
+#include <functional>
 
 namespace lsp{
 
