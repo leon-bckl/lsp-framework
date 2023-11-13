@@ -283,7 +283,10 @@ private:
 };
 
 void stringifyImplementation(const Any& json, std::string& str, std::size_t indentLevel, bool format){
-	const auto getIndent = [&indentLevel](){
+	const auto getIndent = [&indentLevel, format](){
+		if(!format)
+			return std::string_view{};
+
 		static constexpr std::string_view Tabs{"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"};
 		return Tabs.substr(0, std::min(indentLevel, Tabs.size()));
 	};
