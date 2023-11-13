@@ -479,6 +479,23 @@ struct Enumeration{
 
 		if(json.contains(strings::supportsCustomValues))
 			supportsCustomValues = json.get<bool>(strings::supportsCustomValues);
+
+		// Sort values so they can be more efficiently searched
+		std::sort(values.begin(), values.end(), [this](const Value& lhs, const Value& rhs){
+			if(lhs.value.isString()){
+				if(!rhs.value.isString())
+					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
+
+				return lhs.value.get<json::String>() < rhs.value.get<json::String>();
+			}else if(lhs.value.isNumber()){
+				if(!rhs.value.isNumber())
+					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
+
+				return lhs.value.numberValue() < rhs.value.numberValue();
+			}
+
+			throw std::runtime_error{"Invalid value type in enumeration" + name + "' - Must be string or number"};
+		});
 	}
 };
 
@@ -820,7 +837,10 @@ R"(#include "types.h"
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
+#include <array>
 #include <cassert>
+#include <iterator>
+#include <algorithm>
 
 namespace lsp::types{
 #if defined(__clang__) || defined(__GNUC__)
@@ -830,6 +850,16 @@ namespace lsp::types{
 #pragma warning(push)
 #pragma warning(disable: 4100) // unreferenced formal parameter
 #endif
+
+template<typename Array, typename T>
+static auto findEnumValue(const Array& values, const T& value){
+	auto it = std::lower_bound(values.begin(), values.end(), value);
+
+	if(it != values.end() && *it != value)
+		it = values.end();
+
+	return it;
+}
 
 )";
 
@@ -1156,7 +1186,7 @@ private:
 		auto enumerationCppName = upperCaseIdentifier(enumeration.name);
 
 		const auto& baseType = s_baseTypeMapping[enumeration.type->as<BaseType>().kind];
-		std::string enumValuesVarName = util::str::uncapitalize(enumerationCppName) + "EnumValues";
+		std::string enumValuesVarName = enumerationCppName + "Values";
 
 		m_typesHeaderFileContent += documentationComment(enumerationCppName, enumeration.documentation);
 		std::string valueIndent;
@@ -1171,9 +1201,8 @@ private:
 			valueIndent = "\t";
 		}
 
-		m_typesSourceFileContent += "static const " +
-		                             baseType.constData + ' ' + enumValuesVarName +
-		                             "[static_cast<int>(" + enumerationCppName + "::MAX_VALUE)] = {\n";
+		m_typesSourceFileContent += "static constexpr std::array<" + baseType.constData + ", static_cast<int>(" + enumerationCppName + "::MAX_VALUE)> " +
+		                            enumValuesVarName + " = {\n";
 
 		if(auto it = enumeration.values.begin(); it != enumeration.values.end()){
 			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) +
@@ -1226,14 +1255,10 @@ private:
 			                            "\treturn *this;\n"
 			                            "}\n\n" +
 			                            enumerationCppName + "& " + enumerationCppName + "::operator=(" + baseType.param + " value){\n"
-			                            "\tfor(std::size_t i = 0; i < std::size(" + enumValuesVarName + "); ++i){\n"
-			                            "\t\tif(value == " + enumValuesVarName + "[i]){\n"
-			                            "\t\t\tm_index = static_cast<" + enumerationCppName + "::ValueIndex>(i);\n"
-			                            "\t\t\tm_value = value;\n"
-			                            "\t\t\treturn *this;\n"
-			                            "\t\t}\n"
-			                            "\t}\n"
-			                            "\tm_index = MAX_VALUE;\n"
+			                            "\tif(auto it = findEnumValue(" + enumValuesVarName + ", value); it != " + enumValuesVarName + ".end())\n"
+			                            "\t\tm_index = static_cast<" + enumerationCppName + "::ValueIndex>(std::distance(" + enumValuesVarName + ".begin(), it));\n"
+			                            "\telse\n"
+			                            "\t\tm_index = MAX_VALUE;\n"
 			                            "\tm_value = value;\n"
 			                            "\treturn *this;\n"
 			                            "}\n\n";
@@ -1248,13 +1273,10 @@ private:
 																	           "\treturn " + baseType.data + "{types::" + enumValuesVarName + "[static_cast<int>(value)]};\n}\n\n" +
 																	           fromJson + "{\n"
 																	           "\tconst auto& jsonVal = json.get<" + baseType.data + ">();\n"
-																	           "\tfor(std::size_t i = 0; i < std::size(types::" + enumValuesVarName + "); ++i){\n"
-																	           "\t\tif(jsonVal == types::" + enumValuesVarName + "[i]){\n"
-																	           "\t\t\tvalue = static_cast<types::" + enumerationCppName + ">(i);\n"
-																	           "\t\t\treturn;\n"
-																	           "\t\t}\n"
-																	           "\t}\n\n"
-																	           "\tthrow json::TypeError{\"Invalid value for '" + enumerationCppName + "'\"};\n"
+			                                       "\tif(auto it = types::findEnumValue(types::" + enumValuesVarName + ", jsonVal); it != types::" + enumValuesVarName + ".end())\n"
+			                                       "\t\tvalue = static_cast<types::" + enumerationCppName + ">(std::distance(types::" + enumValuesVarName + ".begin(), it));\n"
+			                                       "\telse\n"
+																	           "\t\tthrow json::TypeError{\"Invalid value for '" + enumerationCppName + "'\"};\n"
 																	           "}\n\n";
 		}
 	}
