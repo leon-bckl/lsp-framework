@@ -25,6 +25,8 @@ set(HEADERS
 	lsp/messagehandler.h
 	lsp/nullable.h
 	lsp/serialization.h
+	# io
+	lsp/io/standardio.h
 	# json
 	lsp/json/json.h
 	# jsonrpc
@@ -41,6 +43,8 @@ set(SOURCES
 	# lsp
 	lsp/connection.cpp
 	lsp/messagehandler.cpp
+	# io
+	lsp/io/standardio.cpp
 	# json
 	lsp/json/json.cpp
 	# jsonrpc
