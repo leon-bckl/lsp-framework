@@ -1176,13 +1176,13 @@ private:
 		                             "[static_cast<int>(" + enumerationCppName + "::MAX_VALUE)] = {\n";
 
 		if(auto it = enumeration.values.begin(); it != enumeration.values.end()){
-			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1) +
+			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) +
 			                            valueIndent + util::str::capitalize(it->name);
 			m_typesSourceFileContent += '\t' + json::stringify(it->value);
 			++it;
 
 			while(it != enumeration.values.end()){
-				m_typesHeaderFileContent += ",\n" + valueIndent + util::str::capitalize(it->name);
+				m_typesHeaderFileContent += ",\n" + documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) + valueIndent + util::str::capitalize(it->name);
 				m_typesSourceFileContent += ",\n\t" + json::stringify(it->value);
 				++it;
 			}
@@ -1197,6 +1197,7 @@ private:
 			                            "\t" + enumerationCppName + "& operator=(ValueIndex index);\n"
 			                            "\t" + enumerationCppName + "& operator=(" + baseType.param + " newValue){ m_index = MAX_VALUE; m_value = newValue; return *this; }\n"
 																	"\tbool operator==(ValueIndex index) const{ return m_index == index; }\n"
+																	"\tbool operator==(" + baseType.constData + " value) const{ return m_value == value; }\n"
 			                            "\toperator const " + baseType.data + "&() const{ return m_value; }\n"
 			                            "\t" + baseType.getResult + " value() const{ return m_value; }\n\n"
 			                            "private:\n"

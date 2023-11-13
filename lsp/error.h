@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <stdexcept>
+#include <lsp/types.h>
 #include <lsp/json/json.h>
 
 namespace lsp{
@@ -29,7 +30,9 @@ private:
  */
 class RequestError : public Error{
 public:
-	RequestError(const std::string& message, json::Integer code, std::optional<json::Any> data) : Error{message, code, std::move(data)}{}
+	RequestError(const std::string& message, json::Integer code, std::optional<json::Any> data = std::nullopt) : Error{message, code, std::move(data)}{}
+	RequestError(const std::string& message, types::ErrorCodes code, std::optional<json::Any> data = std::nullopt) : Error{message, code, std::move(data)}{}
+	RequestError(const std::string& message, types::LSPErrorCodes code, std::optional<json::Any> data = std::nullopt) : Error{message, code, std::move(data)}{}
 };
 
 /*
@@ -37,7 +40,9 @@ public:
  */
 class ResponseError : public Error{
 public:
-	ResponseError(const std::string& message, json::Integer code, std::optional<json::Any> data) : Error{message, code, std::move(data)}{}
+	ResponseError(const std::string& message, json::Integer code, std::optional<json::Any> data = std::nullopt) : Error{message, code, std::move(data)}{}
+	ResponseError(const std::string& message, types::ErrorCodes code, std::optional<json::Any> data = std::nullopt) : Error{message, code, std::move(data)}{}
+	ResponseError(const std::string& message, types::LSPErrorCodes code, std::optional<json::Any> data = std::nullopt) : Error{message, code, std::move(data)}{}
 };
 
 };

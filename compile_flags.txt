@@ -5,4 +5,4 @@
 -pedantic
 -I.
 -I./build/generated
--I../build/lsp/generated
+-I../build/lsp-framework/generated
