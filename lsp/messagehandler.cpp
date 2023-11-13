@@ -37,7 +37,7 @@ void MessageHandler::processResponse(const jsonrpc::Response& response){
 			result->setValueFromJson(response.result.value());
 		}else if(response.error.has_value()){
 			const auto& error = response.error.value();
-			result->setException(std::make_exception_ptr(ResponseError{error.message, error.code, error.data}));
+			result->setException(std::make_exception_ptr(ResponseError{error.message, types::ErrorCodes{error.code}, error.data}));
 		}
 	}
 }

@@ -1193,12 +1193,14 @@ private:
 		if(enumeration.supportsCustomValues){
 			m_typesHeaderFileContent += "\t};\n\n"
 			                            "\t" + enumerationCppName + "() = default;\n" +
-			                            "\t" + enumerationCppName + "(ValueIndex index);\n" +
+			                            "\t" + enumerationCppName + "(ValueIndex index){ *this = index; }\n" +
+			                            "\texplicit " + enumerationCppName + '(' + baseType.param + " value){ *this = value; }\n" +
 			                            "\t" + enumerationCppName + "& operator=(ValueIndex index);\n"
-			                            "\t" + enumerationCppName + "& operator=(" + baseType.param + " newValue){ m_index = MAX_VALUE; m_value = newValue; return *this; }\n"
+			                            "\t" + enumerationCppName + "& operator=(" + baseType.param + " newValue);\n"
 																	"\tbool operator==(ValueIndex index) const{ return m_index == index; }\n"
 																	"\tbool operator==(" + baseType.constData + " value) const{ return m_value == value; }\n"
 			                            "\toperator const " + baseType.data + "&() const{ return m_value; }\n"
+			                            "\tbool hasCustomValue() const{ return m_index == MAX_VALUE; }\n"
 			                            "\t" + baseType.getResult + " value() const{ return m_value; }\n\n"
 			                            "private:\n"
 			                            "\tValueIndex m_index = MAX_VALUE;\n"
@@ -1217,23 +1219,28 @@ private:
 		                                       fromJson + ";\n";
 
 	  if(enumeration.supportsCustomValues){
-			m_typesSourceFileContent += enumerationCppName + "::" + enumerationCppName + "(ValueIndex index){\n\t*this = index;\n}\n\n" +
-			                            enumerationCppName + "& " + enumerationCppName + "::operator=(ValueIndex index){\n"
+			m_typesSourceFileContent += enumerationCppName + "& " + enumerationCppName + "::operator=(ValueIndex index){\n"
 			                            "\tassert(index < MAX_VALUE);\n"
 			                            "\tm_index = index;\n"
 			                            "\tm_value = " + enumValuesVarName + "[index];\n"
+			                            "\treturn *this;\n"
+			                            "}\n\n" +
+			                            enumerationCppName + "& " + enumerationCppName + "::operator=(" + baseType.param + " value){\n"
+			                            "\tfor(std::size_t i = 0; i < std::size(" + enumValuesVarName + "); ++i){\n"
+			                            "\t\tif(value == " + enumValuesVarName + "[i]){\n"
+			                            "\t\t\tm_index = static_cast<" + enumerationCppName + "::ValueIndex>(i);\n"
+			                            "\t\t\tm_value = value;\n"
+			                            "\t\t\treturn *this;\n"
+			                            "\t\t}\n"
+			                            "\t}\n"
+			                            "\tm_index = MAX_VALUE;\n"
+			                            "\tm_value = value;\n"
 			                            "\treturn *this;\n"
 			                            "}\n\n";
 			m_typesBoilerPlateSourceFileContent += toJson + "{\n" +
 																	           "\treturn value.value();\n}\n\n" +
 																	           fromJson + "{\n"
 																	           "\tconst auto& jsonVal = json.get<" + baseType.data + ">();\n"
-																	           "\tfor(std::size_t i = 0; i < std::size(types::" + enumValuesVarName + "); ++i){\n"
-																	           "\t\tif(jsonVal == types::" + enumValuesVarName + "[i]){\n"
-																	           "\t\t\tvalue = static_cast<types::" + enumerationCppName + "::ValueIndex>(i);\n"
-																	           "\t\t\treturn;\n"
-																	           "\t\t}\n"
-																	           "\t}\n\n"
 																	           "\tvalue = jsonVal;\n"
 																	           "}\n\n";
 		}else{
