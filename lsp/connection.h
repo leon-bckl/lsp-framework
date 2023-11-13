@@ -10,7 +10,7 @@ namespace lsp{
 
 /*
  * Connection between the server and a client.
- * I/O happens via std::istream and std::ostream so the underlying implementation can be anything frmo stdio to sockets
+ * I/O happens via std::istream and std::ostream so the underlying implementation can be anything from stdio to sockets
  */
 class Connection{
 public:

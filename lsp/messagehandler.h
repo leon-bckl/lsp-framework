@@ -77,13 +77,13 @@ public:
 	template<typename MessageType>
 	requires (!HasParams<MessageType>) && (!HasResult<MessageType>)
 	void sendNotification(){
-		sendNotification(MessageType::method);
+		sendNotification(MessageType::MessageMethod);
 	}
 
 	template<typename MessageType>
 	requires HasParams<MessageType> && (!HasResult<MessageType>)
 	void sendNotification(const typename MessageType::Params& params){
-		sendNotification(MessageType::method, tojson(params));
+		sendNotification(MessageType::MessageMethod, toJson(params));
 	}
 
 	bool handlesRequest(messages::Method method);
