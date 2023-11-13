@@ -4,10 +4,15 @@
 #include <cassert>
 #include <string>
 #include <charconv>
+#include <algorithm>
 #include <lsp/util/str.h>
 
 namespace lsp::json{
 namespace{
+
+constexpr std::string_view Null{"null"};
+constexpr std::string_view True{"true"};
+constexpr std::string_view False{"false"};
 
 /*
  * Parser
@@ -251,13 +256,13 @@ private:
 
 		std::string_view id{ idStart, static_cast<std::size_t>(std::distance(idStart, m_pos)) };
 
-		if(id == "true")
+		if(id == True)
 			return true;
 
-		if(id == "false")
+		if(id == False)
 			return false;
 
-		if(id == "null")
+		if(id == Null)
 			return {};
 
 		throw ParseError{"Unexpected '" + std::string{idStart, m_pos} + "'", textOffset(m_start, m_pos)};
@@ -277,40 +282,69 @@ private:
 	}
 };
 
-void stringifyImplementation(const Any& json, std::string& str){
-	if(json.isNull()){
-		str += "null";
-	}else if(json.isBoolean()){
-		str += json.get<Boolean>() ? "true" : "false";
-	}else if(json.isNumber()){
-		auto numberStr = std::to_string(json.numberValue());
+void stringifyImplementation(const Any& json, std::string& str, std::size_t indentLevel, bool format){
+	const auto getIndent = [&indentLevel](){
+		static constexpr std::string_view Tabs{"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"};
+		return Tabs.substr(0, std::min(indentLevel, Tabs.size()));
+	};
 
-		while(!numberStr.empty()){
-			if(numberStr.back() != '0')
+	std::string_view keySep{":"};
+	std::string_view valueSep{","};
+	std::string_view listStart;
+	std::string_view listEnd;
+
+	if(format){
+		keySep = ": ";
+		valueSep = ",\n";
+		listStart = "\n";
+		listEnd = "\n";
+	}
+
+	if(json.isNull()){
+		str += Null;
+	}else if(json.isBoolean()){
+		str += json.get<Boolean>() ? True : False;
+	}else if(json.isInteger()){
+		str += std::to_string(json.get<json::Integer>());
+	}else if(json.isDecimal()){
+		auto numberStr = std::to_string(json.get<json::Decimal>());
+
+		for(std::size_t i = numberStr.size(); i > 2; --i){
+			if(numberStr[i] != '0' || numberStr[i - 1] == '.')
 				break;
 
 			numberStr.pop_back();
 		}
 
-		if(numberStr.back() == '.')
-			numberStr.pop_back();
-
 		str += numberStr;
 	}else if(json.isString()){
-		str += '\"' + util::str::escape(json.get<String>()) + '\"';
+		str += util::str::quote(util::str::escape(json.get<String>()));
 	}else if(json.isObject()){
 		const auto& obj = json.get<Object>();
 
 		str += '{';
 
 		if(auto it = obj.begin(); it != obj.end()){
-			str += '\"' + it->first + "\":" + stringify(it->second);
+			str += listStart;
+			++indentLevel;
+			str += getIndent();
+			str += util::str::quote(util::str::escape(it->first));
+			str += keySep;
+			stringifyImplementation(it->second, str, indentLevel, format);
 			++it;
 
 			while(it != obj.end()){
-				str += ",\"" + it->first + "\":" + stringify(it->second);
+				str += valueSep;
+				str += getIndent();
+				str += util::str::quote(util::str::escape(it->first));
+				str += keySep;
+				stringifyImplementation(it->second, str, indentLevel, format);
 				++it;
 			}
+
+			str += listEnd;
+			--indentLevel;
+			str += getIndent();
 		}
 
 		str += '}';
@@ -320,20 +354,29 @@ void stringifyImplementation(const Any& json, std::string& str){
 		str += '[';
 
 		if(auto it = array.begin(); it != array.end()){
-			str += stringify(*it);
+			str += listStart;
+			++indentLevel;
+			str += getIndent();
+			stringifyImplementation(*it, str, indentLevel, format);
 			++it;
 
 			while(it != array.end()){
-				str += ',' + stringify(*it);
+				str += valueSep;
+				str += getIndent();
+				stringifyImplementation(*it, str, indentLevel, format);
 				++it;
 			}
+
+			str += listEnd;
+			--indentLevel;
+			str += getIndent();
 		}
 
 		str += ']';
 	}
 }
 
-}
+} // namespace
 
 Any& Object::get(const std::string& key){
 	if(auto it = find(key); it != end())
@@ -355,10 +398,10 @@ Any parse(std::string_view text){
 	return parser.parse();
 }
 
-std::string stringify(const Any& json){
+std::string stringify(const Any& json, bool format){
 	std::string str;
-	stringifyImplementation(json, str);
+	stringifyImplementation(json, str, 0, format);
 	return str;
 }
 
-}
+} // namespace lsp::json

@@ -126,6 +126,6 @@ private:
 };
 
 Any parse(std::string_view text);
-std::string stringify(const Any& json);
+std::string stringify(const Any& json, bool format = false);
 
 } // namespace lsp::json

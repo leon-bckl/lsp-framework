@@ -18,7 +18,7 @@ MessageId messageIdFromJson(const json::Any& json){
 	throw ProtocolError{"Request id type must be string, number or null"};
 }
 
-std::unique_ptr<Request> requestFromJson(const json::Object& json){
+RequestPtr requestFromJson(const json::Object& json){
 	auto request = std::make_unique<Request>();
 
 	request->jsonrpc = json.get<json::String>("jsonrpc");
@@ -41,7 +41,7 @@ std::unique_ptr<Request> requestFromJson(const json::Object& json){
 	return request;
 }
 
-std::unique_ptr<Response> responseFromJson(const json::Object& json){
+ResponsePtr responseFromJson(const json::Object& json){
 	auto response = std::make_unique<Response>();
 
 	if(json.contains("id"))
