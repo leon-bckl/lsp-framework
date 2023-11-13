@@ -1039,6 +1039,15 @@ private:
 			m_messagesHeaderFileContent += '\n';
 
 		if(hasParams)
+			m_messagesHeaderFileContent += "\tusing Params = types::" + upperCaseIdentifier(message.paramsTypeName) + ";\n";
+
+		if(hasResult)
+			m_messagesHeaderFileContent += "\tusing Result = types::" + upperCaseIdentifier(message.resultTypeName) + ";\n";
+
+		if(hasParams || hasResult)
+			m_messagesHeaderFileContent += '\n';
+
+		if(hasParams)
 			m_messagesHeaderFileContent += "\ttypes::" + upperCaseIdentifier(message.paramsTypeName) + " params;\n";
 
 		if(hasResult)

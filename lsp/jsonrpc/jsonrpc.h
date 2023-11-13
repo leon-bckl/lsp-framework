@@ -25,16 +25,14 @@ namespace lsp::jsonrpc{
 	 * Request
 	 */
 
-	using RequestParameters = std::variant<json::Object, json::Array>;
-
 	struct Request final : Message{
-		std::optional<MessageId>         id;
-		std::string                      method;
-		std::optional<RequestParameters> params;
+		std::optional<MessageId> id;
+		std::string              method;
+		std::optional<json::Any> params;
 
 		json::Any toJson() const override;
 		bool isRequest() const override{ return true; }
-		bool isNotification(){ return !id.has_value(); }
+		bool isNotification() const{ return !id.has_value(); }
 	};
 
 	using RequestPtr = std::unique_ptr<Request>;
@@ -69,8 +67,8 @@ namespace lsp::jsonrpc{
 	};
 
 	std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json);
-	RequestPtr createRequest(const MessageId& id, const std::string& method, const std::optional<RequestParameters>& params = std::nullopt);
-	RequestPtr createNotification(const std::string& method, const std::optional<RequestParameters>& params = std::nullopt);
+	RequestPtr createRequest(const MessageId& id, const std::string& method, const std::optional<json::Any>& params = std::nullopt);
+	RequestPtr createNotification(const std::string& method, const std::optional<json::Any>& params = std::nullopt);
 	ResponsePtr createResponse(const MessageId& id, const json::Any& result);
 	ResponsePtr createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data);
 

@@ -117,7 +117,7 @@ json::Any Request::toJson() const{
 	json["method"] = method;
 
 	if(params.has_value())
-		std::visit([&json](const auto& v){ json["params"] = v; }, params.value());
+		json["params"] = params.value();
 
 	return json;
 }
@@ -170,7 +170,7 @@ std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json){
 	return batch;
 }
 
-RequestPtr createRequest(const MessageId& id, const std::string& method, const std::optional<RequestParameters>& params){
+RequestPtr createRequest(const MessageId& id, const std::string& method, const std::optional<json::Any>& params){
 	auto request = std::make_unique<Request>();
 	request->id = id;
 	request->method = method;
@@ -179,7 +179,7 @@ RequestPtr createRequest(const MessageId& id, const std::string& method, const s
 	return request;
 }
 
-RequestPtr createNotification(const std::string& method, const std::optional<RequestParameters>& params){
+RequestPtr createNotification(const std::string& method, const std::optional<json::Any>& params){
 	auto notification = std::make_unique<Request>();
 	notification->method = method;
 	notification->params = params;

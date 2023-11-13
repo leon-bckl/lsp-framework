@@ -11,6 +11,8 @@ Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
 
 std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::receiveMessage(){
+	std::lock_guard lock{m_writeMutex};
+
 	if(m_in.peek() == std::char_traits<char>::eof())
 		throw ConnectionError{"Connection lost"};
 
@@ -39,22 +41,17 @@ std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::
 	return jsonrpc::messageFromJson(json::parse(content));
 }
 
-void Connection::sendMessage(const std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch>& message){
-	json::Any content;
+void Connection::sendMessage(const jsonrpc::Message& message){
+	writeJsonMessage(message.toJson());
+}
 
-	if(std::holds_alternative<jsonrpc::MessagePtr>(message)){
-		content = std::get<jsonrpc::MessagePtr>(message)->toJson();
-	}else if(std::holds_alternative<jsonrpc::MessageBatch>(message)){
-		const auto& batch = std::get<jsonrpc::MessageBatch>(message);
-		content = json::Array{};
-		auto& array = content.get<json::Array>();
-		array.reserve(batch.size());
+void Connection::sendMessageBatch(const jsonrpc::MessageBatch& batch){
+	json::Any content = json::Array{};
+	auto& array = content.get<json::Array>();
+	array.reserve(batch.size());
 
-		for(const auto& m : batch)
-			array.push_back(m->toJson());
-	}else{
-		return;
-	}
+	for(const auto& m : batch)
+		array.push_back(m->toJson());
 
 	writeJsonMessage(content);
 }
@@ -67,6 +64,7 @@ void Connection::writeJsonMessage(const json::Any& content){
 }
 
 void Connection::writeMessage(const std::string& content){
+	std::lock_guard lock{m_writeMutex};
 	MessageHeader header{content.size()};
 	writeMessageHeader(header);
 	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));

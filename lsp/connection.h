@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <istream>
 #include <ostream>
@@ -16,11 +17,14 @@ public:
 	Connection(std::istream& in, std::ostream& out);
 
 	std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> receiveMessage();
-	void sendMessage(const std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch>& message);
+	void sendMessage(const jsonrpc::Message& message);
+	void sendMessageBatch(const jsonrpc::MessageBatch& batch);
 
 private:
 	std::istream& m_in;
 	std::ostream& m_out;
+	std::mutex    m_readMutex;
+	std::mutex    m_writeMutex;
 
 	struct MessageHeader{
 		std::size_t contentLength = 0;
