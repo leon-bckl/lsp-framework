@@ -34,7 +34,11 @@ void MessageHandler::processResponse(const jsonrpc::Response& response){
 		lock.unlock();
 
 		if(response.result.has_value()){
-			result->setValueFromJson(response.result.value());
+			try{
+				result->setValueFromJson(response.result.value());
+			}catch(const json::TypeError& e){
+				result->setException(std::make_exception_ptr(e));
+			}
 		}else if(response.error.has_value()){
 			const auto& error = response.error.value();
 			result->setException(std::make_exception_ptr(ResponseError{error.message, types::ErrorCodes{error.code}, error.data}));
@@ -48,6 +52,13 @@ jsonrpc::ResponsePtr MessageHandler::processMessage(const jsonrpc::Message& mess
 			return processRequest(static_cast<const jsonrpc::Request&>(message));
 
 		processResponse(static_cast<const jsonrpc::Response&>(message));
+	}catch(const json::TypeError& e){
+		if(message.isRequest()){
+			const auto& request = static_cast<const jsonrpc::Request&>(message);
+
+			if(!request.isNotification())
+				return jsonrpc::createErrorResponse(request.id.value(), types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
+		}
 	}catch(const RequestError& e){
 		if(message.isRequest()){
 			const auto& request = static_cast<const jsonrpc::Request&>(message);
