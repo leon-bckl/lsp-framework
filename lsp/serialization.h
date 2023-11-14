@@ -5,6 +5,7 @@
 #include <cassert>
 #include <type_traits>
 #include <lsp/nullable.h>
+#include <lsp/util/uri.h>
 #include <lsp/util/util.h>
 #include <lsp/json/json.h>
 
@@ -20,6 +21,9 @@ json::Any toJson(const std::tuple<Args...>& tuple);
 
 template<typename T>
 json::Any toJson(const std::unordered_map<json::String, T>& map);
+
+template<typename T>
+json::Any toJson(const std::unordered_map<util::FileURI, T>& map);
 
 template<typename T>
 json::Any toJson(const std::vector<T>& vector);
@@ -59,6 +63,15 @@ json::Any toJson(const std::unordered_map<json::String, T>& map){
 	json::Object result;
 	for(const auto& [k, v] : map)
 		result[k] = toJson(v);
+
+	return result;
+}
+
+template<typename T>
+json::Any toJson(const std::unordered_map<util::FileURI, T>& map){
+	json::Object result;
+	for(const auto& [k, v] : map)
+		result[k.toString()] = toJson(v);
 
 	return result;
 }
@@ -104,6 +117,11 @@ inline json::Any toJson(const std::string_view& v){
 	return json::String{v};
 }
 
+template<>
+inline json::Any toJson(const util::FileURI& uri){
+	return uri.toString();
+}
+
 // fromJson
 
 template<typename T>
@@ -114,6 +132,9 @@ void fromJson(const json::Any& json, std::tuple<Args...>& value);
 
 template<typename T>
 void fromJson(const json::Any& json, std::unordered_map<json::String, T>& value);
+
+template<typename T>
+void fromJson(const json::Any& json, std::unordered_map<util::FileURI, T>& value);
 
 template<typename T>
 void fromJson(const json::Any& json, std::vector<T>& value);
@@ -156,6 +177,13 @@ void fromJson(const json::Any& json, std::tuple<Args...>& value){
 
 template<typename T>
 void fromJson(const json::Any& json, std::unordered_map<json::String, T>& value){
+	const auto& obj = json.get<json::Object>();
+	for(const auto& [k, v] : obj)
+		fromJson(v, value[k]);
+}
+
+template<typename T>
+void fromJson(const json::Any& json, std::unordered_map<util::FileURI, T>& value){
 	const auto& obj = json.get<json::Object>();
 	for(const auto& [k, v] : obj)
 		fromJson(v, value[k]);
@@ -298,6 +326,11 @@ inline void fromJson(const json::Any& json, unsigned long long& value){
 template<>
 inline void fromJson(const json::Any& json, float& value){
 	value = static_cast<float>(json.numberValue());
+}
+
+template<>
+inline void fromJson(const json::Any& json, util::FileURI& value){
+	value = json.get<json::String>();
 }
 
 }

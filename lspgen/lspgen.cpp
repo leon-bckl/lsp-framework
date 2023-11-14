@@ -812,6 +812,7 @@ R"(#pragma once
 #include <variant>
 #include <string_view>
 #include <lsp/nullable.h>
+#include <lsp/util/uri.h>
 #include <lsp/json/json.h>
 #include <lsp/serialization.h>
 
@@ -851,14 +852,14 @@ namespace lsp::types{
 #pragma warning(disable: 4100) // unreferenced formal parameter
 #endif
 
-template<typename Array, typename T>
-static auto findEnumValue(const Array& values, const T& value){
+template<typename E, typename Array, typename T>
+static E findEnumValue(const Array& values, const T& value){
 	auto it = std::lower_bound(values.begin(), values.end(), value);
 
-	if(it != values.end() && *it != value)
-		it = values.end();
+	if(it == values.end() || *it != value)
+		return E::MAX_VALUE;
 
-	return it;
+	return static_cast<E>(std::distance(values.begin(), it));
 }
 
 )";
@@ -958,8 +959,8 @@ private:
 		std::string getResult;
 	};
 
-	static const CppBaseType s_stringBaseType;
 	static const CppBaseType s_baseTypeMapping[BaseType::MAX];
+	static const CppBaseType s_stringBaseType;
 
 	void generateTypes(){
 		m_processedTypes = {"LSPArray", "LSPObject", "LSPAny"};
@@ -1078,10 +1079,10 @@ private:
 			m_messagesHeaderFileContent += '\n';
 
 		if(hasParams)
-			m_messagesHeaderFileContent += "\ttypes::" + upperCaseIdentifier(message.paramsTypeName) + " params;\n";
+			m_messagesHeaderFileContent += "\tParams params;\n";
 
 		if(hasResult)
-			m_messagesHeaderFileContent += "\ttypes::" + upperCaseIdentifier(message.resultTypeName) + " result;\n";
+			m_messagesHeaderFileContent += "\tResult result;\n";
 
 		m_messagesHeaderFileContent += "\n\tMethod method() const override;\n";
 		m_messagesSourceFileContent += "Method " + messageCppName + "::method() const{ return MessageMethod; }\n";
@@ -1255,10 +1256,7 @@ private:
 			                            "\treturn *this;\n"
 			                            "}\n\n" +
 			                            enumerationCppName + "& " + enumerationCppName + "::operator=(" + baseType.param + " value){\n"
-			                            "\tif(auto it = findEnumValue(" + enumValuesVarName + ", value); it != " + enumValuesVarName + ".end())\n"
-			                            "\t\tm_index = static_cast<" + enumerationCppName + "::ValueIndex>(std::distance(" + enumValuesVarName + ".begin(), it));\n"
-			                            "\telse\n"
-			                            "\t\tm_index = MAX_VALUE;\n"
+			                            "\tm_index = findEnumValue<" + enumerationCppName + "::ValueIndex>(" + enumValuesVarName + ", value);\n"
 			                            "\tm_value = value;\n"
 			                            "\treturn *this;\n"
 			                            "}\n\n";
@@ -1273,9 +1271,8 @@ private:
 																	           "\treturn " + baseType.data + "{types::" + enumValuesVarName + "[static_cast<int>(value)]};\n}\n\n" +
 																	           fromJson + "{\n"
 																	           "\tconst auto& jsonVal = json.get<" + baseType.data + ">();\n"
-			                                       "\tif(auto it = types::findEnumValue(types::" + enumValuesVarName + ", jsonVal); it != types::" + enumValuesVarName + ".end())\n"
-			                                       "\t\tvalue = static_cast<types::" + enumerationCppName + ">(std::distance(types::" + enumValuesVarName + ".begin(), it));\n"
-			                                       "\telse\n"
+			                                       "\tvalue = types::findEnumValue<types::" + enumerationCppName + ">(types::" + enumValuesVarName + ", jsonVal);\n"
+			                                       "\tif(value == types::" + enumerationCppName + "::MAX_VALUE)\n"
 																	           "\t\tthrow json::TypeError{\"Invalid value for '" + enumerationCppName + "'\"};\n"
 																	           "}\n\n";
 		}
@@ -1573,6 +1570,8 @@ private:
 
 		generateStructureProperties(structure.properties, propertiesToJson, propertiesFromJson, requiredPropertiesList);
 
+		m_typesHeaderFileContent += "};\n\n";
+
 		propertiesToJson += "}\n\n";
 		propertiesFromJson += "}\n\n";
 
@@ -1583,9 +1582,6 @@ private:
 
 		std::string toJson = toJsonSig(structureCppName);
 		std::string fromJson = fromJsonSig(structureCppName);
-
-		m_typesHeaderFileContent += "\n\tvoid initWithJson(const json::Object& json);\n"
-		                            "};\n\n";
 
 		if(!requiredPropertiesList.empty()){
 			m_typesBoilerPlateHeaderFileContent += requiredPropertiesSig + ";\n";
@@ -1603,9 +1599,6 @@ private:
 		                                       fromJson + "{\n"
 		                                       "\tconst auto& obj = json.get<json::Object>();\n"
 		                                       "\ttypes::" + util::str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
-		                                       "}\n\n" +
-		                                       "void types::" + structureCppName + "::initWithJson(const json::Object& json){\n"
-		                                       "\t" + util::str::uncapitalize(structureCppName) + "FromJson(json, *this);\n"
 		                                       "}\n\n";
 	}
 
@@ -1619,22 +1612,15 @@ private:
 	}
 };
 
-const CppGenerator::CppBaseType CppGenerator::s_stringBaseType{
-	"json::String",
-	"std::string_view",
-	"const json::String&",
-	"const json::String&"
-};
-
 const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] = {
 	{"bool", "bool", "bool", "bool"},
-	s_stringBaseType,
+	{"json::String", "std::string_view", "const json::String&", "const json::String&"},
 	{"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
 	{"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
 	{"json::Decimal", "json::Decimal", "json::Decimal", "json::Decimal"},
-	s_stringBaseType,
-	s_stringBaseType,
-	s_stringBaseType,
+	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
+	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
+	{"json::String", "std::string_view", "const json::String&", "const json::String&"},
 	{"json::Null", "json::Null", "json::Null", "json::Null"}
 };
 

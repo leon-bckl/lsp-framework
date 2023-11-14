@@ -1,7 +1,6 @@
 # lsp-framework
 
 This is an implementation of the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) in C++. It can be used to implement both servers and clients that communicate using the LSP.
-Please note that this project is a work in progress. While it provides a functioning implementation of the LSP, there may be some missing features or issues.
 
 ## Dependencies
 

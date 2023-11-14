@@ -11,7 +11,7 @@ Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
 
 std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::receiveMessage(){
-	std::lock_guard lock{m_writeMutex};
+	std::lock_guard lock{m_readMutex};
 
 	if(m_in.peek() == std::char_traits<char>::eof())
 		throw ConnectionError{"Connection lost"};

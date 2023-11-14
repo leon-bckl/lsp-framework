@@ -70,6 +70,6 @@ namespace lsp::jsonrpc{
 	RequestPtr createRequest(const MessageId& id, const std::string& method, const std::optional<json::Any>& params = std::nullopt);
 	RequestPtr createNotification(const std::string& method, const std::optional<json::Any>& params = std::nullopt);
 	ResponsePtr createResponse(const MessageId& id, const json::Any& result);
-	ResponsePtr createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data);
+	ResponsePtr createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data = std::nullopt);
 
 }

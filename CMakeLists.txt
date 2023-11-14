@@ -33,6 +33,7 @@ set(HEADERS
 	lsp/json/jsonrpc.h
 	# util
 	lsp/util/str.h
+	lsp/util/uri.h
 	lsp/util/util.h
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.h
@@ -51,6 +52,7 @@ set(SOURCES
 	lsp/jsonrpc/jsonrpc.cpp
 	# util
 	lsp/util/str.cpp
+	lsp/util/uri.cpp
 	# generated
 	${GENERATED_FILES_DIR}/lsp/types.cpp
 	${GENERATED_FILES_DIR}/lsp/messages.cpp
