@@ -5,7 +5,7 @@
 #include <optional>
 #include <concepts>
 
-namespace lsp{
+namespace lsp::util{
 
 /*
  * Either a valid value or null.
@@ -54,4 +54,4 @@ private:
 	std::optional<T> m_value;
 };
 
-} // namespace lsp
+} // namespace lsp::util

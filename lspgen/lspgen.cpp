@@ -811,10 +811,10 @@ R"(#pragma once
 #include <vector>
 #include <variant>
 #include <string_view>
-#include <lsp/nullable.h>
 #include <lsp/util/uri.h>
 #include <lsp/json/json.h>
 #include <lsp/serialization.h>
+#include <lsp/util/nullable.h>
 
 namespace lsp::types{
 
@@ -1360,7 +1360,7 @@ private:
 						typeName += cppOrType;
 						break;
 					}else{
-						typeName += "Nullable<" + cppTypeName(orType.typeList[nullableTypeIndex]) + '>';
+						typeName += "util::Nullable<" + cppTypeName(orType.typeList[nullableTypeIndex]) + '>';
 					}
 				}else{
 					assert(!orType.typeList.empty());

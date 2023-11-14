@@ -23,7 +23,6 @@ set(HEADERS
 	lsp/error.h
 	lsp/messagebase.h
 	lsp/messagehandler.h
-	lsp/nullable.h
 	lsp/serialization.h
 	# io
 	lsp/io/standardio.h
@@ -32,6 +31,7 @@ set(HEADERS
 	# jsonrpc
 	lsp/json/jsonrpc.h
 	# util
+	lsp/util/nullable.h
 	lsp/util/str.h
 	lsp/util/uri.h
 	lsp/util/util.h

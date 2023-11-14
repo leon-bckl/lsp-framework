@@ -4,10 +4,10 @@
 #include <memory>
 #include <cassert>
 #include <type_traits>
-#include <lsp/nullable.h>
 #include <lsp/util/uri.h>
 #include <lsp/util/util.h>
 #include <lsp/json/json.h>
+#include <lsp/util/nullable.h>
 
 namespace lsp{
 
@@ -32,7 +32,7 @@ template<typename... Args>
 json::Any toJson(const std::variant<Args...>& variant);
 
 template<typename T>
-json::Any toJson(const Nullable<T>& nullable);
+json::Any toJson(const util::Nullable<T>& nullable);
 
 template<typename T>
 json::Any toJson(const std::unique_ptr<T>& v);
@@ -93,7 +93,7 @@ json::Any toJson(const std::variant<Args...>& variant){
 }
 
 template<typename T>
-json::Any toJson(const Nullable<T>& nullable){
+json::Any toJson(const util::Nullable<T>& nullable){
 	if(nullable.isNull())
 		return nullptr;
 
@@ -149,7 +149,7 @@ template<typename... Args>
 void fromJson(const json::Any& json, std::variant<Args...>& value);
 
 template<typename T>
-void fromJson(const json::Any& json, Nullable<T>& nullable);
+void fromJson(const json::Any& json, util::Nullable<T>& nullable);
 
 template<typename T>
 void fromJson(const json::Any& json, std::unique_ptr<T>& value);
@@ -275,7 +275,7 @@ void fromJson(const json::Any& json, std::variant<Args...>& value){
 }
 
 template<typename T>
-void fromJson(const json::Any& json, Nullable<T>& nullable){
+void fromJson(const json::Any& json, util::Nullable<T>& nullable){
 	if(nullable.isNull())
 		nullable = T{};
 
