@@ -4,9 +4,20 @@
 #include <string>
 #include <vector>
 #include <iterator>
+#include <functional>
 #include <string_view>
 
 namespace lsp::util::str{
+
+struct Hash{
+	using is_transparent = void;
+	std::size_t operator()(const char* str) const{ return std::hash<std::string_view>{}(str); }
+	std::size_t operator()(std::string_view str) const{ return std::hash<std::string_view>{}(str); }
+	std::size_t operator()(const std::string& str) const{ return std::hash<std::string_view>{}(str); }
+};
+
+template<typename StringKeyType, typename ValueType>
+using UnorderedMap = std::unordered_map<StringKeyType, ValueType, Hash, std::equal_to<>>;
 
 [[nodiscard]] std::string_view trimViewLeft(std::string_view str);
 [[nodiscard]] std::string_view trimViewRight(std::string_view str);

@@ -4,6 +4,7 @@
 #include <memory>
 #include <cassert>
 #include <type_traits>
+#include <lsp/util/str.h>
 #include <lsp/util/uri.h>
 #include <lsp/util/util.h>
 #include <lsp/json/json.h>
@@ -19,11 +20,8 @@ json::Any toJson(const T& v);
 template<typename... Args>
 json::Any toJson(const std::tuple<Args...>& tuple);
 
-template<typename T>
-json::Any toJson(const std::unordered_map<json::String, T>& map);
-
-template<typename T>
-json::Any toJson(const std::unordered_map<util::FileURI, T>& map);
+template<typename K, typename T>
+json::Any toJson(const util::str::UnorderedMap<K, T>& map);
 
 template<typename T>
 json::Any toJson(const std::vector<T>& vector);
@@ -58,20 +56,11 @@ json::Any toJson(const std::tuple<Args...>& tuple){
 	return result;
 }
 
-template<typename T>
-json::Any toJson(const std::unordered_map<json::String, T>& map){
+template<typename K, typename T>
+json::Any toJson(const util::str::UnorderedMap<K, T>& map){
 	json::Object result;
 	for(const auto& [k, v] : map)
 		result[k] = toJson(v);
-
-	return result;
-}
-
-template<typename T>
-json::Any toJson(const std::unordered_map<util::FileURI, T>& map){
-	json::Object result;
-	for(const auto& [k, v] : map)
-		result[k.toString()] = toJson(v);
 
 	return result;
 }
@@ -97,7 +86,7 @@ json::Any toJson(const util::Nullable<T>& nullable){
 	if(nullable.isNull())
 		return nullptr;
 
-	return toJson(nullable.value());
+	return toJson(*nullable);
 }
 
 template<typename T>
@@ -109,7 +98,7 @@ json::Any toJson(const std::unique_ptr<T>& v){
 template<typename T>
 json::Any toJson(const std::optional<T>& v){
 	assert(v.has_value());
-	return toJson(v.value());
+	return toJson(*v);
 }
 
 template<>
@@ -130,11 +119,8 @@ void fromJson(const json::Any& json, T& value);
 template<typename... Args>
 void fromJson(const json::Any& json, std::tuple<Args...>& value);
 
-template<typename T>
-void fromJson(const json::Any& json, std::unordered_map<json::String, T>& value);
-
-template<typename T>
-void fromJson(const json::Any& json, std::unordered_map<util::FileURI, T>& value);
+template<typename K, typename T>
+void fromJson(const json::Any& json, util::str::UnorderedMap<K, T>& value);
 
 template<typename T>
 void fromJson(const json::Any& json, std::vector<T>& value);
@@ -175,15 +161,8 @@ void fromJson(const json::Any& json, std::tuple<Args...>& value){
 	});
 }
 
-template<typename T>
-void fromJson(const json::Any& json, std::unordered_map<json::String, T>& value){
-	const auto& obj = json.get<json::Object>();
-	for(const auto& [k, v] : obj)
-		fromJson(v, value[k]);
-}
-
-template<typename T>
-void fromJson(const json::Any& json, std::unordered_map<util::FileURI, T>& value){
+template<typename K, typename T>
+void fromJson(const json::Any& json, util::str::UnorderedMap<K, T>& value){
 	const auto& obj = json.get<json::Object>();
 	for(const auto& [k, v] : obj)
 		fromJson(v, value[k]);

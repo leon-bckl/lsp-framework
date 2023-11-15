@@ -12,7 +12,7 @@ jsonrpc::ResponsePtr MessageHandler::processRequest(const jsonrpc::Request& requ
 
 	if(!handlesRequest(method)){
 		if(!request.isNotification())
-			return jsonrpc::createErrorResponse(request.id.value(), types::ErrorCodes::MethodNotFound, "Unsupported method: " + request.method, std::nullopt);
+			return jsonrpc::createErrorResponse(*request.id, types::ErrorCodes::MethodNotFound, "Unsupported method: " + request.method, std::nullopt);
 
 		return nullptr;
 	}
@@ -20,9 +20,9 @@ jsonrpc::ResponsePtr MessageHandler::processRequest(const jsonrpc::Request& requ
 	jsonrpc::MessageId id = json::Null{};
 
 	if(request.id.has_value()) // Notifications don't have an id
-		id = request.id.value();
+		id = *request.id;
 
-	return m_requestHandlers[static_cast<std::size_t>(method)](id, request.params.has_value() ? request.params.value() : json::Null{});
+	return m_requestHandlers[static_cast<std::size_t>(method)](id, request.params.has_value() ? *request.params : json::Null{});
 }
 
 void MessageHandler::processResponse(const jsonrpc::Response& response){
@@ -35,12 +35,12 @@ void MessageHandler::processResponse(const jsonrpc::Response& response){
 
 		if(response.result.has_value()){
 			try{
-				result->setValueFromJson(response.result.value());
+				result->setValueFromJson(*response.result);
 			}catch(const json::TypeError& e){
 				result->setException(std::make_exception_ptr(e));
 			}
 		}else if(response.error.has_value()){
-			const auto& error = response.error.value();
+			const auto& error = *response.error;
 			result->setException(std::make_exception_ptr(ResponseError{error.message, types::ErrorCodes{error.code}, error.data}));
 		}
 	}
@@ -57,14 +57,14 @@ jsonrpc::ResponsePtr MessageHandler::processMessage(const jsonrpc::Message& mess
 			const auto& request = static_cast<const jsonrpc::Request&>(message);
 
 			if(!request.isNotification())
-				return jsonrpc::createErrorResponse(request.id.value(), types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
+				return jsonrpc::createErrorResponse(*request.id, types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
 		}
 	}catch(const RequestError& e){
 		if(message.isRequest()){
 			const auto& request = static_cast<const jsonrpc::Request&>(message);
 
 			if(!request.isNotification())
-				return jsonrpc::createErrorResponse(request.id.value(), e.code(), e.what(), e.data());
+				return jsonrpc::createErrorResponse(*request.id, e.code(), e.what(), e.data());
 		}
 	}
 
@@ -131,18 +131,13 @@ void MessageHandler::addHandler(messages::Method method, HandlerWrapper&& handle
 	m_requestHandlers[index] = std::move(handlerFunc);
 }
 
-void MessageHandler::sendRequest(messages::Method method, const jsonrpc::MessageId& id, ResponseResultPtr result, const std::optional<json::Any>& params){
+void MessageHandler::sendRequest(messages::Method method, ResponseResultPtr result, const std::optional<json::Any>& params){
 	assert(method > messages::Method::INVALID && method < messages::Method::MAX_VALUE);
-
 	std::lock_guard lock{m_requestMutex};
+	auto id = m_uniqueRequestId++;
 	assert(!m_pendingRequests.contains(id));
-
-	if(m_pendingRequests.contains(id))
-		throw std::logic_error{"Duplicate request id"};
-
 	m_pendingRequests[id] = std::move(result);
-
-	auto methodStr = std::string{messages::methodToString(method)};
+	auto methodStr = messages::methodToString(method);
 	m_connection.sendMessage(*jsonrpc::createRequest(id, methodStr, params));
 }
 

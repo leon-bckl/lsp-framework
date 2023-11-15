@@ -811,6 +811,7 @@ R"(#pragma once
 #include <vector>
 #include <variant>
 #include <string_view>
+#include <lsp/util/str.h>
 #include <lsp/util/uri.h>
 #include <lsp/json/json.h>
 #include <lsp/serialization.h>
@@ -823,6 +824,9 @@ inline constexpr std::string_view VersionStr{"${LSP_VERSION}"};
 using LSPArray  = json::Array;
 using LSPObject = json::Object;
 using LSPAny    = json::Any;
+
+template<typename K, typename T>
+using Map = util::str::UnorderedMap<K, T>;
 
 )";
 
@@ -1278,6 +1282,22 @@ private:
 		}
 	}
 
+	bool isStringType(const TypePtr& type){
+		if(type->isA<BaseType>()){
+			const auto& base = type->as<BaseType>();
+
+			return base.kind == BaseType::String || base.kind == BaseType::URI || base.kind == BaseType::DocumentUri || base.kind == BaseType::RegExp;
+		}else if(type->isA<ReferenceType>()){
+			const auto& ref = type->as<ReferenceType>();
+			auto refType = m_metaModel.typeForName(ref.name);
+
+			if(std::holds_alternative<const TypeAlias*>(refType))
+				return isStringType(std::get<const TypeAlias*>(refType)->type);
+		}
+
+		return false;
+	}
+
 	std::string cppTypeName(const TypePtr& type, bool optional = false){
 		std::string typeName;
 
@@ -1306,8 +1326,19 @@ private:
 				break;
 			}
 		case Type::Map:
-			typeName += "std::unordered_map<" + cppTypeName(type->as<MapType>().keyType) + ", " + cppTypeName(type->as<MapType>().valueType)  + '>';
-			break;
+			{
+				const auto& keyType = type->as<MapType>().keyType;
+				const auto& valueType = type->as<MapType>().valueType;
+
+				if(isStringType(keyType))
+					typeName += "Map<";
+				else
+					typeName += "std::unordered_map<";
+
+				typeName += cppTypeName(keyType) + ", " + cppTypeName(valueType) + '>';
+
+				break;
+			}
 		case Type::And:
 			{
 				std::string cppTupleType = "std::tuple<";

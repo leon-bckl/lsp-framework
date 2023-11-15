@@ -222,8 +222,8 @@ private:
 		const char* numberStart = m_pos;
 		bool isDecimal = false;
 
-		while(m_pos < m_end && (std::isalnum(*m_pos) || *m_pos == '-' || *m_pos == '.')){
-			if(*m_pos == '.' || *m_pos == 'e')
+		while(m_pos < m_end && (std::isalnum(*m_pos) || *m_pos == '-' || *m_pos == '.' || *m_pos == 'e' || *m_pos == 'E')){
+			if(!isDecimal && (*m_pos == '.' || *m_pos == 'e' || *m_pos == 'E'))
 				isDecimal = true;
 
 			++m_pos;
@@ -381,18 +381,18 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 
 } // namespace
 
-Any& Object::get(const std::string& key){
+Any& Object::get(std::string_view key){
 	if(auto it = find(key); it != end())
 		return it->second;
 
-	throw TypeError{"Missing key '" + key + '\''};
+	throw TypeError{"Missing key '" + std::string{key} + '\''};
 }
 
-const Any& Object::get(const std::string& key) const{
+const Any& Object::get(std::string_view key) const{
 	if(auto it = find(key); it != end())
 		return it->second;
 
-	throw TypeError{"Missing key '" + key + '\''};
+	throw TypeError{"Missing key '" + std::string{key} + '\''};
 }
 
 Any parse(std::string_view text){

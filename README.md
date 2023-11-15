@@ -24,13 +24,14 @@ lsp::MessageHandler messageHandler{connection};
 
 bool running = true;
 
-messageHandler.handler<lsp::messages::Initialize>([](const auto& params) // Initialize request
+messageHandler
+.add<lsp::messages::Initialize>([](const auto& params) // Initialize request
 {
   lsp::messages::Initialize::Result result;
-  // Fill out the initialize result and return it or throw a lsp::RequestError if there was a problem
+  // Fill the result and return it or throw a lsp::RequestError if there was a problem
   return result;
 })
-.handler<lsp::messages::Exit>([&running]() // Exit notification
+.add<lsp::messages::Exit>([&running]() // Exit notification
 {
   running = false;
 });
@@ -38,18 +39,16 @@ messageHandler.handler<lsp::messages::Initialize>([](const auto& params) // Init
 while(running)
   messageHandler.processIncomingMessages();
 
-// The sendRequest method returns a std::future.
+// The sendRequest method returns a std::future for the result type of the message.
 // Be careful not to call std::future::wait on the same thread that calls
 // MessageHandler::processIncomingMessages since it would block.
 
-std::future<lsp::messages::TextDocument_Diagnostic::Result> result =
-  messageHandler.sendRequest<lsp::messages::TextDocument_Diagnostic>
-  (
-    "<unique_request_id>",
-    lsp::messages::TextDocument_Diagnostic::Params{}
+auto result = messageHandler.sendRequest<lsp::messages::TextDocument_Diagnostic>(
+    lsp::messages::TextDocument_Diagnostic::Params{...}
   );
 
 ```
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

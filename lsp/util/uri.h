@@ -4,7 +4,6 @@
 #include <charconv>
 #include <functional>
 #include <string_view>
-#include "str.h"
 
 namespace lsp::util{
 
@@ -25,9 +24,10 @@ public:
 	bool operator==(std::string_view other) const{ return path() == other; }
 	bool operator!=(std::string_view other) const{ return path() != other; }
 	bool operator<(const FileURI& other) const{ return path() < other.path(); }
+	operator const std::string&() const{ return m_path; }
 
 	const std::string& path() const{ return m_path; }
-	std::string toString() const{ return std::string{Scheme} + path(); }
+	std::string toString() const;
 	bool isValid() const{ return !m_path.empty(); }
 	void clear(){ m_path.clear(); }
 
@@ -40,14 +40,3 @@ private:
 };
 
 } // namespace lsp::util
-
-namespace std{
-
-template<>
-struct hash<lsp::util::FileURI>{
-	size_t operator()(const lsp::util::FileURI& uri) const{
-		return hash<string>{}(uri.path());
-	}
-};
-
-} // namespace std

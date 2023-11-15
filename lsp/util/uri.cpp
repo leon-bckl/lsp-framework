@@ -1,11 +1,24 @@
 #include "uri.h"
 
+#include "str.h"
+
 namespace lsp::util{
+
+std::string FileURI::toString() const{
+	std::string result{Scheme};
+#ifdef _WIN32
+	result += "/" + util::str::replace(m_path, ":", "%3A");
+#else
+	result += m_path;
+#endif
+	return result;
+}
 
 FileURI FileURI::fromString(std::string_view str){
 	FileURI result;
 
 	str = str::trimView(str);
+	// Remove the scheme prefix if present
 	auto idx = str.find(':');
 
 	if(idx != std::string_view::npos
@@ -15,7 +28,7 @@ FileURI FileURI::fromString(std::string_view str){
 	){
 		if(str.starts_with(Scheme) && str.size() > Scheme.size()){
 #ifdef _WIN32
-			m_path = decode(in.substr(Scheme.size() + 1)); // Skip leading '/'
+			result.m_path = decode(str.substr(Scheme.size() + 1)); // Skip leading '/'
 #else
 			result.m_path = decode(str.substr(Scheme.size()));
 #endif

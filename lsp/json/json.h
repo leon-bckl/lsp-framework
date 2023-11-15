@@ -2,10 +2,12 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <variant>
 #include <stdexcept>
 #include <string_view>
 #include <unordered_map>
+#include <lsp/util/str.h>
 
 namespace lsp::json{
 
@@ -18,7 +20,7 @@ class Any;
 using Null    = std::nullptr_t;
 using Boolean = bool;
 using Decimal = double;
-using Integer = long long;
+using Integer = std::int64_t;
 using String  = std::string;
 using Array   = std::vector<Any>;
 
@@ -31,19 +33,19 @@ private:
 	std::string m_message{"Unexpected json structure"};
 };
 
-using ObjectMap = std::unordered_map<String, Any>;
+using ObjectMap = std::unordered_map<String, Any, util::str::Hash, std::equal_to<>>;
 class Object : public ObjectMap{
 public:
 	using ObjectMap::ObjectMap;
 
-	Any& get(const std::string& key);
-	const Any& get(const std::string& key) const;
+	Any& get(std::string_view key);
+	const Any& get(std::string_view key) const;
 
 	template<typename T>
-	T& get(const std::string& key);
+	T& get(std::string_view key);
 
 	template<typename T>
-	const T& get(const std::string& key) const;
+	const T& get(std::string_view key) const;
 };
 
 using AnyVariant = std::variant<Null, Boolean, Integer, Decimal, String, Object, Array>;
@@ -63,11 +65,10 @@ public:
 
 	template<typename T>
 	T& get(){
-		try{
+		if(std::holds_alternative<T>(*this))
 			return std::get<T>(*this);
-		}catch(const std::bad_variant_access&){
-			throw TypeError{};
-		}
+
+		throw TypeError{};
 	}
 
 	template<>
@@ -77,11 +78,10 @@ public:
 
 	template<typename T>
 	const T& get() const{
-		try{
+		if(std::holds_alternative<T>(*this))
 			return std::get<T>(*this);
-		}catch(const std::bad_variant_access&){
-			throw TypeError{};
-		}
+
+		throw TypeError{};
 	}
 
 	template<>
@@ -101,12 +101,12 @@ public:
 };
 
 template<typename T>
-inline T& Object::get(const std::string& key){
+inline T& Object::get(std::string_view key){
 	return get(key).get<T>();
 }
 
 template<typename T>
-inline const T& Object::get(const std::string& key) const{
+inline const T& Object::get(std::string_view key) const{
 	return get(key).get<T>();
 }
 

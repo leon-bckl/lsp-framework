@@ -47,6 +47,8 @@ public:
 	bool isNull() const{ return !m_value.has_value(); }
 	T& value(){ return m_value.value(); }
 	const T& value() const{ return m_value.value(); }
+	T& operator*(){ return *m_value; }
+	const T& operator*() const{ return *m_value; }
 	T* operator->(){ return std::addressof(value()); }
 	const T* operator->() const{ return std::addressof(value()); }
 

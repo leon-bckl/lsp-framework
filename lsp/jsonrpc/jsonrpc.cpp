@@ -52,8 +52,7 @@ ResponsePtr responseFromJson(const json::Object& json){
 
 	if(json.contains("error")){
 		const auto& errorJson = json.get<json::Object>("error");
-		response->error.emplace();
-		auto& responseError = response->error.value();
+		auto& responseError = response->error.emplace();
 
 		if(!errorJson.contains("code"))
 			throw ProtocolError{"Response error is missing the error code"};
@@ -112,12 +111,12 @@ json::Any Request::toJson() const{
 	json["jsonrpc"] = jsonrpc;
 
 	if(id.has_value())
-		std::visit([&json](const auto& v){ json["id"] = v; }, id.value());
+		std::visit([&json](const auto& v){ json["id"] = v; }, *id);
 
 	json["method"] = method;
 
 	if(params.has_value())
-		json["params"] = params.value();
+		json["params"] = *params;
 
 	return json;
 }
@@ -131,17 +130,17 @@ json::Any Response::toJson() const{
 	std::visit([&json](const auto& v){ json["id"] = v; }, id);
 
 	if(result.has_value())
-		json["result"] = result.value();
+		json["result"] = *result;
 
 	if(error.has_value()){
-		const auto& responseError = error.value();
+		const auto& responseError = *error;
 		json::Object errorJson;
 
 		errorJson["code"] = responseError.code;
 		errorJson["message"] = responseError.message;
 
 		if(responseError.data.has_value())
-			json["data"] = responseError.data.value();
+			json["data"] = *responseError.data;
 
 		json["error"] = errorJson;
 	}
@@ -170,7 +169,7 @@ std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json){
 	return batch;
 }
 
-RequestPtr createRequest(const MessageId& id, const std::string& method, const std::optional<json::Any>& params){
+RequestPtr createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params){
 	auto request = std::make_unique<Request>();
 	request->id = id;
 	request->method = method;
@@ -179,7 +178,7 @@ RequestPtr createRequest(const MessageId& id, const std::string& method, const s
 	return request;
 }
 
-RequestPtr createNotification(const std::string& method, const std::optional<json::Any>& params){
+RequestPtr createNotification(std::string_view method, const std::optional<json::Any>& params){
 	auto notification = std::make_unique<Request>();
 	notification->method = method;
 	notification->params = params;

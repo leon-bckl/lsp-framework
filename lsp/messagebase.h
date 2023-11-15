@@ -19,10 +19,6 @@ using MessagePtr = std::unique_ptr<struct Message>;
 struct Message{
 	virtual ~Message() = default;
 	virtual messages::Method method() const = 0;
-	virtual void initParams(const json::Any&){}
-	virtual void initResult(const json::Any&){}
-	virtual json::Any paramsJson(){ return {}; };
-	virtual json::Any resultJson(){ return {}; }
 
 	template<typename T>
 	requires std::derived_from<T, Message>
@@ -46,29 +42,37 @@ struct Message{
 };
 
 struct ClientToServerMessage : virtual Message{};
-
 struct ServerToClientMessage : virtual Message{};
+struct BidirectionalMessage : ClientToServerMessage, ServerToClientMessage{};
 
-struct BidirectionalMessage : virtual ClientToServerMessage, virtual ServerToClientMessage{};
+/*
+ * Interfaces for serialization/deserialization of message params and result
+ */
+
+struct ParamsMessage{
+	virtual void initParams(const json::Any&){}
+	virtual json::Any paramsJson(){ return {}; };
+};
+
+struct ResultMessage{
+	virtual void initResult(const json::Any&){}
+	virtual json::Any resultJson(){ return {}; }
+};
 
 /*
  * Request
  */
 
-struct ClientToServerRequest : virtual ClientToServerMessage{};
-
-struct ServerToClientRequest : virtual ServerToClientMessage{};
-
-struct BidirectionalRequest : virtual ClientToServerRequest, virtual ServerToClientRequest{};
+struct ClientToServerRequest : ClientToServerMessage, virtual ParamsMessage, virtual ResultMessage{};
+struct ServerToClientRequest : ServerToClientMessage, virtual ParamsMessage, virtual ResultMessage{};
+struct BidirectionalRequest : ClientToServerRequest, ServerToClientRequest{};
 
 /*
  * Notification
  */
 
-struct ClientToServerNotification : virtual ClientToServerMessage{};
-
-struct ServerToClientNotification : virtual ServerToClientMessage{};
-
-struct BidirectionalNotification : virtual ClientToServerNotification, virtual ServerToClientNotification{};
+struct ClientToServerNotification : ClientToServerMessage, virtual ParamsMessage{};
+struct ServerToClientNotification : ServerToClientMessage, virtual ParamsMessage{};
+struct BidirectionalNotification : ClientToServerNotification, ServerToClientNotification{};
 
 }
