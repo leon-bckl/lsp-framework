@@ -1,5 +1,6 @@
 #include "json.h"
 
+#include <limits>
 #include <vector>
 #include <cassert>
 #include <string>
@@ -239,13 +240,16 @@ private:
 			return decimal;
 		}
 
-		Integer intValue;
+		std::int64_t intValue;
 		auto [ptr, ec] = std::from_chars(numberStart, m_pos, intValue);
 
 		if(ec != std::errc{} || ptr != m_pos)
 			throw ParseError{"Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(m_start, numberStart)};
 
-		return intValue;
+		if(intValue < std::numeric_limits<json::Integer>::min() || intValue > std::numeric_limits<json::Integer>::max())
+			return static_cast<json::Decimal>(intValue);
+
+		return static_cast<json::Integer>(intValue);
 	}
 
 	Any parseIdentifier(){

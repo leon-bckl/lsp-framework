@@ -20,7 +20,7 @@ class Any;
 using Null    = std::nullptr_t;
 using Boolean = bool;
 using Decimal = double;
-using Integer = std::int64_t;
+using Integer = std::int32_t;
 using String  = std::string;
 using Array   = std::vector<Any>;
 
