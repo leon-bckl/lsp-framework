@@ -24,11 +24,14 @@ lsp::MessageHandler messageHandler{connection};
 
 bool running = true;
 
-messageHandler.handler<lsp::messages::Initialize>([](const auto& params){ // Initialize request
+messageHandler.handler<lsp::messages::Initialize>([](const auto& params) // Initialize request
+{
   lsp::messages::Initialize::Result result;
   // Fill out the initialize result and return it or throw a lsp::RequestError if there was a problem
   return result;
-}).handler<lsp::messages::Exit>([&running](){ // Exit notification
+})
+.handler<lsp::messages::Exit>([&running]() // Exit notification
+{
   running = false;
 });
 
