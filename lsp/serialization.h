@@ -233,7 +233,7 @@ void variantFromJson(const json::Any& json, VariantType& value, int requiredProp
 				++matchCount;
 			}
 
-			if(hasAllRequiredProperties && matchCount > requiredPropertyCount){
+			if(hasAllRequiredProperties && matchCount >= requiredPropertyCount){
 				fromJson(json, value.template emplace<Index>());
 				requiredPropertyCount = matchCount;
 			}
