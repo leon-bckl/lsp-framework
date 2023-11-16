@@ -525,7 +525,7 @@ struct Message{
 
 	void extract(const json::Object& json){
 		documentation = extractDocumentation(json);
-		auto dir = json.get<json::String>("messageDirection");
+		const auto& dir = json.get<json::String>("messageDirection");
 
 		if(dir == "clientToServer")
 			direction = Direction::ClientToServer;
@@ -1423,13 +1423,14 @@ private:
 			                            '\t' + typeName + ' ' + p.name + ";\n";
 			if(p.isOptional){
 				toJson += "\tif(value." + p.name + ")\n\t";
-				fromJson += "\tif(json.contains(\"" + p.name + "\"))\n\t";
+				fromJson += "\tif(auto it = json.find(\"" + p.name + "\"); it != json.end())\n\t"
+				            "\tfromJson(it->second, value." + p.name + ");\n";
 			}else{
 				requiredProperties.push_back(p.name);
+				fromJson += "\tfromJson(json.get(\"" + p.name + "\"), value." + p.name + ");\n";
 			}
 
 			toJson += "\tjson[\"" + p.name + "\"] = toJson(value." + p.name + ");\n";
-			fromJson += "\tfromJson(json.get(\"" + p.name + "\"), value." + p.name + ");\n";
 		}
 	}
 
@@ -1471,6 +1472,11 @@ private:
 			propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 			++it;
 
+			for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties){
+				if(!p.isOptional)
+					requiredPropertiesList.push_back(p.name);
+			}
+
 			while(it != structure.extends.end()){
 				extends = &(*it)->as<ReferenceType>();
 				m_typesHeaderFileContent += ", " + extends->name;
@@ -1478,6 +1484,11 @@ private:
 				propertiesToJson += '\t' + lower + "ToJson(value, json);\n";
 				propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 				++it;
+
+				for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties){
+					if(!p.isOptional)
+						requiredPropertiesList.push_back(p.name);
+				}
 			}
 		}
 
