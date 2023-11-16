@@ -29,8 +29,10 @@ public:
 	TypeError() = default;
 	TypeError(std::string message) : m_message{std::move(message)}{}
 
+	const char* what() const noexcept override{ return m_message.c_str(); }
+
 private:
-	std::string m_message{"Unexpected json structure"};
+	std::string m_message{"Unexpected json value"};
 };
 
 using ObjectMap = std::unordered_map<String, Any, util::str::Hash, std::equal_to<>>;
