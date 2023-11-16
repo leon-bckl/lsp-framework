@@ -125,12 +125,6 @@ void fromJson(const json::Any& json, util::str::UnorderedMap<K, T>& value);
 template<typename T>
 void fromJson(const json::Any& json, std::vector<T>& value);
 
-template<typename T>
-const char** requiredProperties();
-
-template<std::size_t Index, typename... Args, typename VariantType>
-void variantFromJson(const json::Any& json, VariantType& value);
-
 template<typename... Args>
 void fromJson(const json::Any& json, std::variant<Args...>& value);
 
@@ -184,7 +178,7 @@ const char** requiredProperties(){
 }
 
 template<std::size_t Index, typename... Args, typename VariantType = std::variant<Args...>>
-void variantFromJson(const json::Any& json, VariantType& value){
+void variantFromJson(const json::Any& json, VariantType& value, int requiredPropertyCount = 0){
 	using T = std::variant_alternative_t<Index, VariantType>;
 
 	if constexpr(std::is_null_pointer_v<T>){
@@ -222,28 +216,33 @@ void variantFromJson(const json::Any& json, VariantType& value){
 		}
 	}
 
+	// The object with the most required properties that match the json is constructed.
+	// To achieve this, all alternatives are checked but only constructed if the number of matching properties is higher than it has been so far.
 	if constexpr(std::is_class_v<T>){
 		if(json.isObject()){
 			const auto& obj = json.get<json::Object>();
 			bool hasAllRequiredProperties = true;
+			int matchCount = 1; // Make this at least one to signify that an object was successfully created and no error is thrown at the end
 
 			for(const char** p = requiredProperties<T>(); *p; ++p){
 				if(!obj.contains(*p)){
 					hasAllRequiredProperties = false;
 					break;
 				}
+
+				++matchCount;
 			}
 
-			if(hasAllRequiredProperties){
+			if(hasAllRequiredProperties && matchCount > requiredPropertyCount){
 				fromJson(json, value.template emplace<Index>());
-				return;
+				requiredPropertyCount = matchCount;
 			}
 		}
 	}
 
 	if constexpr(Index + 1 < sizeof...(Args)){
-		variantFromJson<Index + 1, Args...>(json, value);
-	}else{
+		variantFromJson<Index + 1, Args...>(json, value, requiredPropertyCount);
+	}else if(requiredPropertyCount == 0){
 		throw json::TypeError{};
 	}
 }
