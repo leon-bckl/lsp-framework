@@ -228,15 +228,15 @@ struct TupleType : Type{
 	Category category() const override{ return Category::Tuple; }
 };
 
-struct StructureLiteralType : Type{
-	struct Property{
-		std::string name;
-		TypePtr     type;
-		bool        isOptional = false;
-		std::string documentation;
-	};
+struct StructureProperty{
+	std::string name;
+	TypePtr     type;
+	bool        isOptional = false;
+	std::string documentation;
+};
 
-	std::vector<Property> properties;
+struct StructureLiteralType : Type{
+	std::vector<StructureProperty> properties;
 
 	void extract(const json::Object& json) override{
 		const auto& value = json.get<json::Object>(strings::value);
@@ -260,89 +260,6 @@ struct StructureLiteralType : Type{
 	Category category() const override{ return Category::StructureLiteral; }
 };
 
-static TypePtr mergeStructureLiterals(std::vector<std::unique_ptr<Type>>& structureLiteralTypes){
-	struct PropertyInfo{
-		std::vector<TypePtr> structureLiteralTypes;
-		std::vector<TypePtr> otherTypes;
-		std::string documentation;
-		bool isOptional = false;
-	};
-
-	std::unordered_map<std::string, PropertyInfo> propertyTypeMap;
-
-	for(const auto& t : structureLiteralTypes){
-		auto& s = t->as<StructureLiteralType>();
-
-		for(auto& p : s.properties){
-			auto& info = propertyTypeMap[p.name];
-
-			if(p.type->isA<StructureLiteralType>()){
-				info.structureLiteralTypes.push_back(std::move(p.type));
-			}else{
-				bool exists = false;
-
-				for(const auto& o : info.otherTypes){
-					if(o->category() == p.type->category()){
-						exists = true;
-						break;
-					}
-				}
-
-				if(!exists)
-					info.otherTypes.push_back(std::move(p.type));
-			}
-
-			if(!p.documentation.empty())
-				info.documentation = p.documentation;
-
-			info.isOptional |= p.isOptional;
-		}
-	}
-
-	structureLiteralTypes.clear();
-
-	auto newType = std::make_unique<StructureLiteralType>();
-
-	for(auto& [name, info] : propertyTypeMap){
-		auto& prop = newType->properties.emplace_back();
-		prop.name = name;
-		prop.documentation = info.documentation;
-		prop.isOptional = info.isOptional;
-
-		TypePtr newPropType;
-
-		if(!info.structureLiteralTypes.empty()){
-			if(info.structureLiteralTypes.size() == 1){
-				newPropType = std::move(info.structureLiteralTypes[0]);
-				info.structureLiteralTypes.clear();
-			}else{
-				newPropType = mergeStructureLiterals(info.structureLiteralTypes);
-			}
-		}
-
-		if((newPropType && !info.otherTypes.empty()) || info.otherTypes.size() > 1){
-			auto orType = std::make_unique<OrType>();
-
-			if(newPropType)
-				orType->typeList.push_back(std::move(newPropType));
-
-			for(auto& o : info.otherTypes)
-				orType->typeList.push_back(std::move(o));
-
-			prop.type = std::move(orType);
-		}else{
-			assert(newPropType || info.otherTypes.size() == 1);
-
-			if(newPropType)
-				prop.type = std::move(newPropType);
-			else
-				prop.type = std::move(info.otherTypes[0]);
-		}
-	}
-
-	return newType;
-}
-
 void OrType::extract(const json::Object& json){
 	const auto& items = json.get<json::Array>(strings::items);
 	typeList.reserve(items.size());
@@ -358,8 +275,34 @@ void OrType::extract(const json::Object& json){
 			typeList.push_back(std::move(type));
 	}
 
-	if(!structureLiterals.empty())
-		typeList.push_back(mergeStructureLiterals(structureLiterals));
+	// Merge consecutive identical struct literals where the only difference is whether properties are optional or not
+
+	for(std::size_t i = 1; i < structureLiterals.size(); ++i){
+		auto& first = structureLiterals[i - 1]->as<StructureLiteralType>();
+		const auto& second = structureLiterals[i]->as<StructureLiteralType>();
+
+		if(first.properties.size() == second.properties.size()){
+			bool propertiesEqual = true;
+
+			for(std::size_t p = 0; p < first.properties.size(); ++p){
+				if(first.properties[p].name != second.properties[p].name){
+					propertiesEqual = false;
+					break;
+				}
+			}
+
+			if(propertiesEqual){
+				for(std::size_t p = 0; p < first.properties.size(); ++p)
+					first.properties[p].isOptional |= second.properties[p].isOptional;
+
+				structureLiterals.erase(structureLiterals.begin() + static_cast<decltype(structureLiterals)::difference_type>(i));
+				--i;
+			}
+		}
+	}
+
+	std::move(structureLiterals.begin(), structureLiterals.end(), std::back_inserter(typeList));
+	structureLiterals.clear();
 
 	if(typeList.empty())
 		throw std::runtime_error{"OrType must not be empty!"};
@@ -501,15 +444,7 @@ struct Enumeration{
 
 struct Structure{
 	std::string name;
-
-	struct Property{
-		std::string name;
-		TypePtr     type;
-		bool        isOptional = false;
-		std::string documentation;
-	};
-
-	std::vector<Property> properties;
+	std::vector<StructureProperty> properties;
 	std::vector<TypePtr>  extends;
 	std::vector<TypePtr>  mixins;
 	std::string           documentation;
@@ -1298,70 +1233,53 @@ private:
 		return false;
 	}
 
-	std::string cppTypeName(const TypePtr& type, bool optional = false){
+	std::string cppTypeName(const Type& type, bool optional = false){
 		std::string typeName;
 
 		if(optional){
-			if(!type->isA<ReferenceType>() || !m_typesBeingProcessed.contains(type->as<ReferenceType>().name))
+			if(!type.isA<ReferenceType>() || !m_typesBeingProcessed.contains(type.as<ReferenceType>().name))
 				typeName = "std::optional<";
 			else
 				typeName = "std::unique_ptr<";
 		}
 
-		switch(type->category()){
+		switch(type.category()){
 		case Type::Base:
-			typeName += s_baseTypeMapping[static_cast<int>(type->as<BaseType>().kind)].data;
+			typeName += s_baseTypeMapping[static_cast<int>(type.as<BaseType>().kind)].data;
 			break;
 		case Type::Reference:
-			typeName += upperCaseIdentifier(type->as<ReferenceType>().name);
+			typeName += upperCaseIdentifier(type.as<ReferenceType>().name);
 			break;
 		case Type::Array:
 			{
-				const auto& arrayType = type->as<ArrayType>();
+				const auto& arrayType = type.as<ArrayType>();
 				if(arrayType.elementType->isA<ReferenceType>() && arrayType.elementType->as<ReferenceType>().name == "LSPAny")
 					typeName += "LSPArray";
 				else
-					typeName += "std::vector<" + cppTypeName(arrayType.elementType) + '>';
+					typeName += "std::vector<" + cppTypeName(*arrayType.elementType) + '>';
 
 				break;
 			}
 		case Type::Map:
 			{
-				const auto& keyType = type->as<MapType>().keyType;
-				const auto& valueType = type->as<MapType>().valueType;
+				const auto& keyType = type.as<MapType>().keyType;
+				const auto& valueType = type.as<MapType>().valueType;
 
 				if(isStringType(keyType))
 					typeName += "Map<";
 				else
 					typeName += "std::unordered_map<";
 
-				typeName += cppTypeName(keyType) + ", " + cppTypeName(valueType) + '>';
+				typeName += cppTypeName(*keyType) + ", " + cppTypeName(*valueType) + '>';
 
 				break;
 			}
 		case Type::And:
-			{
-				std::string cppTupleType = "std::tuple<";
-				const auto& andType = type->as<AndType>();
-
-				if(auto it = andType.typeList.begin(); it != andType.typeList.end()){
-					cppTupleType += cppTypeName(*it);
-					++it;
-
-					while(it != andType.typeList.end()){
-						cppTupleType += ", " + cppTypeName(*it);
-						++it;
-					}
-				}
-
-				cppTupleType += '>';
-
-				typeName += cppTupleType;
-				break;
-			}
+			typeName += "LSPObject"; // TODO: Generate a proper and type should they ever actually be used by the LSP
+			break;
 		case Type::Or:
 			{
-				const auto& orType = type->as<OrType>();
+				const auto& orType = type.as<OrType>();
 
 				if(orType.typeList.size() > 1){
 					int nullableTypeIndex = -1;
@@ -1377,11 +1295,11 @@ private:
 						std::string cppOrType = "std::variant<";
 
 						if(auto it = orType.typeList.begin(); it != orType.typeList.end()){
-							cppOrType += cppTypeName(*it);
+							cppOrType += cppTypeName(**it);
 							++it;
 
 							while(it != orType.typeList.end()){
-								cppOrType += ", " + cppTypeName(*it);
+								cppOrType += ", " + cppTypeName(**it);
 								++it;
 							}
 						}
@@ -1391,11 +1309,11 @@ private:
 						typeName += cppOrType;
 						break;
 					}else{
-						typeName += "util::Nullable<" + cppTypeName(orType.typeList[nullableTypeIndex]) + '>';
+						typeName += "util::Nullable<" + cppTypeName(*orType.typeList[nullableTypeIndex]) + '>';
 					}
 				}else{
 					assert(!orType.typeList.empty());
-					typeName += cppTypeName(orType.typeList[0]);
+					typeName += cppTypeName(*orType.typeList[0]);
 				}
 
 				break;
@@ -1403,14 +1321,14 @@ private:
 		case Type::Tuple:
 			{
 				std::string cppTupleType = "std::tuple<";
-				const auto& tupleType = type->as<TupleType>();
+				const auto& tupleType = type.as<TupleType>();
 
 				if(auto it = tupleType.typeList.begin(); it != tupleType.typeList.end()){
-					cppTupleType += cppTypeName(*it);
+					cppTupleType += cppTypeName(**it);
 					++it;
 
 					while(it != tupleType.typeList.end()){
-						cppTupleType += ", " + cppTypeName(*it);
+						cppTupleType += ", " + cppTypeName(**it);
 						++it;
 					}
 				}
@@ -1421,7 +1339,7 @@ private:
 				break;
 			}
 		case Type::StructureLiteral:
-			typeName += m_generatedTypeNames[type.get()];
+			typeName += m_generatedTypeNames[&type];
 			break;
 		case Type::StringLiteral:
 			typeName += "json::String";
@@ -1443,48 +1361,37 @@ private:
 		return typeName;
 	}
 
-	void generateType(const TypePtr& type, const std::string& alternateName){
+	void generateAggregateTypeList(const std::vector<TypePtr>& typeList, const std::string& baseName){
+		// Only append unique number to type name if there are multiple structure literals
+		auto structLiteralCount = std::count_if(typeList.begin(), typeList.end(), [](const TypePtr& type){ return type->isA<StructureLiteralType>(); });
+		int unique = 0;
+		for(const auto& t : typeList){
+			generateType(t, baseName + (structLiteralCount > 1 ? std::to_string(unique) : ""));
+			unique += t->isA<StructureLiteralType>();
+		}
+	}
+
+	void generateType(const TypePtr& type, const std::string& baseName, bool alias = false){
 		switch(type->category()){
 		case Type::Reference:
 			generateNamedType(type->as<ReferenceType>().name);
 			break;
 		case Type::Array:
-			generateType(type->as<ArrayType>().elementType, alternateName);
+			generateType(type->as<ArrayType>().elementType, baseName);
 			break;
 		case Type::Map:
-			generateType(type->as<MapType>().keyType, alternateName);
-			generateType(type->as<MapType>().valueType, alternateName);
+			generateType(type->as<MapType>().keyType, baseName);
+			generateType(type->as<MapType>().valueType, baseName);
 			break;
 		case Type::And:
-			{
-				int i = 0;
-				for(const auto& t : type->as<AndType>().typeList){
-					generateType(t, alternateName + (i > 0 ? std::to_string(i) : ""));
-					i += t->isA<StructureLiteralType>();
-				}
-
-				break;
-			}
+			generateAggregateTypeList(type->as<AndType>().typeList, baseName + (alias ? "_Base" : ""));
+			break;
 		case Type::Or:
-			{
-				int i = 0;
-				for(const auto& t : type->as<OrType>().typeList){
-					generateType(t, alternateName + (i > 0 ? std::to_string(i) : ""));
-					i += t->isA<StructureLiteralType>();
-				}
-
-				break;
-			}
+			generateAggregateTypeList(type->as<OrType>().typeList, baseName + (alias ? "_Variant" : ""));
+			break;
 		case Type::Tuple:
-			{
-				int i = 0;
-				for(const auto& t : type->as<TupleType>().typeList){
-					generateType(t, alternateName + (i > 0 ? std::to_string(i) : ""));
-					i += t->isA<StructureLiteralType>();
-				}
-
-				break;
-			}
+			generateAggregateTypeList(type->as<TupleType>().typeList, baseName + (alias ? "_Element" : ""));
+			break;
 		case Type::StructureLiteral:
 			{
 				// HACK:
@@ -1492,23 +1399,14 @@ private:
 				auto& structureLiteral = type->as<StructureLiteralType>();
 				Structure structure;
 
-				structure.name = alternateName;
+				structure.name = baseName;
 				m_generatedTypeNames[type.get()] = structure.name;
-				structure.properties.reserve(structureLiteral.properties.size());
-
-				for(auto& p : structureLiteral.properties){
-					auto& prop = structure.properties.emplace_back();
-					prop.name = p.name;
-					prop.type = std::move(p.type);
-					prop.isOptional = p.isOptional;
-					prop.documentation = p.documentation;
-				}
+				structure.properties = std::move(structureLiteral.properties);
 
 				generate(structure);
 
 				// HACK: Transfer unique_ptr ownership back from the temporary structure
-				for(std::size_t i = 0; i < structure.properties.size(); ++i)
-					structureLiteral.properties[i].type = std::move(structure.properties[i].type);
+				structureLiteral.properties = std::move(structure.properties);
 
 				break;
 			}
@@ -1517,9 +1415,9 @@ private:
 		}
 	}
 
-	void generateStructureProperties(const std::vector<Structure::Property>& properties, std::string& toJson, std::string& fromJson, std::vector<std::string>& requiredProperties){
+	void generateStructureProperties(const std::vector<StructureProperty>& properties, std::string& toJson, std::string& fromJson, std::vector<std::string>& requiredProperties){
 		for(const auto& p : properties){
-			std::string typeName = cppTypeName(p.type, p.isOptional);
+			std::string typeName = cppTypeName(*p.type, p.isOptional);
 
 			m_typesHeaderFileContent += documentationComment({}, p.documentation, 1) +
 			                            '\t' + typeName + ' ' + p.name + ";\n";
@@ -1636,10 +1534,10 @@ private:
 	void generate(const TypeAlias& typeAlias){
 		auto typeAliasCppName = upperCaseIdentifier(typeAlias.name);
 
-		generateType(typeAlias.type, typeAliasCppName + "Impl");
+		generateType(typeAlias.type, typeAliasCppName, true);
 
 		m_typesHeaderFileContent += documentationComment(typeAliasCppName, typeAlias.documentation) +
-		                            "using " + typeAliasCppName + " = " + cppTypeName(typeAlias.type) + ";\n\n";
+		                            "using " + typeAliasCppName + " = " + cppTypeName(*typeAlias.type) + ";\n\n";
 	}
 };
 
