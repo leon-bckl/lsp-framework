@@ -34,7 +34,7 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 #ifdef __APPLE__
 	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, true)).c_str());
 #elif defined(_WIN32)
-	OutputDebugStringA((messageType + ": " + lsp::json::stringify(json, true)).c_str());
+	OutputDebugStringA((messageType + ": " + lsp::json::stringify(json, true) + '\n').c_str());
 #endif
 }
 #endif
