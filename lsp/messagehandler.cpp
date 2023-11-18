@@ -91,13 +91,11 @@ void MessageHandler::processIncomingMessages(){
 		auto result = m_connection.receiveMessage();
 
 		if(std::holds_alternative<jsonrpc::MessagePtr>(result)){
-			const auto* message = std::get<jsonrpc::MessagePtr>(result).get();
+			const auto& message = std::get<jsonrpc::MessagePtr>(result);
 			auto response = processMessage(*message);
 
-			if(message->isRequest() && !static_cast<const jsonrpc::Request*>(message)->isNotification()){
-				assert(response);
+			if(response)
 				m_connection.sendMessage(*response);
-			}
 		}else{
 			auto responseBatch = processMessageBatch(std::get<jsonrpc::MessageBatch>(result));
 
