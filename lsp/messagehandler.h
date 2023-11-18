@@ -95,7 +95,7 @@ private:
 	jsonrpc::ResponsePtr processRequest(const jsonrpc::Request& request);
 	void processResponse(const jsonrpc::Response& response);
 	jsonrpc::ResponsePtr processMessage(const jsonrpc::Message& message);
-	jsonrpc::MessageBatch processBatch(const jsonrpc::MessageBatch& batch);
+	jsonrpc::MessageBatch processMessageBatch(const jsonrpc::MessageBatch& batch);
 	void addHandler(messages::Method method, HandlerWrapper&& handlerFunc);
 	void sendRequest(messages::Method method, ResponseResultPtr result, const std::optional<json::Any>& params = std::nullopt);
 	void sendNotification(messages::Method method, const std::optional<json::Any>& params = std::nullopt);

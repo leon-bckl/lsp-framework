@@ -766,8 +766,7 @@ using Map = util::str::UnorderedMap<K, T>;
 )";
 
 static constexpr const char* TypesHeaderEnd =
-R"(
-} // namespace lsp::types
+R"(} // namespace lsp::types
 )";
 
 static constexpr const char* TypesSourceBegin =
@@ -904,7 +903,7 @@ private:
 		m_processedTypes = {"LSPArray", "LSPObject", "LSPAny"};
 		m_typesBeingProcessed = {};
 		m_typesHeaderFileContent = util::str::replace(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version);
-		m_typesBoilerPlateHeaderFileContent = "namespace lsp{\n\n/*\n * Serialization boilerplate\n */\n\n";
+		m_typesBoilerPlateHeaderFileContent = "\nnamespace lsp{\n\n/*\n * Serialization boilerplate\n */\n\n";
 		m_typesBoilerPlateSourceFileContent = m_typesBoilerPlateHeaderFileContent;
 		m_typesSourceFileContent = TypesSourceBegin;
 

@@ -22,66 +22,65 @@ jsonrpc::ResponsePtr MessageHandler::processRequest(const jsonrpc::Request& requ
 	if(request.id.has_value()) // Notifications don't have an id
 		id = *request.id;
 
-	return m_requestHandlers[static_cast<std::size_t>(method)](id, request.params.has_value() ? *request.params : json::Null{});
+	jsonrpc::ResponsePtr response;
+
+	try{
+		response = m_requestHandlers[static_cast<std::size_t>(method)](id, request.params.has_value() ? *request.params : json::Null{});
+	}catch(const json::TypeError& e){
+		if(!request.isNotification())
+			response = jsonrpc::createErrorResponse(*request.id, types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
+	}catch(const RequestError& e){
+		if(!request.isNotification())
+			response = jsonrpc::createErrorResponse(*request.id, e.code(), e.what(), e.data());
+	}
+
+	return response;
 }
 
 void MessageHandler::processResponse(const jsonrpc::Response& response){
-	std::unique_lock lock{m_requestMutex};
+	ResponseResultPtr result;
 
-	if(auto it = m_pendingRequests.find(response.id); it == m_pendingRequests.end()){
-		ResponseResultPtr result = std::move(it->second);
-		m_pendingRequests.erase(it);
-		lock.unlock();
-
-		if(response.result.has_value()){
-			try{
-				result->setValueFromJson(*response.result);
-			}catch(const json::TypeError& e){
-				result->setException(std::make_exception_ptr(e));
-			}
-		}else if(response.error.has_value()){
-			const auto& error = *response.error;
-			result->setException(std::make_exception_ptr(ResponseError{error.message, types::ErrorCodes{error.code}, error.data}));
+	{
+		std::lock_guard lock{m_requestMutex};
+		if(auto it = m_pendingRequests.find(response.id); it == m_pendingRequests.end()){
+			result = std::move(it->second);
+			m_pendingRequests.erase(it);
 		}
+	}
+
+	if(!result) // If there's no result it means a response was received without a request which makes no sense but just ignore it...
+		return;
+
+	if(response.result.has_value()){
+		try{
+			result->setValueFromJson(*response.result);
+		}catch(const json::TypeError& e){
+			result->setException(std::make_exception_ptr(e));
+		}
+	}else{
+		assert(response.error.has_value());
+		const auto& error = *response.error;
+		result->setException(std::make_exception_ptr(ResponseError{error.message, types::ErrorCodes{error.code}, error.data}));
 	}
 }
 
 jsonrpc::ResponsePtr MessageHandler::processMessage(const jsonrpc::Message& message){
-	try{
-		if(message.isRequest())
-			return processRequest(static_cast<const jsonrpc::Request&>(message));
+	if(message.isRequest())
+		return processRequest(static_cast<const jsonrpc::Request&>(message));
 
-		processResponse(static_cast<const jsonrpc::Response&>(message));
-	}catch(const json::TypeError& e){
-		if(message.isRequest()){
-			const auto& request = static_cast<const jsonrpc::Request&>(message);
-
-			if(!request.isNotification())
-				return jsonrpc::createErrorResponse(*request.id, types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
-		}
-	}catch(const RequestError& e){
-		if(message.isRequest()){
-			const auto& request = static_cast<const jsonrpc::Request&>(message);
-
-			if(!request.isNotification())
-				return jsonrpc::createErrorResponse(*request.id, e.code(), e.what(), e.data());
-		}
-	}
-
+	processResponse(static_cast<const jsonrpc::Response&>(message));
 	return nullptr;
 }
 
-jsonrpc::MessageBatch MessageHandler::processBatch(const jsonrpc::MessageBatch& batch){
+jsonrpc::MessageBatch MessageHandler::processMessageBatch(const jsonrpc::MessageBatch& batch){
 	jsonrpc::MessageBatch responseBatch;
 	responseBatch.reserve(batch.size());
 
 	for(const auto& m : batch){
 		jsonrpc::MessagePtr response = processMessage(*m);
 
-		if(m->isRequest() && !static_cast<const jsonrpc::Request*>(m.get())->isNotification()){
-			assert(response);
+		if(response)
 			responseBatch.push_back(std::move(response));
-		}
 	}
 
 	return responseBatch;
@@ -100,7 +99,7 @@ void MessageHandler::processIncomingMessages(){
 				m_connection.sendMessage(*response);
 			}
 		}else{
-			auto responseBatch = processBatch(std::get<jsonrpc::MessageBatch>(result));
+			auto responseBatch = processMessageBatch(std::get<jsonrpc::MessageBatch>(result));
 
 			if(!responseBatch.empty())
 				m_connection.sendMessageBatch(responseBatch);
@@ -111,6 +110,8 @@ void MessageHandler::processIncomingMessages(){
 		sendErrorMessage(types::ErrorCodes::InvalidRequest, std::string{"Message does not conform to the jsonrpc protocol: "} + e.what());
 	}catch(ProtocolError& e){
 		sendErrorMessage(types::ErrorCodes::InvalidRequest, std::string{"Base protocol error: "} + e.what());
+	}catch(ConnectionError&){
+		throw;
 	}catch(...){
 		sendErrorMessage(types::ErrorCodes::UnknownErrorCode, "Unknown internal error");
 		throw;
