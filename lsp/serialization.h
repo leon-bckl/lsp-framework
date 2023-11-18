@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tuple>
+#include <limits>
 #include <memory>
 #include <cassert>
 #include <type_traits>
@@ -109,6 +110,56 @@ inline json::Any toJson(const std::string_view& v){
 template<>
 inline json::Any toJson(const util::FileURI& uri){
 	return uri.toString();
+}
+
+template<>
+inline json::Any toJson(const int& i){
+	return i;
+}
+
+template<>
+inline json::Any toJson(const unsigned int& i){
+	if(i <= static_cast<unsigned int>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+template<>
+inline json::Any toJson(const long& i){
+	if(i <= static_cast<long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+template<>
+inline json::Any toJson(const unsigned long& i){
+	if(i <= static_cast<unsigned long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+template<>
+inline json::Any toJson(const long long& i){
+	if(i >= static_cast<long long>(std::numeric_limits<json::Integer>::min()) && i <= static_cast<long long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+template<>
+inline json::Any toJson(const unsigned long long& i){
+	if(i <= static_cast<unsigned long long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+template<>
+inline json::Any toJson(const float& i){
+	return i;
 }
 
 // fromJson

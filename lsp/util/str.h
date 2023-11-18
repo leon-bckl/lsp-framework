@@ -6,6 +6,8 @@
 #include <iterator>
 #include <functional>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace lsp::util::str{
 
@@ -16,8 +18,14 @@ struct Hash{
 	std::size_t operator()(const std::string& str) const{ return std::hash<std::string_view>{}(str); }
 };
 
+/*
+ * Unordered map and set types with that allow for faster lookup via string_view
+ */
 template<typename StringKeyType, typename ValueType>
 using UnorderedMap = std::unordered_map<StringKeyType, ValueType, Hash, std::equal_to<>>;
+
+template<typename StringType>
+using UnorderedSet = std::unordered_set<StringType, Hash, std::equal_to<>>;
 
 [[nodiscard]] std::string_view trimViewLeft(std::string_view str);
 [[nodiscard]] std::string_view trimViewRight(std::string_view str);

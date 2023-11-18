@@ -51,12 +51,12 @@ struct BidirectionalMessage : ClientToServerMessage, ServerToClientMessage{};
 
 struct ParamsMessage{
 	virtual void initParams(const json::Any&){}
-	virtual json::Any paramsJson(){ return {}; };
+	virtual json::Any paramsJson() const{ return {}; };
 };
 
 struct ResultMessage{
 	virtual void initResult(const json::Any&){}
-	virtual json::Any resultJson(){ return {}; }
+	virtual json::Any resultJson() const{ return {}; }
 };
 
 /*

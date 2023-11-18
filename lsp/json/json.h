@@ -6,7 +6,6 @@
 #include <variant>
 #include <stdexcept>
 #include <string_view>
-#include <unordered_map>
 #include <lsp/util/str.h>
 
 namespace lsp::json{
@@ -35,7 +34,7 @@ private:
 	std::string m_message{"Unexpected json value"};
 };
 
-using ObjectMap = std::unordered_map<String, Any, util::str::Hash, std::equal_to<>>;
+using ObjectMap = util::str::UnorderedMap<String, Any>;
 class Object : public ObjectMap{
 public:
 	using ObjectMap::ObjectMap;

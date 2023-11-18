@@ -777,7 +777,6 @@ R"(#include "types.h"
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
-#include <array>
 #include <cassert>
 #include <iterator>
 #include <algorithm>
@@ -791,14 +790,16 @@ namespace lsp::types{
 #pragma warning(disable: 4100) // unreferenced formal parameter
 #endif
 
-template<typename E, typename Array, typename T>
-static E findEnumValue(const Array& values, const T& value){
-	auto it = std::lower_bound(values.begin(), values.end(), value);
+template<typename E, typename D, typename T>
+static E findEnumValue(const D* values, const T& value){
+	auto begin = values;
+	auto end = values + static_cast<int>(E::MAX_VALUE);
+	auto it = std::lower_bound(begin, end, value);
 
-	if(it == values.end() || *it != value)
+	if(it == end || *it != value)
 		return E::MAX_VALUE;
 
-	return static_cast<E>(std::distance(values.begin(), it));
+	return static_cast<E>(std::distance(begin, it));
 }
 
 )";
@@ -839,8 +840,6 @@ R"(#include "messages.h"
 /*#############################################################
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
-
-#include <unordered_map>
 
 namespace lsp::messages{
 
@@ -929,7 +928,7 @@ private:
 		std::string messageMethodsByString = "static auto methodStringPair(Method method){\n"
 		                                     "\treturn std::make_pair(MethodStrings[static_cast<int>(method)], method);\n"
 		                                     "}\n\n"
-		                                     "static const std::unordered_map<std::string_view, Method> MethodsByString = {\n";
+		                                     "static const util::str::UnorderedMap<std::string_view, Method> MethodsByString = {\n";
 		std::string messageCreateFromMethod = "MessagePtr Message::createFromMethod(messages::Method method){\n"
 		                                      "\tswitch(method){\n";
 
@@ -1037,13 +1036,13 @@ private:
 		}
 
 		if(hasParams){
-			m_messagesHeaderFileContent += "\tjson::Any paramsJson() override;\n";
-			m_messagesSourceFileContent += "json::Any " + messageCppName + "::paramsJson(){ return toJson(params); }\n";
+			m_messagesHeaderFileContent += "\tjson::Any paramsJson() const override;\n";
+			m_messagesSourceFileContent += "json::Any " + messageCppName + "::paramsJson() const{ return toJson(params); }\n";
 		}
 
 		if(hasResult){
-			m_messagesHeaderFileContent += "\tjson::Any resultJson() override;\n";
-			m_messagesSourceFileContent += "json::Any " + messageCppName + "::resultJson(){ return toJson(result); }\n";
+			m_messagesHeaderFileContent += "\tjson::Any resultJson() const override;\n";
+			m_messagesSourceFileContent += "json::Any " + messageCppName + "::resultJson() const{ return toJson(result); }\n";
 		}
 
 		m_messagesHeaderFileContent += "};\n\n";
@@ -1141,8 +1140,8 @@ private:
 			valueIndent = "\t";
 		}
 
-		m_typesSourceFileContent += "static constexpr std::array<" + baseType.constData + ", static_cast<int>(" + enumerationCppName + "::MAX_VALUE)> " +
-		                            enumValuesVarName + " = {\n";
+		m_typesSourceFileContent += "static constexpr " + baseType.constData + ' ' +
+		                            enumValuesVarName + "[static_cast<int>(" + enumerationCppName + "::MAX_VALUE)] = {\n";
 
 		if(auto it = enumeration.values.begin(); it != enumeration.values.end()){
 			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) +
@@ -1200,16 +1199,18 @@ private:
 			                            "\treturn *this;\n"
 			                            "}\n\n";
 			m_typesBoilerPlateSourceFileContent += toJson + "{\n" +
-																	           "\treturn value.value();\n}\n\n" +
+																	           "\treturn toJson(value.value());\n}\n\n" +
 																	           fromJson + "{\n"
-																	           "\tconst auto& jsonVal = json.get<" + baseType.data + ">();\n"
-																	           "\tvalue = jsonVal;\n"
+																	           "\t" + baseType.data + " jsonVal;\n"
+																	           "\tfromJson(json, jsonVal);\n"
+			                                       "\tvalue = jsonVal;\n"
 																	           "}\n\n";
 		}else{
 			m_typesBoilerPlateSourceFileContent += toJson + "{\n" +
-																	           "\treturn " + baseType.data + "{types::" + enumValuesVarName + "[static_cast<int>(value)]};\n}\n\n" +
+																	           "\treturn toJson(types::" + enumValuesVarName + "[static_cast<int>(value)]);\n}\n\n" +
 																	           fromJson + "{\n"
-																	           "\tconst auto& jsonVal = json.get<" + baseType.data + ">();\n"
+																	           "\t" + baseType.data + " jsonVal;\n"
+																	           "\tfromJson(json, jsonVal);\n"
 			                                       "\tvalue = types::findEnumValue<types::" + enumerationCppName + ">(types::" + enumValuesVarName + ", jsonVal);\n"
 			                                       "\tif(value == types::" + enumerationCppName + "::MAX_VALUE)\n"
 																	           "\t\tthrow json::TypeError{\"Invalid value for '" + enumerationCppName + "'\"};\n"
@@ -1554,14 +1555,14 @@ private:
 
 const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] = {
 	{"bool", "bool", "bool", "bool"},
-	{"json::String", "std::string_view", "const json::String&", "const json::String&"},
-	{"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
-	{"json::Integer", "json::Integer", "json::Integer", "json::Integer"},
-	{"json::Decimal", "json::Decimal", "json::Decimal", "json::Decimal"},
+	{"std::string", "std::string_view", "const std::string&", "const std::string&"},
+	{"int", "int", "int", "int"},
+	{"unsigned int", "unsigned int", "unsigned int", "unsigned int"},
+	{"double", "double", "double", "double"},
 	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
 	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
-	{"json::String", "std::string_view", "const json::String&", "const json::String&"},
-	{"json::Null", "json::Null", "json::Null", "json::Null"}
+	{"std::string", "std::string_view", "const std::string&", "const std::string&"},
+	{"std::nullptr_t", "std::nullptr_t", "std::nullptr_t", "std::nullptr_t"}
 };
 
 int main(int argc, char** argv){
