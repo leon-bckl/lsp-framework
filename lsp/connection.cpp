@@ -5,7 +5,45 @@
 #include <string_view>
 #include <lsp/util/str.h>
 
+#ifndef ENABLE_DEBUG_MESSAGE_LOG
+	#ifdef NDEBUG
+		#define ENABLE_DEBUG_MESSAGE_LOG 0
+	#else
+		#define ENABLE_DEBUG_MESSAGE_LOG 1
+	#endif
+#endif
+
+#if ENABLE_DEBUG_MESSAGE_LOG
+	#ifdef __APPLE__
+		#include <os/log.h>
+	#elif defined(_WIN32)
+		#define WIN32_LEAN_AND_MEAN
+		#include <Windows.h>
+	#endif
+#endif
+
 namespace lsp{
+namespace{
+
+/*
+ * Message logging
+ */
+
+#if ENABLE_DEBUG_MESSAGE_LOG
+void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Any& json){
+#ifdef __APPLE__
+	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, true)).c_str());
+#elif defined(_WIN32)
+	OutputDebugStringA((messageType + ": " + lsp::json::stringify(json, true)).c_str());
+#endif
+}
+#endif
+
+}
+
+/*
+ * Connection
+ */
 
 Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
@@ -38,7 +76,11 @@ std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::
 			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
 	}
 
-	return jsonrpc::messageFromJson(json::parse(content));
+	auto json = json::parse(content);
+#if ENABLE_DEBUG_MESSAGE_LOG
+	debugLogMessageJson("incoming", json);
+#endif
+	return jsonrpc::messageFromJson(json);
 }
 
 void Connection::sendMessage(const jsonrpc::Message& message){
@@ -57,6 +99,9 @@ void Connection::sendMessageBatch(const jsonrpc::MessageBatch& batch){
 }
 
 void Connection::writeJsonMessage(const json::Any& content){
+#if ENABLE_DEBUG_MESSAGE_LOG
+	debugLogMessageJson("outgoing", content);
+#endif
 	std::string contentStr = json::stringify(content);
 	assert(!contentStr.empty());
 	MessageHeader header{contentStr.size()};

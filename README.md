@@ -21,7 +21,6 @@ Here's a short example on how to handle and send requests:
 
 lsp::Connection connection{lsp::io::standardInput(), lsp::io::standardOutput()};
 lsp::MessageHandler messageHandler{connection};
-
 bool running = true;
 
 messageHandler
