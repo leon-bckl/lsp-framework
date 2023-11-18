@@ -33,6 +33,9 @@ json::Any toJson(const std::variant<Args...>& variant);
 template<typename T>
 json::Any toJson(const util::Nullable<T>& nullable);
 
+template<typename... Args>
+json::Any toJson(const util::NullableVariant<Args...>& nullable);
+
 template<typename T>
 json::Any toJson(const std::unique_ptr<T>& v);
 
@@ -84,6 +87,14 @@ json::Any toJson(const std::variant<Args...>& variant){
 
 template<typename T>
 json::Any toJson(const util::Nullable<T>& nullable){
+	if(nullable.isNull())
+		return nullptr;
+
+	return toJson(*nullable);
+}
+
+template<typename... Args>
+json::Any toJson(const util::NullableVariant<Args...>& nullable){
 	if(nullable.isNull())
 		return nullptr;
 
@@ -179,8 +190,8 @@ void fromJson(const json::Any& json, std::vector<T>& value);
 template<typename... Args>
 void fromJson(const json::Any& json, std::variant<Args...>& value);
 
-template<typename T>
-void fromJson(const json::Any& json, util::Nullable<T>& nullable);
+template<typename... Args>
+void fromJson(const json::Any& json, util::NullableVariant<Args...>& nullable);
 
 template<typename T>
 void fromJson(const json::Any& json, std::unique_ptr<T>& value);
@@ -308,7 +319,14 @@ void fromJson(const json::Any& json, util::Nullable<T>& nullable){
 	if(nullable.isNull())
 		nullable = T{};
 
-	fromJson(json, nullable.value());
+	fromJson(json, *nullable);
+}
+
+template<typename... Args>
+void fromJson(const json::Any& json, util::NullableVariant<Args...>& nullable){
+	typename util::NullableVariant<Args...>::VariantType variant;
+	fromJson(json, variant);
+	nullable.emplace(std::move(variant));
 }
 
 template<typename T>

@@ -1283,35 +1283,37 @@ private:
 				const auto& orType = type.as<OrType>();
 
 				if(orType.typeList.size() > 1){
-					int nullableTypeIndex = -1;
+					auto nullType = std::find_if(orType.typeList.begin(), orType.typeList.end(), [](const TypePtr& type){
+					                                                                               return type->isA<BaseType>() && type->as<BaseType>().kind == BaseType::Null;
+					                                                                             });
+					std::string cppOrType;
 
-					if(orType.typeList.size() == 2){
-						if(orType.typeList[0]->isA<BaseType>() && orType.typeList[0]->as<BaseType>().kind == BaseType::Null)
-							nullableTypeIndex = 1;
-						else if(orType.typeList[1]->isA<BaseType>() && orType.typeList[1]->as<BaseType>().kind == BaseType::Null)
-							nullableTypeIndex = 0;
-					}
+					if(nullType == orType.typeList.end())
+						cppOrType = "std::variant<";
+					else if(orType.typeList.size() > 2)
+						cppOrType = "util::NullableVariant<";
+					else
+						cppOrType = "util::Nullable<";
 
-					if(nullableTypeIndex < 0){
-						std::string cppOrType = "std::variant<";
-
-						if(auto it = orType.typeList.begin(); it != orType.typeList.end()){
-							cppOrType += cppTypeName(**it);
+					if(auto it = orType.typeList.begin(); it != orType.typeList.end()){
+						if(it == nullType)
 							++it;
 
-							while(it != orType.typeList.end()){
+						assert(it != orType.typeList.end());
+						cppOrType += cppTypeName(**it);
+						++it;
+
+						while(it != orType.typeList.end()){
+							if(it != nullType)
 								cppOrType += ", " + cppTypeName(**it);
-								++it;
-							}
+
+							++it;
 						}
-
-						cppOrType += '>';
-
-						typeName += cppOrType;
-						break;
-					}else{
-						typeName += "util::Nullable<" + cppTypeName(*orType.typeList[nullableTypeIndex]) + '>';
 					}
+
+					cppOrType += '>';
+
+					typeName += cppOrType;
 				}else{
 					assert(!orType.typeList.empty());
 					typeName += cppTypeName(*orType.typeList[0]);
