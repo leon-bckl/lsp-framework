@@ -35,6 +35,12 @@ inline std::string_view trimViewLeft(std::string&&) = delete;
 inline std::string_view trimViewRight(std::string&&) = delete;
 inline std::string_view trimView(std::string&&) = delete;
 
+[[nodiscard]] std::string trimLeft(std::string_view str);
+[[nodiscard]] std::string trimLeft(std::string&& str);
+[[nodiscard]] std::string trimRight(std::string_view str);
+[[nodiscard]] std::string trimRight(std::string&& str);
+[[nodiscard]] std::string trim(std::string_view str);
+
 [[nodiscard]] std::vector<std::string_view> splitView(std::string_view str, std::string_view separator, bool skipEmpty = false);
 [[nodiscard]] std::vector<std::string_view> splitView(std::string&&, char, bool) = delete;
 

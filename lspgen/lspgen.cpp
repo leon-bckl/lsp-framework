@@ -1095,7 +1095,7 @@ private:
 				comment += indent + " *\n";
 
 			for(const auto& l : documentationLines)
-				comment += indent + " * " + util::str::replace(util::str::replace(l, "/*", "/_*"), "*/", "*_/") + '\n';
+				comment += util::str::trimRight(indent + " * " + util::str::replace(util::str::replace(l, "/*", "/_*"), "*/", "*_/")) + '\n';
 		}else if(title.empty()){
 		 return {};
 		}
@@ -1161,7 +1161,7 @@ private:
 			m_typesHeaderFileContent += "\t};\n\n"
 			                            "\t" + enumerationCppName + "() = default;\n" +
 			                            "\t" + enumerationCppName + "(ValueIndex index){ *this = index; }\n" +
-			                            "\texplicit " + enumerationCppName + '(' + baseType.param + " value){ *this = value; }\n" +
+			                            "\t" + enumerationCppName + '(' + baseType.param + " value){ *this = value; }\n"
 			                            "\t" + enumerationCppName + "& operator=(ValueIndex index);\n"
 			                            "\t" + enumerationCppName + "& operator=(" + baseType.param + " newValue);\n"
 																	"\tbool operator==(ValueIndex index) const{ return m_index == index; }\n"

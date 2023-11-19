@@ -17,6 +17,30 @@ std::string_view trimView(std::string_view str){
 	return trimViewRight(str);
 }
 
+std::string trimLeft(std::string_view str){
+	return trimLeft(std::string{str});
+}
+
+std::string trimLeft(std::string&& str){
+	auto trimmed = std::move(str);
+	trimmed.erase(trimmed.begin(), std::find_if(trimmed.begin(), trimmed.end(), [](char c){ return !std::isspace(c); }));
+	return trimmed;
+}
+
+std::string trimRight(std::string_view str){
+	return trimRight(std::string{str});
+}
+
+std::string trimRight(std::string&& str){
+	auto trimmed = std::move(str);
+	trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](char c){ return !std::isspace(c); }).base(), trimmed.end());
+	return trimmed;
+}
+
+std::string trim(std::string_view str){
+	return trimRight(trimLeft(str));
+}
+
 std::vector<std::string_view> splitView(std::string_view str, std::string_view separator, bool skipEmpty){
 	std::vector<std::string_view> result;
 	std::size_t srcIdx = 0;
