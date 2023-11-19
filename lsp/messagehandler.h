@@ -44,7 +44,7 @@ public:
 	MessageHandler& add(const std::function<typename MessageType::Result(const typename MessageType::Params&)>& handlerFunc);
 
 	template<typename MessageType>
-	requires HasResult<MessageType> && (!HasResult<MessageType>)
+	requires HasResult<MessageType> && (!HasParams<MessageType>)
 	MessageHandler& add(const std::function<typename MessageType::Result()>& handlerFunc);
 
 	template<typename MessageType>
@@ -163,10 +163,9 @@ MessageHandler& MessageHandler::add(const std::function<typename MessageType::Re
 }
 
 template<typename MessageType>
-requires HasResult<MessageType> && (!HasResult<MessageType>)
+requires HasResult<MessageType> && (!HasParams<MessageType>)
 MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result()>& handlerFunc){
 	addHandler(MessageType::MessageMethod, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any&){
-		auto result = handlerFunc();
 		return createResponse(id, handlerFunc());
 	});
 
