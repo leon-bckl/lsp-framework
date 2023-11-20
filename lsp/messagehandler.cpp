@@ -42,7 +42,7 @@ void MessageHandler::processResponse(const jsonrpc::Response& response){
 
 	{
 		std::lock_guard lock{m_requestMutex};
-		if(auto it = m_pendingRequests.find(response.id); it == m_pendingRequests.end()){
+		if(auto it = m_pendingRequests.find(response.id); it != m_pendingRequests.end()){
 			result = std::move(it->second);
 			m_pendingRequests.erase(it);
 		}
