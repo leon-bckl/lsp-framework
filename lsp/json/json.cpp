@@ -19,7 +19,8 @@ constexpr std::string_view False{"false"};
  * Parser
  */
 
-std::size_t textOffset(const char* start, const char* pos){
+std::size_t textOffset(const char* start, const char* pos)
+{
 	return static_cast<std::size_t>(std::distance(start, pos));
 }
 
@@ -27,22 +28,26 @@ class Parser{
 public:
 	Parser(std::string_view text) : m_start{text.data()},
 	                                m_end{text.data() + text.size()},
-	                                m_pos{m_start}{
+	                                m_pos{m_start}
+	                                {
 		m_stateStack.reserve(10);
 	}
 
-	Any parse(){
+	Any parse()
+	{
 		Any result;
 
 		pushState(State::Value, result);
 
-		while(!m_stateStack.empty()){
+		while(!m_stateStack.empty())
+		{
 			skipWhitespace();
 
 			if(m_pos >= m_end)
 				throw ParseError{"Unexpected end of input", textOffset(m_start, m_pos)};
 
-			switch(currentState()){
+			switch(currentState())
+			{
 			case State::Value:
 				handleValue();
 				break;
@@ -61,20 +66,23 @@ public:
 		return result;
 	}
 
-	void reset(){
+	void reset()
+	{
 		m_stateStack.clear();
 		m_pos = m_start;
 	}
 
 private:
-	enum class State{
+	enum class State
+	{
 		Value,
 		Object,
 		ObjectKey,
 		Array
 	};
 
-	struct StateStackEntry{
+	struct StateStackEntry
+	{
 		State context;
 		Any*    value;
 	};
@@ -84,32 +92,43 @@ private:
 	const char* const            m_end   = nullptr;
 	const char*                  m_pos   = nullptr;
 
-	void handleValue(){
+	void handleValue()
+	{
 		assert(currentState() == State::Value);
 
-		if(*m_pos == '{'){
+		if(*m_pos == '{')
+		{
 			++m_pos;
 			currentValue() = Object{};
 			pushState(State::Object, currentValue());
-		}else if(*m_pos == '['){
+		}
+		else if(*m_pos == '[')
+		{
 			++m_pos;
 			currentValue() = Array{};
 			pushState(State::Array, currentValue());
-		}else{
+		}
+		else
+		{
 			currentValue() = parseSimpleValue();
 			popState();
 		}
 	}
 
-	void handleObject(){
+	void handleObject()
+	{
 		assert(currentState() == State::Object);
 
-		if(*m_pos == '}'){
+		if(*m_pos == '}')
+		{
 			++m_pos;
 			popState(); // Object
 			popState(); // Value
-		}else{
-			if(!currentValueWithType<Object>().empty()){
+		}
+		else
+		{
+			if(!currentValueWithType<Object>().empty())
+			{
 				if(*m_pos != ',')
 					throw ParseError{"Expected ','", textOffset(m_start, m_pos)};
 
@@ -125,7 +144,8 @@ private:
 		}
 	}
 
-	void handleObjectKey(){
+	void handleObjectKey()
+	{
 		assert(currentState() == State::ObjectKey);
 
 		const char* keyPos = m_pos;
@@ -146,17 +166,22 @@ private:
 		pushState(State::Value, object[key]);
 	}
 
-	void handleArray(){
+	void handleArray()
+	{
 		assert(currentState() == State::Array);
 
-		if(*m_pos == ']'){
+		if(*m_pos == ']')
+		{
 			++m_pos;
 			popState(); // Array
 			popState(); // Value
-		}else{
+		}
+		else
+		{
 			auto& array = currentValueWithType<Array>();
 
-			if(!array.empty()){
+			if(!array.empty())
+			{
 				if(*m_pos != ',')
 					throw ParseError{"Expected ','", textOffset(m_start, m_pos)};
 
@@ -172,42 +197,50 @@ private:
 		}
 	}
 
-	State currentState() const{
+	State currentState() const
+	{
 		assert(!m_stateStack.empty());
 		return m_stateStack.back().context;
 	}
 
-	Any& currentValue(){
+	Any& currentValue()
+	{
 		assert(!m_stateStack.empty());
 		return *m_stateStack.back().value;
 	}
 
 	template<typename T>
-	T& currentValueWithType(){
+	T& currentValueWithType()
+	{
 		return currentValue().get<T>();
 	}
 
-	void pushState(State state, Any& value){
+	void pushState(State state, Any& value)
+	{
 		m_stateStack.push_back({state, &value});
 	}
 
-	void popState(){
+	void popState()
+	{
 		assert(!m_stateStack.empty());
 		m_stateStack.pop_back();
 	}
 
-	void skipWhitespace(){
+	void skipWhitespace()
+	{
 		while(m_pos < m_end && std::isspace(*m_pos))
 			++m_pos;
 	}
 
-	String parseString(){
+	String parseString()
+	{
 		if(m_pos >= m_end || *m_pos != '\"')
 			throw ParseError{"String expected", textOffset(m_start, m_pos)};
 
 		const char* stringStart = ++m_pos;
 
-		while(*m_pos != '\"' || m_pos[-1] == '\\'){
+		while(*m_pos != '\"' || m_pos[-1] == '\\')
+		{
 			++m_pos;
 
 			if(m_pos >= m_end || *m_pos == '\n')
@@ -219,18 +252,21 @@ private:
 		return util::str::unescape(std::string_view{stringStart, stringEnd});
 	}
 
-	Any parseNumber(){
+	Any parseNumber()
+	{
 		const char* numberStart = m_pos;
 		bool isDecimal = false;
 
-		while(m_pos < m_end && (std::isalnum(*m_pos) || *m_pos == '-' || *m_pos == '.' || *m_pos == 'e' || *m_pos == 'E')){
+		while(m_pos < m_end && (std::isalnum(*m_pos) || *m_pos == '-' || *m_pos == '.' || *m_pos == 'e' || *m_pos == 'E'))
+		{
 			if(!isDecimal && (*m_pos == '.' || *m_pos == 'e' || *m_pos == 'E'))
 				isDecimal = true;
 
 			++m_pos;
 		}
 
-		if(isDecimal){
+		if(isDecimal)
+		{
 			std::size_t idx = 0;
 			Decimal decimal = std::stod(std::string{numberStart, m_pos}, &idx);
 
@@ -252,7 +288,8 @@ private:
 		return static_cast<json::Integer>(intValue);
 	}
 
-	Any parseIdentifier(){
+	Any parseIdentifier()
+	{
 		const char* idStart = m_pos;
 
 		while(m_pos < m_end && std::isalnum(*m_pos))
@@ -272,7 +309,8 @@ private:
 		throw ParseError{"Unexpected '" + std::string{idStart, m_pos} + "'", textOffset(m_start, m_pos)};
 	}
 
-	Any parseSimpleValue(){
+	Any parseSimpleValue()
+	{
 		if(*m_pos == '\"')
 			return parseString();
 
@@ -286,8 +324,10 @@ private:
 	}
 };
 
-void stringifyImplementation(const Any& json, std::string& str, std::size_t indentLevel, bool format){
-	const auto getIndent = [&indentLevel, format](){
+void stringifyImplementation(const Any& json, std::string& str, std::size_t indentLevel, bool format)
+{
+	const auto getIndent = [&indentLevel, format]()
+	{
 		if(!format)
 			return std::string_view{};
 
@@ -300,23 +340,32 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 	std::string_view listStart;
 	std::string_view listEnd;
 
-	if(format){
+	if(format)
+	{
 		keySep = ": ";
 		valueSep = ",\n";
 		listStart = "\n";
 		listEnd = "\n";
 	}
 
-	if(json.isNull()){
+	if(json.isNull())
+	{
 		str += Null;
-	}else if(json.isBoolean()){
+	}
+	else if(json.isBoolean())
+	{
 		str += json.get<Boolean>() ? True : False;
-	}else if(json.isInteger()){
+	}
+	else if(json.isInteger())
+	{
 		str += std::to_string(json.get<json::Integer>());
-	}else if(json.isDecimal()){
+	}
+	else if(json.isDecimal())
+	{
 		auto numberStr = std::to_string(json.get<json::Decimal>());
 
-		for(std::size_t i = numberStr.size(); i > 2; --i){
+		for(std::size_t i = numberStr.size(); i > 2; --i)
+		{
 			if(numberStr[i] != '0' || numberStr[i - 1] == '.')
 				break;
 
@@ -324,14 +373,19 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 		}
 
 		str += numberStr;
-	}else if(json.isString()){
+	}
+	else if(json.isString())
+	{
 		str += util::str::quote(util::str::escape(json.get<String>()));
-	}else if(json.isObject()){
+	}
+	else if(json.isObject())
+	{
 		const auto& obj = json.get<Object>();
 
 		str += '{';
 
-		if(auto it = obj.begin(); it != obj.end()){
+		if(auto it = obj.begin(); it != obj.end())
+		{
 			str += listStart;
 			++indentLevel;
 			str += getIndent();
@@ -340,7 +394,8 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 			stringifyImplementation(it->second, str, indentLevel, format);
 			++it;
 
-			while(it != obj.end()){
+			while(it != obj.end())
+			{
 				str += valueSep;
 				str += getIndent();
 				str += util::str::quote(util::str::escape(it->first));
@@ -355,19 +410,23 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 		}
 
 		str += '}';
-	}else if(json.isArray()){
+	}
+	else if(json.isArray())
+	{
 		const auto& array = json.get<Array>();
 
 		str += '[';
 
-		if(auto it = array.begin(); it != array.end()){
+		if(auto it = array.begin(); it != array.end())
+		{
 			str += listStart;
 			++indentLevel;
 			str += getIndent();
 			stringifyImplementation(*it, str, indentLevel, format);
 			++it;
 
-			while(it != array.end()){
+			while(it != array.end())
+			{
 				str += valueSep;
 				str += getIndent();
 				stringifyImplementation(*it, str, indentLevel, format);
@@ -385,27 +444,31 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 
 } // namespace
 
-Any& Object::get(std::string_view key){
+Any& Object::get(std::string_view key)
+{
 	if(auto it = find(key); it != end())
 		return it->second;
 
 	throw TypeError{"Missing key '" + std::string{key} + '\''};
 }
 
-const Any& Object::get(std::string_view key) const{
+const Any& Object::get(std::string_view key) const
+{
 	if(auto it = find(key); it != end())
 		return it->second;
 
 	throw TypeError{"Missing key '" + std::string{key} + '\''};
 }
 
-Any parse(std::string_view text){
+Any parse(std::string_view text)
+{
 	Parser parser{text};
 
 	return parser.parse();
 }
 
-std::string stringify(const Any& json, bool format){
+std::string stringify(const Any& json, bool format)
+{
 	std::string str;
 	stringifyImplementation(json, str, 0, format);
 	return str;

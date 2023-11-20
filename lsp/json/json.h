@@ -65,7 +65,8 @@ public:
 	bool isArray() const{ return std::holds_alternative<Array>(*this); }
 
 	template<typename T>
-	T& get(){
+	T& get()
+	{
 		if(std::holds_alternative<T>(*this))
 			return std::get<T>(*this);
 
@@ -73,12 +74,14 @@ public:
 	}
 
 	template<>
-	Any& get(){
+	Any& get()
+	{
 		return *this;
 	}
 
 	template<typename T>
-	const T& get() const{
+	const T& get() const
+	{
 		if(std::holds_alternative<T>(*this))
 			return std::get<T>(*this);
 
@@ -86,11 +89,13 @@ public:
 	}
 
 	template<>
-	const Any& get() const{
+	const Any& get() const
+	{
 		return *this;
 	}
 
-	Decimal numberValue() const{
+	Decimal numberValue() const
+	{
 		if(isDecimal())
 			return get<Decimal>();
 
@@ -102,12 +107,14 @@ public:
 };
 
 template<typename T>
-inline T& Object::get(std::string_view key){
+inline T& Object::get(std::string_view key)
+{
 	return get(key).get<T>();
 }
 
 template<typename T>
-inline const T& Object::get(std::string_view key) const{
+inline const T& Object::get(std::string_view key) const
+{
 	return get(key).get<T>();
 }
 

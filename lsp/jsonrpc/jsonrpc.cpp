@@ -5,7 +5,8 @@
 namespace lsp::jsonrpc{
 namespace{
 
-MessageId messageIdFromJson(const json::Any& json){
+MessageId messageIdFromJson(const json::Any& json)
+{
 	if(json.isString())
 		return json.get<json::String>();
 
@@ -18,7 +19,8 @@ MessageId messageIdFromJson(const json::Any& json){
 	throw ProtocolError{"Request id type must be string, number or null"};
 }
 
-RequestPtr requestFromJson(const json::Object& json){
+RequestPtr requestFromJson(const json::Object& json)
+{
 	auto request = std::make_unique<Request>();
 
 	request->jsonrpc = json.get<json::String>("jsonrpc");
@@ -27,7 +29,8 @@ RequestPtr requestFromJson(const json::Object& json){
 	if(json.contains("id"))
 		request->id = messageIdFromJson(json.get("id"));
 
-	if(json.contains("params")){
+	if(json.contains("params"))
+	{
 		const auto& params = json.get("params");
 
 		if(params.isObject())
@@ -41,7 +44,8 @@ RequestPtr requestFromJson(const json::Object& json){
 	return request;
 }
 
-ResponsePtr responseFromJson(const json::Object& json){
+ResponsePtr responseFromJson(const json::Object& json)
+{
 	auto response = std::make_unique<Response>();
 
 	if(json.contains("id"))
@@ -50,7 +54,8 @@ ResponsePtr responseFromJson(const json::Object& json){
 	if(json.contains("result"))
 		response->result = json.get("result");
 
-	if(json.contains("error")){
+	if(json.contains("error"))
+	{
 		const auto& errorJson = json.get<json::Object>("error");
 		auto& responseError = response->error.emplace();
 
@@ -84,7 +89,8 @@ ResponsePtr responseFromJson(const json::Object& json){
 	return response;
 }
 
-MessagePtr messageFromJson(const json::Object& json){
+MessagePtr messageFromJson(const json::Object& json)
+{
 	if(!json.contains("jsonrpc"))
 		throw ProtocolError{"jsonrpc property is missing"};
 
@@ -104,7 +110,8 @@ MessagePtr messageFromJson(const json::Object& json){
 
 } // namespace
 
-json::Any Request::toJson() const{
+json::Any Request::toJson() const
+{
 	json::Object json;
 
 	assert(jsonrpc == "2.0");
@@ -121,7 +128,8 @@ json::Any Request::toJson() const{
 	return json;
 }
 
-json::Any Response::toJson() const{
+json::Any Response::toJson() const
+{
 	assert(jsonrpc == "2.0");
 	assert(result.has_value() != error.has_value());
 
@@ -132,7 +140,8 @@ json::Any Response::toJson() const{
 	if(result.has_value())
 		json["result"] = *result;
 
-	if(error.has_value()){
+	if(error.has_value())
+	{
 		const auto& responseError = *error;
 		json::Object errorJson;
 
@@ -148,7 +157,8 @@ json::Any Response::toJson() const{
 	return json;
 }
 
-std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json){
+std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json)
+{
 	if(json.isObject())
 		return messageFromJson(json.get<json::Object>());
 
@@ -159,7 +169,8 @@ std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json){
 	MessageBatch batch;
 	batch.reserve(array.size());
 
-	for(const auto& m : array){
+	for(const auto& m : array)
+	{
 		if(!m.isObject())
 			throw ProtocolError{"Message must be an object"};
 
@@ -169,7 +180,8 @@ std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json){
 	return batch;
 }
 
-RequestPtr createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params){
+RequestPtr createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params)
+{
 	auto request = std::make_unique<Request>();
 	request->id = id;
 	request->method = method;
@@ -178,7 +190,8 @@ RequestPtr createRequest(const MessageId& id, std::string_view method, const std
 	return request;
 }
 
-RequestPtr createNotification(std::string_view method, const std::optional<json::Any>& params){
+RequestPtr createNotification(std::string_view method, const std::optional<json::Any>& params)
+{
 	auto notification = std::make_unique<Request>();
 	notification->method = method;
 	notification->params = params;
@@ -186,7 +199,8 @@ RequestPtr createNotification(std::string_view method, const std::optional<json:
 	return notification;
 }
 
-ResponsePtr createResponse(const MessageId& id, const json::Any& result){
+ResponsePtr createResponse(const MessageId& id, const json::Any& result)
+{
 	auto response = std::make_unique<Response>();
 	response->id = id;
 	response->result = result;
@@ -194,7 +208,8 @@ ResponsePtr createResponse(const MessageId& id, const json::Any& result){
 	return response;
 }
 
-ResponsePtr createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data){
+ResponsePtr createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data)
+{
 	auto response = std::make_unique<Response>();
 	response->id = id;
 

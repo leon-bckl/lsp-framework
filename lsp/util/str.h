@@ -45,14 +45,17 @@ inline std::string_view trimView(std::string&&) = delete;
 [[nodiscard]] std::vector<std::string_view> splitView(std::string&&, char, bool) = delete;
 
 template<typename F>
-[[nodiscard]] std::string join(const std::vector<std::string>& strings, const std::string& separator, F&& transform){
+[[nodiscard]] std::string join(const std::vector<std::string>& strings, const std::string& separator, F&& transform)
+{
 	std::string result;
 
-	if(auto it = strings.begin(); it != strings.end()){
+	if(auto it = strings.begin(); it != strings.end())
+	{
 		result = transform(*it);
 		++it;
 
-		while(it != strings.end()){
+		while(it != strings.end())
+		{
 			result += separator + transform(*it);
 			++it;
 		}
@@ -61,19 +64,23 @@ template<typename F>
 	return result;
 }
 
-inline std::string join(const std::vector<std::string>& strings, const std::string& separator){
+inline std::string join(const std::vector<std::string>& strings, const std::string& separator)
+{
 	return join(strings, separator, [](const std::string& str)->const std::string&{ return str; });
 }
 
 template<typename F>
-[[nodiscard]] std::string join(const std::vector<std::string_view>& strings, const std::string& separator, F&& transform){
+[[nodiscard]] std::string join(const std::vector<std::string_view>& strings, const std::string& separator, F&& transform)
+{
 	std::string result;
 
-	if(auto it = strings.begin(); it != strings.end()){
+	if(auto it = strings.begin(); it != strings.end())
+	{
 		result = transform(*it);
 		++it;
 
-		while(it != strings.end()){
+		while(it != strings.end())
+		{
 			result += separator + transform(*it);
 			++it;
 		}
@@ -82,7 +89,8 @@ template<typename F>
 	return result;
 }
 
-inline std::string join(const std::vector<std::string_view>& strings, const std::string& separator){
+inline std::string join(const std::vector<std::string_view>& strings, const std::string& separator)
+{
 	return join(strings, separator, [](std::string_view str)->std::string{ return std::string{str}; });
 }
 
@@ -93,4 +101,4 @@ inline std::string join(const std::vector<std::string_view>& strings, const std:
 [[nodiscard]] std::string escape(std::string_view str);
 [[nodiscard]] std::string unescape(std::string_view str);
 
-}
+} // namespace lsp::util::str

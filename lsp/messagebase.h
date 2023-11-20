@@ -10,10 +10,12 @@ struct Message;
 using MessagePtr = std::unique_ptr<Message>;
 
 namespace messages{ // Generated definitions
+
 enum class Method;
 std::string_view methodToString(Method method);
 Method methodFromString(std::string_view str);
 MessagePtr createFromMethod(messages::Method method);
+
 }
 
 /*
@@ -26,19 +28,22 @@ struct Message{
 
 	template<typename T>
 	requires std::derived_from<T, Message>
-	bool isA() const{
+	bool isA() const
+	{
 		return dynamic_cast<const T*>(this) != nullptr;
 	}
 
 	template<typename T>
 	requires std::derived_from<T, Message>
-	T& as(){
+	T& as()
+	{
 		return dynamic_cast<T&>(*this);
 	}
 
 	template<typename T>
 	requires std::derived_from<T, Message>
-	const T& as() const{
+	const T& as() const
+	{
 		return dynamic_cast<T&>(*this);
 	}
 };

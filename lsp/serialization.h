@@ -45,15 +45,18 @@ json::Any toJson(const std::optional<T>& v);
 // impl
 
 template<typename T>
-json::Any toJson(const T& v){
+json::Any toJson(const T& v)
+{
 	return v;
 }
 
 template<typename... Args>
-json::Any toJson(const std::tuple<Args...>& tuple){
+json::Any toJson(const std::tuple<Args...>& tuple)
+{
 	json::Array result;
 	result.resize(sizeof...(Args));
-	util::tuple::visit(tuple, [&result](const auto& v, int idx){
+	util::tuple::visit(tuple, [&result](const auto& v, int idx)
+	{
 		result[idx] = toJson(v);
 	});
 
@@ -61,7 +64,8 @@ json::Any toJson(const std::tuple<Args...>& tuple){
 }
 
 template<typename K, typename T>
-json::Any toJson(const util::str::UnorderedMap<K, T>& map){
+json::Any toJson(const util::str::UnorderedMap<K, T>& map)
+{
 	json::Object result;
 	for(const auto& [k, v] : map)
 		result[k] = toJson(v);
@@ -70,7 +74,8 @@ json::Any toJson(const util::str::UnorderedMap<K, T>& map){
 }
 
 template<typename T>
-json::Any toJson(const std::vector<T>& vector){
+json::Any toJson(const std::vector<T>& vector)
+{
 	json::Array result;
 	result.reserve(vector.size());
 
@@ -81,12 +86,14 @@ json::Any toJson(const std::vector<T>& vector){
 }
 
 template<typename... Args>
-json::Any toJson(const std::variant<Args...>& variant){
+json::Any toJson(const std::variant<Args...>& variant)
+{
 	return std::visit([](auto& v){ return toJson(v); }, variant);
 }
 
 template<typename T>
-json::Any toJson(const util::Nullable<T>& nullable){
+json::Any toJson(const util::Nullable<T>& nullable)
+{
 	if(nullable.isNull())
 		return nullptr;
 
@@ -94,7 +101,8 @@ json::Any toJson(const util::Nullable<T>& nullable){
 }
 
 template<typename... Args>
-json::Any toJson(const util::NullableVariant<Args...>& nullable){
+json::Any toJson(const util::NullableVariant<Args...>& nullable)
+{
 	if(nullable.isNull())
 		return nullptr;
 
@@ -102,34 +110,40 @@ json::Any toJson(const util::NullableVariant<Args...>& nullable){
 }
 
 template<typename T>
-json::Any toJson(const std::unique_ptr<T>& v){
+json::Any toJson(const std::unique_ptr<T>& v)
+{
 	assert(v);
 	return toJson(*v);
 }
 
 template<typename T>
-json::Any toJson(const std::optional<T>& v){
+json::Any toJson(const std::optional<T>& v)
+{
 	assert(v.has_value());
 	return toJson(*v);
 }
 
 template<>
-inline json::Any toJson(const std::string_view& v){
+inline json::Any toJson(const std::string_view& v)
+{
 	return json::String{v};
 }
 
 template<>
-inline json::Any toJson(const util::FileURI& uri){
+inline json::Any toJson(const util::FileURI& uri)
+{
 	return uri.toString();
 }
 
 template<>
-inline json::Any toJson(const int& i){
+inline json::Any toJson(const int& i)
+{
 	return i;
 }
 
 template<>
-inline json::Any toJson(const unsigned int& i){
+inline json::Any toJson(const unsigned int& i)
+{
 	if(i <= static_cast<unsigned int>(std::numeric_limits<json::Integer>::max()))
 		return static_cast<json::Integer>(i);
 
@@ -137,7 +151,8 @@ inline json::Any toJson(const unsigned int& i){
 }
 
 template<>
-inline json::Any toJson(const long& i){
+inline json::Any toJson(const long& i)
+{
 	if(i <= static_cast<long>(std::numeric_limits<json::Integer>::max()))
 		return static_cast<json::Integer>(i);
 
@@ -145,7 +160,8 @@ inline json::Any toJson(const long& i){
 }
 
 template<>
-inline json::Any toJson(const unsigned long& i){
+inline json::Any toJson(const unsigned long& i)
+{
 	if(i <= static_cast<unsigned long>(std::numeric_limits<json::Integer>::max()))
 		return static_cast<json::Integer>(i);
 
@@ -153,7 +169,8 @@ inline json::Any toJson(const unsigned long& i){
 }
 
 template<>
-inline json::Any toJson(const long long& i){
+inline json::Any toJson(const long long& i)
+{
 	if(i >= static_cast<long long>(std::numeric_limits<json::Integer>::min()) && i <= static_cast<long long>(std::numeric_limits<json::Integer>::max()))
 		return static_cast<json::Integer>(i);
 
@@ -161,7 +178,8 @@ inline json::Any toJson(const long long& i){
 }
 
 template<>
-inline json::Any toJson(const unsigned long long& i){
+inline json::Any toJson(const unsigned long long& i)
+{
 	if(i <= static_cast<unsigned long long>(std::numeric_limits<json::Integer>::max()))
 		return static_cast<json::Integer>(i);
 
@@ -169,7 +187,8 @@ inline json::Any toJson(const unsigned long long& i){
 }
 
 template<>
-inline json::Any toJson(const float& i){
+inline json::Any toJson(const float& i)
+{
 	return i;
 }
 
@@ -202,14 +221,17 @@ void fromJson(const json::Any& json, std::optional<T>& value);
 // impl
 
 template<typename T>
-void fromJson(const json::Any& json, T& value){
+void fromJson(const json::Any& json, T& value)
+{
 	value = json.get<T>();
 }
 
 template<typename... Args>
-void fromJson(const json::Any& json, std::tuple<Args...>& value){
+void fromJson(const json::Any& json, std::tuple<Args...>& value)
+{
 	const auto& array = json.get<json::Array>();
-	util::tuple::visit(value, [&array](auto& v, int idx){
+	util::tuple::visit(value, [&array](auto& v, int idx)
+	{
 		if(static_cast<std::size_t>(idx) >= array.size())
 			throw json::TypeError{};
 
@@ -218,14 +240,16 @@ void fromJson(const json::Any& json, std::tuple<Args...>& value){
 }
 
 template<typename K, typename T>
-void fromJson(const json::Any& json, util::str::UnorderedMap<K, T>& value){
+void fromJson(const json::Any& json, util::str::UnorderedMap<K, T>& value)
+{
 	const auto& obj = json.get<json::Object>();
 	for(const auto& [k, v] : obj)
 		fromJson(v, value[k]);
 }
 
 template<typename T>
-void fromJson(const json::Any& json, std::vector<T>& value){
+void fromJson(const json::Any& json, std::vector<T>& value)
+{
 	const auto& array = json.get<json::Array>();
 	value.reserve(array.size());
 
@@ -234,45 +258,57 @@ void fromJson(const json::Any& json, std::vector<T>& value){
 }
 
 template<typename T>
-const char** requiredProperties(){
+const char** requiredProperties()
+{
 	static const char* properties[] = {nullptr};
 	return properties;
 }
 
 template<std::size_t Index, typename... Args, typename VariantType = std::variant<Args...>>
-void variantFromJson(const json::Any& json, VariantType& value, int requiredPropertyCount = 0){
+void variantFromJson(const json::Any& json, VariantType& value, int requiredPropertyCount = 0)
+{
 	using T = std::variant_alternative_t<Index, VariantType>;
 
-	if constexpr(std::is_null_pointer_v<T>){
-		if(json.isNull()){
+	if constexpr(std::is_null_pointer_v<T>)
+	{
+		if(json.isNull())
+		{
 			value.template emplace<Index>();
 			return;
 		}
 	}
 
-	if constexpr(std::is_same_v<T, bool>){
-		if(json.isBoolean()){
+	if constexpr(std::is_same_v<T, bool>)
+	{
+		if(json.isBoolean())
+		{
 			fromJson(json, value.template emplace<Index>());
 			return;
 		}
 	}
 
-	if constexpr(std::is_integral_v<T> || std::is_floating_point_v<T>){
-		if(json.isNumber()){
+	if constexpr(std::is_integral_v<T> || std::is_floating_point_v<T>)
+	{
+		if(json.isNumber())
+		{
 			fromJson(json, value.template emplace<Index>());
 			return;
 		}
 	}
 
-	if constexpr(std::is_same_v<T, json::String>){
-		if(json.isString()){
+	if constexpr(std::is_same_v<T, json::String>)
+	{
+		if(json.isString())
+		{
 			fromJson(json, value.template emplace<Index>());
 			return;
 		}
 	}
 
-	if constexpr(util::type::IsVector<T>{} || util::type::IsTuple<T>{}){
-		if(json.isArray()){
+	if constexpr(util::type::IsVector<T>{} || util::type::IsTuple<T>{})
+	{
+		if(json.isArray())
+		{
 			fromJson(json, value.template emplace<Index>());
 			return;
 		}
@@ -280,14 +316,18 @@ void variantFromJson(const json::Any& json, VariantType& value, int requiredProp
 
 	// The object with the most required properties that match the json is constructed.
 	// To achieve this, all alternatives are checked but only constructed if the number of matching properties is higher than it has been so far.
-	if constexpr(std::is_class_v<T>){
-		if(json.isObject()){
+	if constexpr(std::is_class_v<T>)
+	{
+		if(json.isObject())
+		{
 			const auto& obj = json.get<json::Object>();
 			bool hasAllRequiredProperties = true;
 			int matchCount = 1; // Make this at least one to signify that an object was successfully created and no error is thrown at the end
 
-			for(const char** p = requiredProperties<T>(); *p; ++p){
-				if(!obj.contains(*p)){
+			for(const char** p = requiredProperties<T>(); *p; ++p)
+			{
+				if(!obj.contains(*p))
+				{
 					hasAllRequiredProperties = false;
 					break;
 				}
@@ -295,27 +335,33 @@ void variantFromJson(const json::Any& json, VariantType& value, int requiredProp
 				++matchCount;
 			}
 
-			if(hasAllRequiredProperties && matchCount >= requiredPropertyCount){
+			if(hasAllRequiredProperties && matchCount >= requiredPropertyCount)
+			{
 				fromJson(json, value.template emplace<Index>());
 				requiredPropertyCount = matchCount;
 			}
 		}
 	}
 
-	if constexpr(Index + 1 < sizeof...(Args)){
+	if constexpr(Index + 1 < sizeof...(Args))
+	{
 		variantFromJson<Index + 1, Args...>(json, value, requiredPropertyCount);
-	}else if(requiredPropertyCount == 0){
+	}
+	else if(requiredPropertyCount == 0)
+	{
 		throw json::TypeError{};
 	}
 }
 
 template<typename... Args>
-void fromJson(const json::Any& json, std::variant<Args...>& value){
+void fromJson(const json::Any& json, std::variant<Args...>& value)
+{
 	variantFromJson<0, Args...>(json, value);
 }
 
 template<typename T>
-void fromJson(const json::Any& json, util::Nullable<T>& nullable){
+void fromJson(const json::Any& json, util::Nullable<T>& nullable)
+{
 	if(nullable.isNull())
 		nullable = T{};
 
@@ -323,14 +369,16 @@ void fromJson(const json::Any& json, util::Nullable<T>& nullable){
 }
 
 template<typename... Args>
-void fromJson(const json::Any& json, util::NullableVariant<Args...>& nullable){
+void fromJson(const json::Any& json, util::NullableVariant<Args...>& nullable)
+{
 	typename util::NullableVariant<Args...>::VariantType variant;
 	fromJson(json, variant);
 	nullable.emplace(std::move(variant));
 }
 
 template<typename T>
-void fromJson(const json::Any& json, std::unique_ptr<T>& value){
+void fromJson(const json::Any& json, std::unique_ptr<T>& value)
+{
 	if(!value)
 		value = std::make_unique<T>();
 
@@ -338,7 +386,8 @@ void fromJson(const json::Any& json, std::unique_ptr<T>& value){
 }
 
 template<typename T>
-void fromJson(const json::Any& json, std::optional<T>& value){
+void fromJson(const json::Any& json, std::optional<T>& value)
+{
 	if(!value.has_value())
 		value = T{};
 
@@ -346,38 +395,45 @@ void fromJson(const json::Any& json, std::optional<T>& value){
 }
 
 template<>
-inline void fromJson(const json::Any& json, int& value){
+inline void fromJson(const json::Any& json, int& value)
+{
 	value = static_cast<int>(json.numberValue());
 }
 
 template<>
-inline void fromJson(const json::Any& json, unsigned int& value){
+inline void fromJson(const json::Any& json, unsigned int& value)
+{
 	value = static_cast<unsigned int>(json.numberValue());
 }
 
 template<>
-inline void fromJson(const json::Any& json, long& value){
+inline void fromJson(const json::Any& json, long& value)
+{
 	value = static_cast<long>(json.numberValue());
 }
 
 template<>
-inline void fromJson(const json::Any& json, unsigned long& value){
+inline void fromJson(const json::Any& json, unsigned long& value)
+{
 	value = static_cast<unsigned long>(json.numberValue());
 }
 
 template<>
-inline void fromJson(const json::Any& json, unsigned long long& value){
+inline void fromJson(const json::Any& json, unsigned long long& value)
+{
 	value = static_cast<unsigned long long>(json.numberValue());
 }
 
 template<>
-inline void fromJson(const json::Any& json, float& value){
+inline void fromJson(const json::Any& json, float& value)
+{
 	value = static_cast<float>(json.numberValue());
 }
 
 template<>
-inline void fromJson(const json::Any& json, util::FileURI& value){
+inline void fromJson(const json::Any& json, util::FileURI& value)
+{
 	value = json.get<json::String>();
 }
 
-}
+} // namespace lsp

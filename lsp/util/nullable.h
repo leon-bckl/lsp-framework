@@ -16,32 +16,30 @@ template<typename T>
 class Nullable{
 public:
 	Nullable() = default;
+	Nullable(const T& t){ *this = t; }
+	Nullable(T&& t){ *this = std::forward<T>(t); }
 
-	Nullable(const T& t){
-		*this = t;
-	}
-
-	Nullable(T&& t){
-		*this = std::forward<T>(t);
-	}
-
-	Nullable& operator=(const T& t){
+	Nullable& operator=(const T& t)
+	{
 		m_value.emplace(t);
 		return *this;
 	}
 
-	Nullable& operator=(T&& t){
+	Nullable& operator=(T&& t)
+	{
 		m_value.emplace(std::forward<T>(t));
 		return *this;
 	}
 
-	Nullable& operator=(std::nullptr_t){
+	Nullable& operator=(std::nullptr_t)
+	{
 		m_value = std::nullopt;
 		return *this;
 	}
 
 	template<typename... Args>
-	T& emplace(Args&&... args){
+	T& emplace(Args&&... args)
+	{
 		return m_value.emplace(std::forward<Args>(args)...);
 	}
 
@@ -65,42 +63,50 @@ public:
 	NullableVariant() = default;
 
 	template<typename T>
-	NullableVariant(const T& t){
+	NullableVariant(const T& t)
+	{
 		*this = t;
 	}
 
 	template<typename T>
-	NullableVariant& operator=(const T& t){
+	NullableVariant& operator=(const T& t)
+	{
 		m_value.emplace(t);
 		return *this;
 	}
 
 	template<typename T>
-	NullableVariant& operator=(T&& t){
+	NullableVariant& operator=(T&& t)
+	{
 		m_value.emplace(std::forward<T>(t));
 		return *this;
 	}
 
-	NullableVariant& operator=(std::nullptr_t){
+	NullableVariant& operator=(std::nullptr_t)
+	{
 		m_value = std::nullopt;
 		return *this;
 	}
 
 	template<typename T>
-	bool holdsAlternative(){
+	bool holdsAlternative()
+	{
 		return !isNull() && std::holds_alternative<T>(value());
 	}
 
-	void emplace(const VariantType& variant){
+	void emplace(const VariantType& variant)
+	{
 		m_value.emplace(variant);
 	}
 
-	void emplace(VariantType&& variant){
+	void emplace(VariantType&& variant)
+	{
 		m_value.emplace(std::move(variant));
 	}
 
 	template<typename T, typename... Params>
-	T& emplace(Params&&... params){
+	T& emplace(Params&&... params)
+	{
 		return m_value.emplace(std::forward<Params>(params)...);
 	}
 

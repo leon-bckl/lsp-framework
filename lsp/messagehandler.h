@@ -17,12 +17,14 @@ class ErrorCodes;
 }
 
 template<typename T>
-concept HasParams = requires{
+concept HasParams = requires
+{
 	typename T::Params;
 };
 
 template<typename T>
-concept HasResult = requires{
+concept HasResult = requires
+{
 	typename T::Result;
 };
 
@@ -72,13 +74,15 @@ public:
 
 	template<typename MessageType>
 	requires (!HasParams<MessageType>) && (!HasResult<MessageType>)
-	void sendNotification(){
+	void sendNotification()
+	{
 		sendNotification(MessageType::MessageMethod);
 	}
 
 	template<typename MessageType>
 	requires HasParams<MessageType> && (!HasResult<MessageType>)
-	void sendNotification(const typename MessageType::Params& params){
+	void sendNotification(const typename MessageType::Params& params)
+	{
 		sendNotification(MessageType::MessageMethod, toJson(params));
 	}
 
@@ -105,7 +109,8 @@ private:
 	void sendErrorMessage(types::ErrorCodes code, const std::string& message);
 
 	template<typename T>
-	jsonrpc::ResponsePtr createResponse(const jsonrpc::MessageId& id, const T& result){
+	jsonrpc::ResponsePtr createResponse(const jsonrpc::MessageId& id, const T& result)
+	{
 		return jsonrpc::createResponse(id, toJson(result));
 	}
 
@@ -125,13 +130,15 @@ private:
 	public:
 		std::future<T> future(){ return m_promise.get_future(); }
 
-		void setValueFromJson(const json::Any& json) override{
+		void setValueFromJson(const json::Any& json) override
+		{
 			T value;
 			fromJson(json, value);
 			m_promise.set_value(std::move(value));
 		}
 
-		void setException(std::exception_ptr e) override{
+		void setException(std::exception_ptr e) override
+		{
 			m_promise.set_exception(e);
 		}
 
@@ -142,8 +149,10 @@ private:
 
 template<typename MessageType>
 requires HasParams<MessageType> && (!HasResult<MessageType>)
-MessageHandler& MessageHandler::add(const std::function<void(const typename MessageType::Params&)>& handlerFunc){
-	addHandler(MessageType::MessageMethod, [handlerFunc](const jsonrpc::MessageId&, const json::Any& json){
+MessageHandler& MessageHandler::add(const std::function<void(const typename MessageType::Params&)>& handlerFunc)
+{
+	addHandler(MessageType::MessageMethod, [handlerFunc](const jsonrpc::MessageId&, const json::Any& json)
+	{
 		typename MessageType::Params params;
 		fromJson(json, params);
 		handlerFunc(params);
@@ -155,8 +164,10 @@ MessageHandler& MessageHandler::add(const std::function<void(const typename Mess
 
 template<typename MessageType>
 requires HasParams<MessageType> && HasResult<MessageType>
-MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result(const typename MessageType::Params&)>& handlerFunc){
-	addHandler(MessageType::MessageMethod, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any& json){
+MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result(const typename MessageType::Params&)>& handlerFunc)
+{
+	addHandler(MessageType::MessageMethod, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any& json)
+	{
 		typename MessageType::Params params;
 		fromJson(json, params);
 		return createResponse(id, handlerFunc(params));
@@ -167,8 +178,10 @@ MessageHandler& MessageHandler::add(const std::function<typename MessageType::Re
 
 template<typename MessageType>
 requires HasResult<MessageType> && (!HasParams<MessageType>)
-MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result()>& handlerFunc){
-	addHandler(MessageType::MessageMethod, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any&){
+MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result()>& handlerFunc)
+{
+	addHandler(MessageType::MessageMethod, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any&)
+	{
 		return createResponse(id, handlerFunc());
 	});
 
@@ -177,8 +190,10 @@ MessageHandler& MessageHandler::add(const std::function<typename MessageType::Re
 
 template<typename MessageType>
 requires (!HasParams<MessageType>) && (!HasResult<MessageType>)
-MessageHandler& MessageHandler::add(const std::function<void()>& handlerFunc){
-	addHandler(MessageType::MessageMethod, [handlerFunc](const jsonrpc::MessageId&, const json::Any&){
+MessageHandler& MessageHandler::add(const std::function<void()>& handlerFunc)
+{
+	addHandler(MessageType::MessageMethod, [handlerFunc](const jsonrpc::MessageId&, const json::Any&)
+	{
 		handlerFunc();
 		return nullptr;
 	});
@@ -188,7 +203,8 @@ MessageHandler& MessageHandler::add(const std::function<void()>& handlerFunc){
 
 template<typename MessageType>
 requires HasParams<MessageType> && HasResult<MessageType>
-std::future<typename MessageType::Result> MessageHandler::sendRequest(const typename MessageType::Params& params){
+std::future<typename MessageType::Result> MessageHandler::sendRequest(const typename MessageType::Params& params)
+{
 	auto result = std::make_unique<ResponseResult<typename MessageType::Result>>();
 	auto future = result->future();
 	sendRequest(MessageType::MessageMethod, std::move(result), toJson(params));
@@ -197,7 +213,8 @@ std::future<typename MessageType::Result> MessageHandler::sendRequest(const type
 
 template<typename MessageType>
 requires HasResult<MessageType> && (!HasParams<MessageType>)
-std::future<typename MessageType::Result> MessageHandler::sendRequest(){
+std::future<typename MessageType::Result> MessageHandler::sendRequest()
+{
 	auto result = std::make_unique<ResponseResult<typename MessageType::Result>>();
 	auto future = result->future();
 	sendRequest(MessageType::MessageMethod, std::move(result));

@@ -4,7 +4,8 @@
 
 namespace lsp::util{
 
-std::string FileURI::toString() const{
+std::string FileURI::toString() const
+{
 	std::string result{Scheme};
 #ifdef _WIN32
 	result += "/" + util::str::replace(m_path, ":", "%3A");
@@ -14,7 +15,8 @@ std::string FileURI::toString() const{
 	return result;
 }
 
-FileURI FileURI::fromString(std::string_view str){
+FileURI FileURI::fromString(std::string_view str)
+{
 	FileURI result;
 
 	str = str::trimView(str);
@@ -25,27 +27,35 @@ FileURI FileURI::fromString(std::string_view str){
 #ifdef _WIN32
 		 && idx != 1 // Ignore the colon after the drive letter
 #endif
-	){
-		if(str.starts_with(Scheme) && str.size() > Scheme.size()){
+	)
+	{
+		if(str.starts_with(Scheme) && str.size() > Scheme.size())
+		{
 #ifdef _WIN32
 			result.m_path = decode(str.substr(Scheme.size() + 1)); // Skip leading '/'
 #else
 			result.m_path = decode(str.substr(Scheme.size()));
 #endif
 		}
-	}else{
+	}
+	else
+	{
 		result.m_path = decode(str);
 	}
 
 	return result;
 }
 
-std::string FileURI::decode(std::string_view encoded){
+std::string FileURI::decode(std::string_view encoded)
+{
 	std::string decoded;
 
-	for(size_t i = 0; i < encoded.size(); ++i){
-		if(encoded[i] == '%'){
-			if(i + 2 < encoded.size()){
+	for(size_t i = 0; i < encoded.size(); ++i)
+	{
+		if(encoded[i] == '%')
+		{
+			if(i + 2 < encoded.size())
+			{
 				const char* start = &encoded[i + 1];
 				const char* end = &encoded[i + 3];
 
@@ -57,10 +67,14 @@ std::string FileURI::decode(std::string_view encoded){
 
 				decoded += c;
 				i += 2;
-			}else{
+			}
+			else
+			{
 				return {};
 			}
-		}else{
+		}
+		else
+		{
 			decoded += encoded[i];
 		}
 	}

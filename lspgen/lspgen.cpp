@@ -45,7 +45,8 @@ STRING(values)
 
 };
 
-std::string extractDocumentation(const json::Object& json){
+std::string extractDocumentation(const json::Object& json)
+{
 	if(json.contains("documentation"))
 		return json.get<json::String>(strings::documentation);
 
@@ -71,7 +72,8 @@ struct Type{
 		BooleanLiteral
 	};
 
-	static constexpr std::string_view TypeCategoryStrings[] = {
+	static constexpr std::string_view TypeCategoryStrings[] =
+	{
 		"base",
 		"reference",
 		"array",
@@ -88,8 +90,10 @@ struct Type{
 	virtual Category category() const = 0;
 	virtual void extract(const json::Object& json) = 0;
 
-	static Category categoryFromString(std::string_view str){
-		for(std::size_t i = 0; i < std::size(TypeCategoryStrings); ++i){
+	static Category categoryFromString(std::string_view str)
+	{
+		for(std::size_t i = 0; i < std::size(TypeCategoryStrings); ++i)
+		{
 			if(TypeCategoryStrings[i] == str)
 				return static_cast<Type::Category>(i);
 		}
@@ -98,17 +102,20 @@ struct Type{
 	}
 
 	template<typename T>
-	bool isA() const{
+	bool isA() const
+	{
 		return dynamic_cast<const T*>(this) != nullptr;
 	}
 
 	template<typename T>
-	T& as(){
+	T& as()
+	{
 		return dynamic_cast<T&>(*this);
 	}
 
 	template<typename T>
-	const T& as() const{
+	const T& as() const
+	{
 		return dynamic_cast<const T&>(*this);
 	}
 
@@ -129,7 +136,8 @@ struct BaseType : Type{
 		MAX
 	};
 
-	static constexpr std::string_view BaseTypeStrings[] = {
+	static constexpr std::string_view BaseTypeStrings[] =
+	{
 		"boolean",
 		"string",
 		"integer",
@@ -145,12 +153,15 @@ struct BaseType : Type{
 
 	Category category() const override{ return Category::Base; }
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		kind = kindFromString(json.get<json::String>(strings::name));
 	}
 
-	static Kind kindFromString(std::string_view str){
-		for(std::size_t i = 0; i < std::size(BaseTypeStrings); ++i){
+	static Kind kindFromString(std::string_view str)
+	{
+		for(std::size_t i = 0; i < std::size(BaseTypeStrings); ++i)
+		{
 			if(BaseTypeStrings[i] == str)
 				return static_cast<Kind>(i);
 		}
@@ -164,7 +175,8 @@ struct ReferenceType : Type{
 
 	Category category() const override{ return Category::Reference; }
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		name = json.get<json::String>(strings::name);
 	}
 };
@@ -174,7 +186,8 @@ struct ArrayType : Type{
 
 	Category category() const override{ return Category::Array; }
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		const auto& elementTypeJson = json.get<json::Object>(strings::element);
 		elementType = createFromJson(elementTypeJson);
 	}
@@ -184,7 +197,8 @@ struct MapType : Type{
 	TypePtr keyType;
 	TypePtr valueType;
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		keyType = createFromJson(json.get<json::Object>(strings::key));
 		valueType = createFromJson(json.get<json::Object>(strings::value));
 	}
@@ -195,7 +209,8 @@ struct MapType : Type{
 struct AndType : Type{
 	std::vector<TypePtr> typeList;
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		const auto& items = json.get<json::Array>(strings::items);
 		typeList.reserve(items.size());
 
@@ -217,7 +232,8 @@ struct OrType : Type{
 struct TupleType : Type{
 	std::vector<TypePtr> typeList;
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		const auto& items = json.get<json::Array>(strings::items);
 		typeList.reserve(items.size());
 
@@ -238,12 +254,14 @@ struct StructureProperty{
 struct StructureLiteralType : Type{
 	std::vector<StructureProperty> properties;
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		const auto& value = json.get<json::Object>(strings::value);
 		const auto& propertiesJson = value.get<json::Array>(strings::properties);
 		properties.reserve(propertiesJson.size());
 
-		for(const auto& p : propertiesJson){
+		for(const auto& p : propertiesJson)
+		{
 			const auto& obj = p.get<json::Object>();
 			auto& property = properties.emplace_back();
 
@@ -260,13 +278,15 @@ struct StructureLiteralType : Type{
 	Category category() const override{ return Category::StructureLiteral; }
 };
 
-void OrType::extract(const json::Object& json){
+void OrType::extract(const json::Object& json)
+{
 	const auto& items = json.get<json::Array>(strings::items);
 	typeList.reserve(items.size());
 
 	std::vector<std::unique_ptr<Type>> structureLiterals;
 
-	for(const auto& item : items){
+	for(const auto& item : items)
+	{
 		auto type = createFromJson(item.get<json::Object>());
 
 		if(type->isA<StructureLiteralType>())
@@ -277,21 +297,26 @@ void OrType::extract(const json::Object& json){
 
 	// Merge consecutive identical struct literals where the only difference is whether properties are optional or not
 
-	for(std::size_t i = 1; i < structureLiterals.size(); ++i){
+	for(std::size_t i = 1; i < structureLiterals.size(); ++i)
+	{
 		auto& first = structureLiterals[i - 1]->as<StructureLiteralType>();
 		const auto& second = structureLiterals[i]->as<StructureLiteralType>();
 
-		if(first.properties.size() == second.properties.size()){
+		if(first.properties.size() == second.properties.size())
+		{
 			bool propertiesEqual = true;
 
-			for(std::size_t p = 0; p < first.properties.size(); ++p){
-				if(first.properties[p].name != second.properties[p].name){
+			for(std::size_t p = 0; p < first.properties.size(); ++p)
+			{
+				if(first.properties[p].name != second.properties[p].name)
+				{
 					propertiesEqual = false;
 					break;
 				}
 			}
 
-			if(propertiesEqual){
+			if(propertiesEqual)
+			{
 				for(std::size_t p = 0; p < first.properties.size(); ++p)
 					first.properties[p].isOptional |= second.properties[p].isOptional;
 
@@ -311,7 +336,8 @@ void OrType::extract(const json::Object& json){
 struct StringLiteralType : Type{
 	std::string stringValue;
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		stringValue = static_cast<json::String>(json.get<json::String>(strings::value));
 	}
 
@@ -321,7 +347,8 @@ struct StringLiteralType : Type{
 struct IntegerLiteralType : Type{
 	json::Integer integerValue = 0;
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		integerValue = static_cast<json::Integer>(json.get(strings::value).numberValue());
 	}
 
@@ -331,18 +358,21 @@ struct IntegerLiteralType : Type{
 struct BooleanLiteralType : Type{
 	bool booleanValue = false;
 
-	void extract(const json::Object& json) override{
+	void extract(const json::Object& json) override
+	{
 		booleanValue = json.get<json::Boolean>(strings::value);
 	}
 
 	Category category() const override{ return Category::BooleanLiteral; }
 };
 
-TypePtr Type::createFromJson(const json::Object& json){
+TypePtr Type::createFromJson(const json::Object& json)
+{
 	TypePtr result;
 	auto category = categoryFromString(json.get<json::String>(strings::kind));
 
-	switch(category){
+	switch(category)
+	{
 	case Base:
 		result = std::make_unique<BaseType>();
 		break;
@@ -403,14 +433,16 @@ struct Enumeration{
 	std::string        documentation;
 	bool               supportsCustomValues = false;
 
-	void extract(const json::Object& json){
+	void extract(const json::Object& json)
+	{
 		name = json.get<json::String>(strings::name);
 		const auto& typeJson = json.get<json::Object>(strings::type);
 		type = Type::createFromJson(typeJson);
 		const auto& valuesJson = json.get<json::Array>(strings::values);
 		values.reserve(valuesJson.size());
 
-		for(const auto& v : valuesJson){
+		for(const auto& v : valuesJson)
+		{
 			const auto& obj = v.get<json::Object>();
 			auto& enumValue = values.emplace_back();
 			enumValue.name = obj.get<json::String>(strings::name);
@@ -424,13 +456,17 @@ struct Enumeration{
 			supportsCustomValues = json.get<bool>(strings::supportsCustomValues);
 
 		// Sort values so they can be more efficiently searched
-		std::sort(values.begin(), values.end(), [this](const Value& lhs, const Value& rhs){
-			if(lhs.value.isString()){
+		std::sort(values.begin(), values.end(), [this](const Value& lhs, const Value& rhs)
+		{
+			if(lhs.value.isString())
+			{
 				if(!rhs.value.isString())
 					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
 
 				return lhs.value.get<json::String>() < rhs.value.get<json::String>();
-			}else if(lhs.value.isNumber()){
+			}
+			else if(lhs.value.isNumber())
+			{
 				if(!rhs.value.isNumber())
 					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
 
@@ -449,12 +485,14 @@ struct Structure{
 	std::vector<TypePtr>  mixins;
 	std::string           documentation;
 
-	void extract(const json::Object& json){
+	void extract(const json::Object& json)
+	{
 		name = json.get<json::String>(strings::name);
 		const auto& propertiesJson = json.get<json::Array>(strings::properties);
 		properties.reserve(propertiesJson.size());
 
-		for(const auto& p : propertiesJson){
+		for(const auto& p : propertiesJson)
+		{
 			const auto& obj = p.get<json::Object>();
 			auto& property = properties.emplace_back();
 			property.name = obj.get<json::String>(strings::name);
@@ -466,7 +504,8 @@ struct Structure{
 			property.documentation = extractDocumentation(obj);
 		}
 
-		if(json.contains(strings::extends)){
+		if(json.contains(strings::extends))
+		{
 			const auto& extendsJson = json.get<json::Array>(strings::extends);
 			extends.reserve(extendsJson.size());
 
@@ -474,7 +513,8 @@ struct Structure{
 				extends.push_back(Type::createFromJson(e.get<json::Object>()));
 		}
 
-		if(json.contains(strings::mixins)){
+		if(json.contains(strings::mixins))
+		{
 			const auto& mixinsJson = json.get<json::Array>(strings::mixins);
 			mixins.reserve(mixinsJson.size());
 
@@ -491,7 +531,8 @@ struct TypeAlias{
 	TypePtr     type;
 	std::string documentation;
 
-	void extract(const json::Object& json){
+	void extract(const json::Object& json)
+	{
 		name = json.get<json::String>(strings::name);
 		type = Type::createFromJson(json.get<json::Object>(strings::type));
 		documentation = extractDocumentation(json);
@@ -511,7 +552,8 @@ struct Message{
 	std::string paramsTypeName;
 	std::string resultTypeName;
 
-	static std::string memberTypeName(const json::Object& json, const std::string& key){
+	static std::string memberTypeName(const json::Object& json, const std::string& key)
+	{
 		if(!json.contains(key))
 			return {};
 
@@ -523,7 +565,8 @@ struct Message{
 		return json.get<json::String>(strings::method) + util::str::capitalize(key);
 	}
 
-	void extract(const json::Object& json){
+	void extract(const json::Object& json)
+	{
 		documentation = extractDocumentation(json);
 		const auto& dir = json.get<json::String>("messageDirection");
 
@@ -545,15 +588,19 @@ class MetaModel{
 public:
 	MetaModel() = default;
 
-	void extract(const json::Object& json){
+	void extract(const json::Object& json)
+	{
 		extractMetaData(json);
 		extractTypes(json);
 		extractMessages(json);
 	}
 
-	std::variant<const Enumeration*, const Structure*, const TypeAlias*> typeForName(std::string_view name) const{
-		if(auto it = m_typesByName.find(std::string{name}); it != m_typesByName.end()){
-			switch(it->second.type){
+	std::variant<const Enumeration*, const Structure*, const TypeAlias*> typeForName(std::string_view name) const
+	{
+		if(auto it = m_typesByName.find(std::string{name}); it != m_typesByName.end())
+		{
+			switch(it->second.type)
+			{
 			case Type::Enumeration:
 				return &m_enumerations[it->second.index];
 			case Type::Structure:
@@ -571,7 +618,8 @@ public:
 		Notification
 	};
 
-	const std::map<std::string, Message>& messagesByName(MessageType type) const{
+	const std::map<std::string, Message>& messagesByName(MessageType type) const
+	{
 		if(type == MessageType::Request)
 			return m_requestsByMethod;
 
@@ -611,26 +659,31 @@ private:
 	std::map<std::string, Message>             m_requestsByMethod;
 	std::map<std::string, Message>             m_notificationsByMethod;
 
-	void extractMetaData(const json::Object& json){
+	void extractMetaData(const json::Object& json)
+	{
 		const auto& metaDataJson = json.get<json::Object>("metaData");
 		m_metaData.version = metaDataJson.get<json::String>("version");
 	}
 
-	void extractTypes(const json::Object& json){
+	void extractTypes(const json::Object& json)
+	{
 		extractEnumerations(json);
 		extractStructures(json);
 		extractTypeAliases(json);
 	}
 
-	void extractMessages(const json::Object& json){
+	void extractMessages(const json::Object& json)
+	{
 		extractRequests(json);
 		extractNotifications(json);
 	}
 
-	void extractRequests(const json::Object& json){
+	void extractRequests(const json::Object& json)
+	{
 		const auto& requests = json.get<json::Array>("requests");
 
-		for(const auto& r : requests){
+		for(const auto& r : requests)
+		{
 			const auto& obj = r.get<json::Object>();
 			const auto& method = obj.get<json::String>(strings::method);
 
@@ -641,10 +694,12 @@ private:
 		}
 	}
 
-	void extractNotifications(const json::Object& json){
+	void extractNotifications(const json::Object& json)
+	{
 		const auto& notifications = json.get<json::Array>("notifications");
 
-		for(const auto& r : notifications){
+		for(const auto& r : notifications)
+		{
 			const auto& obj = r.get<json::Object>();
 			const auto& method = obj.get<json::String>(strings::method);
 
@@ -655,7 +710,8 @@ private:
 		}
 	}
 
-	void insertType(const std::string& name, Type type, std::size_t index){
+	void insertType(const std::string& name, Type type, std::size_t index)
+	{
 		if(m_typesByName.contains(name))
 			throw std::runtime_error{"Duplicate type '" + name + '\"'};
 
@@ -663,33 +719,40 @@ private:
 		m_typeNames.push_back(it->first);
 	}
 
-	void extractEnumerations(const json::Object& json){
+	void extractEnumerations(const json::Object& json)
+	{
 		const auto& enumerations = json.get<json::Array>("enumerations");
 
 		m_enumerations.resize(enumerations.size());
 
-		for(std::size_t i = 0; i < enumerations.size(); ++i){
+		for(std::size_t i = 0; i < enumerations.size(); ++i)
+		{
 			m_enumerations[i].extract(enumerations[i].get<json::Object>());
 			insertType(m_enumerations[i].name, Type::Enumeration, i);
 		}
 	}
 
-	void extractStructures(const json::Object& json){
+	void extractStructures(const json::Object& json)
+	{
 		const auto& structures = json.get<json::Array>("structures");
 
 		m_structures.resize(structures.size());
 
-		for(std::size_t i = 0; i < structures.size(); ++i){
+		for(std::size_t i = 0; i < structures.size(); ++i)
+		{
 			m_structures[i].extract(structures[i].get<json::Object>());
 			insertType(m_structures[i].name, Type::Structure, i);
 		}
 	}
 
-	void addTypeAlias(const json::Object& json, const std::string& key, const std::string& typeBaseName){
-		if(json.contains(key)){
+	void addTypeAlias(const json::Object& json, const std::string& key, const std::string& typeBaseName)
+	{
+		if(json.contains(key))
+		{
 			const auto& typeJson = json.get<json::Object>(key);
 
-			if(typeJson.get<json::String>(strings::kind) != "reference"){
+			if(typeJson.get<json::String>(strings::kind) != "reference")
+			{
 				auto& alias = m_typeAliases.emplace_back();
 				alias.name = typeBaseName + util::str::capitalize(key);
 				alias.type = ::Type::createFromJson(typeJson);
@@ -699,12 +762,14 @@ private:
 		}
 	}
 
-	void extractTypeAliases(const json::Object& json){
+	void extractTypeAliases(const json::Object& json)
+	{
 		const auto& typeAliases = json.get<json::Array>("typeAliases");
 
 		m_typeAliases.resize(typeAliases.size());
 
-		for(std::size_t i = 0; i < typeAliases.size(); ++i){
+		for(std::size_t i = 0; i < typeAliases.size(); ++i)
+		{
 			m_typeAliases[i].extract(typeAliases[i].get<json::Object>());
 			insertType(m_typeAliases[i].name, Type::TypeAlias, i);
 		}
@@ -713,7 +778,8 @@ private:
 
 		const auto& requests = json.get<json::Array>("requests");
 
-		for(const auto& r : requests){
+		for(const auto& r : requests)
+		{
 			const auto& obj = r.get<json::Object>();
 			const auto& typeBaseName = obj.get<json::String>(strings::method);
 
@@ -725,7 +791,8 @@ private:
 
 		const auto& notifications = json.get<json::Array>("notifications");
 
-		for(const auto& n : notifications){
+		for(const auto& n : notifications)
+		{
 			const auto& obj = n.get<json::Object>();
 			const auto& typeBaseName = obj.get<json::String>(strings::method);
 			addTypeAlias(obj, strings::params, typeBaseName);
@@ -780,7 +847,8 @@ R"(#include "types.h"
 #include <iterator>
 #include <algorithm>
 
-namespace lsp::types{
+namespace lsp::types {
+
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -790,7 +858,8 @@ namespace lsp::types{
 #endif
 
 template<typename E, typename D, typename T>
-static E findEnumValue(const D* values, const T& value){
+static E findEnumValue(const D* values, const T& value)
+{
 	auto begin = values;
 	auto end = values + static_cast<int>(E::MAX_VALUE);
 	auto it = std::lower_bound(begin, end, value);
@@ -843,11 +912,13 @@ namespace lsp::messages{
 
 static constexpr const char* MessagesSourceEnd =
 R"(
-std::string_view methodToString(Method method){
+std::string_view methodToString(Method method)
+{
 	return MethodStrings[static_cast<int>(method)];
 }
 
-Method methodFromString(std::string_view str){
+Method methodFromString(std::string_view str)
+{
 	auto it = MethodsByString.find(str);
 
 	if(it != MethodsByString.end())
@@ -859,16 +930,19 @@ Method methodFromString(std::string_view str){
 } // namespace lsp::messages
 )";
 
-class CppGenerator{
+class CppGenerator
+{
 public:
 	CppGenerator(const MetaModel* metaModel) : m_metaModel{*metaModel}{}
 
-	void generate(){
+	void generate()
+	{
 		generateTypes();
 		generateMessages();
 	}
 
-	void writeFiles(){
+	void writeFiles()
+	{
 		writeFile("types.h", m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent);
 		writeFile("types.cpp", m_typesSourceFileContent + m_typesBoilerPlateSourceFileContent);
 		writeFile("messages.h", m_messagesHeaderFileContent);
@@ -887,7 +961,8 @@ private:
 	std::unordered_set<std::string_view>         m_typesBeingProcessed;
 	std::unordered_map<const Type*, std::string> m_generatedTypeNames;
 
-	struct CppBaseType{
+	struct CppBaseType
+	{
 		std::string data;
 		std::string constData;
 		std::string param;
@@ -897,7 +972,8 @@ private:
 	static const CppBaseType s_baseTypeMapping[BaseType::MAX];
 	static const CppBaseType s_stringBaseType;
 
-	void generateTypes(){
+	void generateTypes()
+	{
 		m_processedTypes = {"LSPArray", "LSPObject", "LSPAny"};
 		m_typesBeingProcessed = {};
 		m_typesHeaderFileContent = util::str::replace(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version);
@@ -914,7 +990,8 @@ private:
 		m_typesBoilerPlateSourceFileContent += "} // namespace lsp\n";
 	}
 
-	void generateMessages(){
+	void generateMessages()
+	{
 		// Message method enum
 
 		m_messagesHeaderFileContent = std::string{MessagesHeaderBegin} + "enum class Method{\n"
@@ -922,14 +999,17 @@ private:
 		                              "\t// Requests\n\n";
 		m_messagesSourceFileContent = std::string{MessagesSourceBegin} + "static constexpr std::string_view MethodStrings[static_cast<int>(Method::MAX_VALUE)] = {\n";
 
-		std::string messageMethodsByString = "static auto methodStringPair(Method method){\n"
+		std::string messageMethodsByString = "static auto methodStringPair(Method method)"
+		                                     "{\n"
 		                                     "\treturn std::make_pair(MethodStrings[static_cast<int>(method)], method);\n"
 		                                     "}\n\n"
 		                                     "static const util::str::UnorderedMap<std::string_view, Method> MethodsByString = {\n";
-		std::string messageCreateFromMethod = "MessagePtr createFromMethod(messages::Method method){\n"
+		std::string messageCreateFromMethod = "MessagePtr createFromMethod(messages::Method method)"
+		                                      "{\n"
 		                                      "\tswitch(method){\n";
 
-		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request)){
+		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
+		{
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
@@ -940,7 +1020,8 @@ private:
 
 		m_messagesHeaderFileContent += "\n\t// Notifications\n\n";
 
-		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification)){
+		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
+		{
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
@@ -979,13 +1060,15 @@ private:
 		m_messagesSourceFileContent += MessagesSourceEnd;
 	}
 
-	void generateMessage(const std::string& method, const Message& message, bool isNotification){
+	void generateMessage(const std::string& method, const Message& message, bool isNotification)
+	{
 		auto messageCppName = upperCaseIdentifier(method);
 
 		m_messagesHeaderFileContent += documentationComment(method, message.documentation) +
 		                               "struct " + messageCppName + " : ";
 
-		switch(message.direction){
+		switch(message.direction)
+		{
 		case Message::Direction::ClientToServer:
 			m_messagesHeaderFileContent += "ClientToServer";
 			break;
@@ -1023,22 +1106,26 @@ private:
 		m_messagesHeaderFileContent += "\n\tMethod method() const override;\n";
 		m_messagesSourceFileContent += "Method " + messageCppName + "::method() const{ return MessageMethod; }\n";
 
-		if(hasParams){
+		if(hasParams)
+		{
 			m_messagesHeaderFileContent += "\tvoid initParams(const json::Any& json) override;\n";
 			m_messagesSourceFileContent += "void " + messageCppName + "::initParams(const json::Any& json){ fromJson(json, params); }\n";
 		}
 
-		if(hasResult){
+		if(hasResult)
+		{
 			m_messagesHeaderFileContent += "\tvoid initResult(const json::Any& json) override;\n";
 			m_messagesSourceFileContent += "void " + messageCppName + "::initResult(const json::Any& json){ fromJson(json, result); }\n";
 		}
 
-		if(hasParams){
+		if(hasParams)
+		{
 			m_messagesHeaderFileContent += "\tjson::Any paramsJson() const override;\n";
 			m_messagesSourceFileContent += "json::Any " + messageCppName + "::paramsJson() const{ return toJson(params); }\n";
 		}
 
-		if(hasResult){
+		if(hasResult)
+		{
 			m_messagesHeaderFileContent += "\tjson::Any resultJson() const override;\n";
 			m_messagesSourceFileContent += "json::Any " + messageCppName + "::resultJson() const{ return toJson(result); }\n";
 		}
@@ -1046,19 +1133,22 @@ private:
 		m_messagesHeaderFileContent += "};\n\n";
 	}
 
-	static void writeFile(const std::string& name, std::string_view content){
+	static void writeFile(const std::string& name, std::string_view content)
+	{
 		std::ofstream file{name, std::ios::trunc | std::ios::binary};
 		file.write(content.data(), static_cast<std::streamsize>(content.size()));
 	}
 
-	static std::string upperCaseIdentifier(std::string_view str){
+	static std::string upperCaseIdentifier(std::string_view str)
+	{
 		if(str.starts_with('$'))
 			str.remove_prefix(1);
 
 		auto parts = util::str::splitView(str, "/", true);
 		auto id = util::str::join(parts, "_", [](auto&& s){ return util::str::capitalize(s); });
 
-		std::transform(id.cbegin(), id.cend(), id.begin(), [](char c){
+		std::transform(id.cbegin(), id.cend(), id.begin(), [](char c)
+		{
 			if(!std::isalnum(c) && c != '_')
 				return '_';
 
@@ -1068,19 +1158,23 @@ private:
 		return id;
 	}
 
-	static std::string lowerCaseIdentifier(std::string_view str){
+	static std::string lowerCaseIdentifier(std::string_view str)
+	{
 		return util::str::uncapitalize(str);
 	}
 
-	static std::string toJsonSig(const std::string& typeName){
+	static std::string toJsonSig(const std::string& typeName)
+	{
 		return "template<>\njson::Any toJson(const types::" + typeName + "& value)";
 	}
 
-	static std::string fromJsonSig(const std::string& typeName){
+	static std::string fromJsonSig(const std::string& typeName)
+	{
 		return "template<>\nvoid fromJson(const json::Any& json, types::" + typeName + "& value)";
 	}
 
-	static std::string documentationComment(const std::string& title, const std::string& documentation, int indentLevel = 0){
+	static std::string documentationComment(const std::string& title, const std::string& documentation, int indentLevel = 0)
+	{
 		std::string indent(indentLevel, '\t');
 		std::string comment = indent + "/*\n";
 
@@ -1089,13 +1183,16 @@ private:
 
 		auto documentationLines = util::str::splitView(documentation, "\n");
 
-		if(!documentationLines.empty()){
+		if(!documentationLines.empty())
+		{
 			if(!title.empty())
 				comment += indent + " *\n";
 
 			for(const auto& l : documentationLines)
 				comment += util::str::trimRight(indent + " * " + util::str::replace(util::str::replace(l, "/*", "/_*"), "*/", "*_/")) + '\n';
-		}else if(title.empty()){
+		}
+		else if(title.empty())
+		{
 		 return {};
 		}
 
@@ -1104,19 +1201,22 @@ private:
 		return comment;
 	}
 
-	void generateNamedType(std::string_view name){
+	void generateNamedType(std::string_view name)
+	{
 		if(m_processedTypes.contains(name))
 			return;
 
 		m_processedTypes.insert(name);
-		std::visit([this](const auto* ptr){
+		std::visit([this](const auto* ptr)
+		{
 			m_typesBeingProcessed.insert(ptr->name);
 			generate(*ptr);
 			m_typesBeingProcessed.erase(ptr->name);
 		}, m_metaModel.typeForName(name));
 	}
 
-	void generate(const Enumeration& enumeration){
+	void generate(const Enumeration& enumeration)
+	{
 		if(!enumeration.type->isA<BaseType>())
 			throw std::runtime_error{"Enumeration value type for '" + enumeration.name + "' must be a base type"};
 
@@ -1128,12 +1228,15 @@ private:
 		m_typesHeaderFileContent += documentationComment(enumerationCppName, enumeration.documentation);
 		std::string valueIndent;
 
-		if(enumeration.supportsCustomValues){
+		if(enumeration.supportsCustomValues)
+		{
 			m_typesHeaderFileContent += "class " + enumerationCppName + "{\n"
 			                            "public:\n"
 			                            "\tenum ValueIndex{\n";
 			valueIndent = "\t\t";
-		}else{
+		}
+		else
+		{
 			m_typesHeaderFileContent += "enum class " + enumerationCppName + "{\n";
 			valueIndent = "\t";
 		}
@@ -1141,13 +1244,15 @@ private:
 		m_typesSourceFileContent += "static constexpr " + baseType.constData + ' ' +
 		                            enumValuesVarName + "[static_cast<int>(" + enumerationCppName + "::MAX_VALUE)] = {\n";
 
-		if(auto it = enumeration.values.begin(); it != enumeration.values.end()){
+		if(auto it = enumeration.values.begin(); it != enumeration.values.end())
+		{
 			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) +
 			                            valueIndent + util::str::capitalize(it->name);
 			m_typesSourceFileContent += '\t' + json::stringify(it->value);
 			++it;
 
-			while(it != enumeration.values.end()){
+			while(it != enumeration.values.end())
+			{
 				m_typesHeaderFileContent += ",\n" + documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) + valueIndent + util::str::capitalize(it->name);
 				m_typesSourceFileContent += ",\n\t" + json::stringify(it->value);
 				++it;
@@ -1156,7 +1261,8 @@ private:
 
 		m_typesHeaderFileContent += ",\n" + valueIndent + "MAX_VALUE\n";
 
-		if(enumeration.supportsCustomValues){
+		if(enumeration.supportsCustomValues)
+		{
 			m_typesHeaderFileContent += "\t};\n\n"
 			                            "\t" + enumerationCppName + "() = default;\n" +
 			                            "\t" + enumerationCppName + "(ValueIndex index){ *this = index; }\n" +
@@ -1172,7 +1278,9 @@ private:
 			                            "\tValueIndex m_index = MAX_VALUE;\n"
 			                            "\t" + baseType.data + " m_value{};\n"
 			                            "};\n\n";
-		}else{
+		}
+		else
+		{
 			m_typesHeaderFileContent += "};\n\n";
 		}
 
@@ -1184,29 +1292,38 @@ private:
 		m_typesBoilerPlateHeaderFileContent += toJson + ";\n" +
 		                                       fromJson + ";\n";
 
-	  if(enumeration.supportsCustomValues){
-			m_typesSourceFileContent += enumerationCppName + "& " + enumerationCppName + "::operator=(ValueIndex index){\n"
+	  if(enumeration.supportsCustomValues)
+	  {
+			m_typesSourceFileContent += enumerationCppName + "& " + enumerationCppName + "::operator=(ValueIndex index)\n"
+			                            "{\n"
 			                            "\tassert(index < MAX_VALUE);\n"
 			                            "\tm_index = index;\n"
 			                            "\tm_value = " + enumValuesVarName + "[index];\n"
 			                            "\treturn *this;\n"
 			                            "}\n\n" +
-			                            enumerationCppName + "& " + enumerationCppName + "::operator=(" + baseType.param + " value){\n"
+			                            enumerationCppName + "& " + enumerationCppName + "::operator=(" + baseType.param + " value)\n"
+			                            "{\n"
 			                            "\tm_index = findEnumValue<" + enumerationCppName + "::ValueIndex>(" + enumValuesVarName + ", value);\n"
 			                            "\tm_value = value;\n"
 			                            "\treturn *this;\n"
 			                            "}\n\n";
-			m_typesBoilerPlateSourceFileContent += toJson + "{\n" +
+			m_typesBoilerPlateSourceFileContent += toJson + "\n"
+			                                       "{\n" +
 																	           "\treturn toJson(value.value());\n}\n\n" +
-																	           fromJson + "{\n"
+																	           fromJson + "\n"
+																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
 																	           "\tfromJson(json, jsonVal);\n"
 			                                       "\tvalue = jsonVal;\n"
 																	           "}\n\n";
-		}else{
-			m_typesBoilerPlateSourceFileContent += toJson + "{\n" +
+		}
+		else
+		{
+			m_typesBoilerPlateSourceFileContent += toJson + "\n"
+			                                       "{\n"
 																	           "\treturn toJson(types::" + enumValuesVarName + "[static_cast<int>(value)]);\n}\n\n" +
-																	           fromJson + "{\n"
+																	           fromJson + "\n"
+																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
 																	           "\tfromJson(json, jsonVal);\n"
 			                                       "\tvalue = types::findEnumValue<types::" + enumerationCppName + ">(types::" + enumValuesVarName + ", jsonVal);\n"
@@ -1216,12 +1333,16 @@ private:
 		}
 	}
 
-	bool isStringType(const TypePtr& type){
-		if(type->isA<BaseType>()){
+	bool isStringType(const TypePtr& type)
+	{
+		if(type->isA<BaseType>())
+		{
 			const auto& base = type->as<BaseType>();
 
 			return base.kind == BaseType::String || base.kind == BaseType::URI || base.kind == BaseType::DocumentUri || base.kind == BaseType::RegExp;
-		}else if(type->isA<ReferenceType>()){
+		}
+		else if(type->isA<ReferenceType>())
+		{
 			const auto& ref = type->as<ReferenceType>();
 			auto refType = m_metaModel.typeForName(ref.name);
 
@@ -1232,17 +1353,20 @@ private:
 		return false;
 	}
 
-	std::string cppTypeName(const Type& type, bool optional = false){
+	std::string cppTypeName(const Type& type, bool optional = false)
+	{
 		std::string typeName;
 
-		if(optional){
+		if(optional)
+		{
 			if(!type.isA<ReferenceType>() || !m_typesBeingProcessed.contains(type.as<ReferenceType>().name))
 				typeName = "std::optional<";
 			else
 				typeName = "std::unique_ptr<";
 		}
 
-		switch(type.category()){
+		switch(type.category())
+		{
 		case Type::Base:
 			typeName += s_baseTypeMapping[static_cast<int>(type.as<BaseType>().kind)].data;
 			break;
@@ -1250,7 +1374,8 @@ private:
 			typeName += upperCaseIdentifier(type.as<ReferenceType>().name);
 			break;
 		case Type::Array:
-			{
+
+		{
 				const auto& arrayType = type.as<ArrayType>();
 				if(arrayType.elementType->isA<ReferenceType>() && arrayType.elementType->as<ReferenceType>().name == "LSPAny")
 					typeName += "LSPArray";
@@ -1260,7 +1385,8 @@ private:
 				break;
 			}
 		case Type::Map:
-			{
+
+		{
 				const auto& keyType = type.as<MapType>().keyType;
 				const auto& valueType = type.as<MapType>().valueType;
 
@@ -1277,11 +1403,14 @@ private:
 			typeName += "LSPObject"; // TODO: Generate a proper and type should they ever actually be used by the LSP
 			break;
 		case Type::Or:
-			{
+
+		{
 				const auto& orType = type.as<OrType>();
 
-				if(orType.typeList.size() > 1){
-					auto nullType = std::find_if(orType.typeList.begin(), orType.typeList.end(), [](const TypePtr& type){
+				if(orType.typeList.size() > 1)
+				{
+					auto nullType = std::find_if(orType.typeList.begin(), orType.typeList.end(), [](const TypePtr& type)
+					{
 					                                                                               return type->isA<BaseType>() && type->as<BaseType>().kind == BaseType::Null;
 					                                                                             });
 					std::string cppOrType;
@@ -1293,7 +1422,8 @@ private:
 					else
 						cppOrType = "util::Nullable<";
 
-					if(auto it = orType.typeList.begin(); it != orType.typeList.end()){
+					if(auto it = orType.typeList.begin(); it != orType.typeList.end())
+					{
 						if(it == nullType)
 							++it;
 
@@ -1301,7 +1431,8 @@ private:
 						cppOrType += cppTypeName(**it);
 						++it;
 
-						while(it != orType.typeList.end()){
+						while(it != orType.typeList.end())
+						{
 							if(it != nullType)
 								cppOrType += ", " + cppTypeName(**it);
 
@@ -1312,7 +1443,9 @@ private:
 					cppOrType += '>';
 
 					typeName += cppOrType;
-				}else{
+				}
+				else
+				{
 					assert(!orType.typeList.empty());
 					typeName += cppTypeName(*orType.typeList[0]);
 				}
@@ -1320,15 +1453,18 @@ private:
 				break;
 			}
 		case Type::Tuple:
-			{
+
+		{
 				std::string cppTupleType = "std::tuple<";
 				const auto& tupleType = type.as<TupleType>();
 
-				if(auto it = tupleType.typeList.begin(); it != tupleType.typeList.end()){
+				if(auto it = tupleType.typeList.begin(); it != tupleType.typeList.end())
+				{
 					cppTupleType += cppTypeName(**it);
 					++it;
 
-					while(it != tupleType.typeList.end()){
+					while(it != tupleType.typeList.end())
+					{
 						cppTupleType += ", " + cppTypeName(**it);
 						++it;
 					}
@@ -1362,18 +1498,22 @@ private:
 		return typeName;
 	}
 
-	void generateAggregateTypeList(const std::vector<TypePtr>& typeList, const std::string& baseName){
+	void generateAggregateTypeList(const std::vector<TypePtr>& typeList, const std::string& baseName)
+	{
 		// Only append unique number to type name if there are multiple structure literals
 		auto structLiteralCount = std::count_if(typeList.begin(), typeList.end(), [](const TypePtr& type){ return type->isA<StructureLiteralType>(); });
 		int unique = 0;
-		for(const auto& t : typeList){
+		for(const auto& t : typeList)
+		{
 			generateType(t, baseName + (structLiteralCount > 1 ? std::to_string(unique) : ""));
 			unique += t->isA<StructureLiteralType>();
 		}
 	}
 
-	void generateType(const TypePtr& type, const std::string& baseName, bool alias = false){
-		switch(type->category()){
+	void generateType(const TypePtr& type, const std::string& baseName, bool alias = false)
+	{
+		switch(type->category())
+		{
 		case Type::Reference:
 			generateNamedType(type->as<ReferenceType>().name);
 			break;
@@ -1394,7 +1534,8 @@ private:
 			generateAggregateTypeList(type->as<TupleType>().typeList, baseName + (alias ? "_Element" : ""));
 			break;
 		case Type::StructureLiteral:
-			{
+
+		{
 				// HACK:
 				// Temporarily transfer ownership of property types to temporary structure so the same generator code can be used for structure literals.
 				auto& structureLiteral = type->as<StructureLiteralType>();
@@ -1416,17 +1557,22 @@ private:
 		}
 	}
 
-	void generateStructureProperties(const std::vector<StructureProperty>& properties, std::string& toJson, std::string& fromJson, std::vector<std::string>& requiredProperties){
-		for(const auto& p : properties){
+	void generateStructureProperties(const std::vector<StructureProperty>& properties, std::string& toJson, std::string& fromJson, std::vector<std::string>& requiredProperties)
+	{
+		for(const auto& p : properties)
+		{
 			std::string typeName = cppTypeName(*p.type, p.isOptional);
 
 			m_typesHeaderFileContent += documentationComment({}, p.documentation, 1) +
 			                            '\t' + typeName + ' ' + p.name + ";\n";
-			if(p.isOptional){
+			if(p.isOptional)
+			{
 				toJson += "\tif(value." + p.name + ")\n\t";
 				fromJson += "\tif(auto it = json.find(\"" + p.name + "\"); it != json.end())\n\t"
 				            "\tfromJson(it->second, value." + p.name + ");\n";
-			}else{
+			}
+			else
+			{
 				requiredProperties.push_back(p.name);
 				fromJson += "\tfromJson(json.get(\"" + p.name + "\"), value." + p.name + ");\n";
 			}
@@ -1435,11 +1581,13 @@ private:
 		}
 	}
 
-	void generate(const Structure& structure){
+	void generate(const Structure& structure)
+	{
 		std::string structureCppName = upperCaseIdentifier(structure.name);
 
 		// Make sure dependencies are generated first
-		{
+
+	{
 			for(const auto& e : structure.extends)
 				generateType(e, {});
 
@@ -1456,16 +1604,17 @@ private:
 		                            "struct " + structureCppName;
 
 		std::string propertiesToJson = "static void " + util::str::uncapitalize(structureCppName) + "ToJson("
-		                               "const " + structureCppName + "& value, json::Object& json){\n";
+		                               "const " + structureCppName + "& value, json::Object& json)\n{\n";
 		std::string propertiesFromJson = "static void " + util::str::uncapitalize(structureCppName) + "FromJson("
-		                                 "const json::Object& json, " + structureCppName + "& value){\n";
+		                                 "const json::Object& json, " + structureCppName + "& value)\n{\n";
 		std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<types::" + structureCppName + ">()";
 		std::vector<std::string> requiredPropertiesList;
-		std::string requiredProperties = requiredPropertiesSig + "{\n\tstatic const char* properties[] = {\n";
+		std::string requiredProperties = requiredPropertiesSig + "\n{\n\tstatic const char* properties[] = {\n";
 
 		// Add base classes
 
-		if(auto it = structure.extends.begin(); it != structure.extends.end()){
+		if(auto it = structure.extends.begin(); it != structure.extends.end())
+		{
 			const auto* extends = &(*it)->as<ReferenceType>();
 			m_typesHeaderFileContent += " : " + extends->name;
 			std::string lower = util::str::uncapitalize(extends->name);
@@ -1473,12 +1622,14 @@ private:
 			propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 			++it;
 
-			for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties){
+			for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties)
+			{
 				if(!p.isOptional)
 					requiredPropertiesList.push_back(p.name);
 			}
 
-			while(it != structure.extends.end()){
+			while(it != structure.extends.end())
+			{
 				extends = &(*it)->as<ReferenceType>();
 				m_typesHeaderFileContent += ", " + extends->name;
 				lower = util::str::uncapitalize(extends->name);
@@ -1486,7 +1637,8 @@ private:
 				propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 				++it;
 
-				for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties){
+				for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties)
+				{
 					if(!p.isOptional)
 						requiredPropertiesList.push_back(p.name);
 				}
@@ -1497,7 +1649,8 @@ private:
 
 		// Generate properties
 
-		for(const auto& m : structure.mixins){
+		for(const auto& m : structure.mixins)
+		{
 			if(!m->isA<ReferenceType>())
 				throw std::runtime_error{"Mixin type for '" + structure.name + "' must be a type reference"};
 
@@ -1524,7 +1677,8 @@ private:
 		std::string toJson = toJsonSig(structureCppName);
 		std::string fromJson = fromJsonSig(structureCppName);
 
-		if(!requiredPropertiesList.empty()){
+		if(!requiredPropertiesList.empty())
+		{
 			m_typesBoilerPlateHeaderFileContent += requiredPropertiesSig + ";\n";
 			m_typesBoilerPlateSourceFileContent += requiredProperties;
 		}
@@ -1532,18 +1686,21 @@ private:
 		m_typesBoilerPlateHeaderFileContent += toJson + ";\n" +
 		                                       fromJson + ";\n";
 		m_typesSourceFileContent += propertiesToJson + propertiesFromJson;
-		m_typesBoilerPlateSourceFileContent += toJson + "{\n"
+		m_typesBoilerPlateSourceFileContent += toJson + "\n"
+		                                       "{\n"
 		                                       "\tjson::Object obj;\n"
 		                                       "\ttypes::" + util::str::uncapitalize(structureCppName) + "ToJson(value, obj);\n"
 		                                       "\treturn obj;\n"
 		                                       "}\n\n" +
-		                                       fromJson + "{\n"
+		                                       fromJson + "\n"
+		                                       "{\n"
 		                                       "\tconst auto& obj = json.get<json::Object>();\n"
 		                                       "\ttypes::" + util::str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
 		                                       "}\n\n";
 	}
 
-	void generate(const TypeAlias& typeAlias){
+	void generate(const TypeAlias& typeAlias)
+	{
 		auto typeAliasCppName = upperCaseIdentifier(typeAlias.name);
 
 		generateType(typeAlias.type, typeAliasCppName, true);
@@ -1553,7 +1710,8 @@ private:
 	}
 };
 
-const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] = {
+const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] =
+{
 	{"bool", "bool", "bool", "bool"},
 	{"std::string", "std::string_view", "const std::string&", "const std::string&"},
 	{"int", "int", "int", "int"},
@@ -1565,8 +1723,10 @@ const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] = {
 	{"std::nullptr_t", "std::nullptr_t", "std::nullptr_t", "std::nullptr_t"}
 };
 
-int main(int argc, char** argv){
-	if(argc != 2){
+int main(int argc, char** argv)
+{
+	if(argc != 2)
+	{
 		std::cerr << "Expected the input file name as the first and only argument" << std::endl;
 		return EXIT_FAILURE;
 	}
@@ -1574,8 +1734,10 @@ int main(int argc, char** argv){
 	int ExitCode = EXIT_SUCCESS;
 	const char* inputFileName = argv[1];
 
-	if(std::ifstream in{inputFileName, std::ios::binary}){
-		try{
+	if(std::ifstream in{inputFileName, std::ios::binary})
+	{
+		try
+		{
 			in.seekg(0, std::ios::end);
 			std::streamsize size = in.tellg();
 			in.seekg(0, std::ios::beg);
@@ -1589,17 +1751,25 @@ int main(int argc, char** argv){
 			CppGenerator generator{&metaModel};
 			generator.generate();
 			generator.writeFiles();
-		}catch(const json::ParseError& e){
+		}
+		catch(const json::ParseError& e)
+		{
 			std::cerr << "JSON parse error at offset " << e.textPos() << ": " << e.what() << std::endl;
 			ExitCode = EXIT_FAILURE;
-		}catch(const std::exception& e){
+		}
+		catch(const std::exception& e)
+		{
 			std::cerr << "Error: " << e.what() << std::endl;
 			ExitCode = EXIT_FAILURE;
-		}catch(...){
+		}
+		catch(...)
+		{
 			std::cerr << "Unknown error" << std::endl;
 			ExitCode = EXIT_FAILURE;
 		}
-	}else{
+	}
+	else
+	{
 		std::cerr << "Failed to open " << inputFileName << std::endl;
 		ExitCode = EXIT_FAILURE;
 	}

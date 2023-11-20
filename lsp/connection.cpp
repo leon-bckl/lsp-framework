@@ -30,7 +30,8 @@ namespace{
  */
 
 #if ENABLE_DEBUG_MESSAGE_LOG
-void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Any& json){
+void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Any& json)
+{
 #ifdef __APPLE__
 	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, true)).c_str());
 #elif defined(_WIN32)
@@ -48,7 +49,8 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
 
-std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::receiveMessage(){
+std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::receiveMessage()
+{
 	std::lock_guard lock{m_readMutex};
 
 	if(m_in.peek() == std::char_traits<char>::eof())
@@ -68,7 +70,8 @@ std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::
 		throw ProtocolError{"Unsupported or invalid content type: " + header.contentType};
 
 	const std::string_view charsetKey{"charset="};
-	if(auto idx = contentType.find(charsetKey); idx != std::string_view::npos){
+	if(auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
+	{
 		auto charset = contentType.substr(idx + charsetKey.size());
 		charset = util::str::trimView(charset.substr(0, charset.find(';')));
 
@@ -83,11 +86,13 @@ std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::
 	return jsonrpc::messageFromJson(json);
 }
 
-void Connection::sendMessage(const jsonrpc::Message& message){
+void Connection::sendMessage(const jsonrpc::Message& message)
+{
 	writeJsonMessage(message.toJson());
 }
 
-void Connection::sendMessageBatch(const jsonrpc::MessageBatch& batch){
+void Connection::sendMessageBatch(const jsonrpc::MessageBatch& batch)
+{
 	json::Any content = json::Array{};
 	auto& array = content.get<json::Array>();
 	array.reserve(batch.size());
@@ -98,7 +103,8 @@ void Connection::sendMessageBatch(const jsonrpc::MessageBatch& batch){
 	writeJsonMessage(content);
 }
 
-void Connection::writeJsonMessage(const json::Any& content){
+void Connection::writeJsonMessage(const json::Any& content)
+{
 #if ENABLE_DEBUG_MESSAGE_LOG
 	debugLogMessageJson("outgoing", content);
 #endif
@@ -108,7 +114,8 @@ void Connection::writeJsonMessage(const json::Any& content){
 	writeMessage(contentStr);
 }
 
-void Connection::writeMessage(const std::string& content){
+void Connection::writeMessage(const std::string& content)
+{
 	std::lock_guard lock{m_writeMutex};
 	MessageHeader header{content.size()};
 	writeMessageHeader(header);
@@ -116,14 +123,16 @@ void Connection::writeMessage(const std::string& content){
 	m_out.flush();
 }
 
-void Connection::writeMessageHeader(const MessageHeader& header){
+void Connection::writeMessageHeader(const MessageHeader& header)
+{
 	assert(header.contentLength > 0);
 	assert(!header.contentType.empty());
 	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
 	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }
 
-Connection::MessageHeader Connection::readMessageHeader(){
+Connection::MessageHeader Connection::readMessageHeader()
+{
 	MessageHeader header;
 
 	while(m_in.peek() != '\r')
@@ -139,7 +148,8 @@ Connection::MessageHeader Connection::readMessageHeader(){
 	return header;
 }
 
-void Connection::readNextMessageHeaderField(MessageHeader& header){
+void Connection::readNextMessageHeaderField(MessageHeader& header)
+{
 	if(m_in.peek() == std::char_traits<char>::eof())
 		throw ConnectionError{"Connection lost"};
 
@@ -149,7 +159,8 @@ void Connection::readNextMessageHeaderField(MessageHeader& header){
 	std::string_view line{lineData};
 	std::size_t separatorIdx = line.find(':');
 
-	if(separatorIdx != std::string_view::npos){
+	if(separatorIdx != std::string_view::npos)
+	{
 		std::string_view key = util::str::trimView(line.substr(0, separatorIdx));
 		std::string_view value = util::str::trimView(line.substr(separatorIdx + 1));
 

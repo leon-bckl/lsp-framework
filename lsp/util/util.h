@@ -11,8 +11,10 @@ namespace tuple{
 namespace impl{
 
 template<typename T, typename F, int idx = std::tuple_size_v<typename std::decay<T>::type> - 1>
-struct Visitor{
-	void visit(T&& tuple, F&& f){
+struct Visitor
+{
+	void visit(T&& tuple, F&& f)
+	{
 		Visitor<T, F, idx - 1> visitor;
 		visitor.visit(std::forward<T>(tuple), std::forward<F>(f));
 		f(std::get<idx>(tuple), idx);
@@ -20,19 +22,21 @@ struct Visitor{
 };
 
 template<typename T, typename F>
-struct Visitor<T, F, -1>{
+struct Visitor<T, F, -1>
+{
 	void visit(T&&, F&&){}
 };
 
-}
+} // namespace impl
 
 template<typename T, typename F>
-void visit(T&& tuple, F&& f){
+void visit(T&& tuple, F&& f)
+{
 	impl::Visitor<T, F> visitor;
 	visitor.visit(std::forward<T>(tuple), std::forward<F>(f));
 }
 
-}
+} // namespace tuple
 
 namespace type{
 
@@ -60,5 +64,5 @@ struct IsTuple : std::false_type{};
 template<typename... Args>
 struct IsTuple<std::tuple<Args...>> : std::true_type{};
 
-}
-}
+} // namespace type
+} // namespace lsp::util
