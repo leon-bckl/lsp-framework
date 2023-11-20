@@ -18,16 +18,14 @@ jsonrpc::ResponsePtr MessageHandler::processRequest(const jsonrpc::Request& requ
 		return nullptr;
 	}
 
-	jsonrpc::MessageId id = json::Null{};
-
-	if(request.id.has_value()) // Notifications don't have an id
-		id = *request.id;
-
 	jsonrpc::ResponsePtr response;
 
 	try
 	{
-		response = m_requestHandlers[static_cast<std::size_t>(method)](id, request.params.has_value() ? *request.params : json::Null{});
+		response = m_requestHandlers[static_cast<std::size_t>(method)](
+			request.id.has_value() ? *request.id : json::Null{},
+			request.params.has_value() ? *request.params : json::Null{}
+		);
 	}
 	catch(const json::TypeError& e)
 	{
@@ -46,7 +44,6 @@ jsonrpc::ResponsePtr MessageHandler::processRequest(const jsonrpc::Request& requ
 void MessageHandler::processResponse(const jsonrpc::Response& response)
 {
 	ResponseResultPtr result;
-
 
 	{
 		std::lock_guard lock{m_requestMutex};
@@ -134,11 +131,11 @@ void MessageHandler::processIncomingMessages()
 	{
 		sendErrorMessage(types::ErrorCodes::InvalidRequest, std::string{"Message does not conform to the jsonrpc protocol: "} + e.what());
 	}
-	catch(ProtocolError& e)
+	catch(const ProtocolError& e)
 	{
 		sendErrorMessage(types::ErrorCodes::InvalidRequest, std::string{"Base protocol error: "} + e.what());
 	}
-	catch(ConnectionError&)
+	catch(const ConnectionError&)
 	{
 		throw;
 	}
