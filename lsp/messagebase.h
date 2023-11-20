@@ -6,15 +6,19 @@
 
 namespace lsp{
 
-namespace messages{
+struct Message;
+using MessagePtr = std::unique_ptr<Message>;
+
+namespace messages{ // Generated definitions
 enum class Method;
+std::string_view methodToString(Method method);
+Method methodFromString(std::string_view str);
+MessagePtr createFromMethod(messages::Method method);
 }
 
 /*
  * Message
  */
-
-using MessagePtr = std::unique_ptr<struct Message>;
 
 struct Message{
 	virtual ~Message() = default;
@@ -37,8 +41,6 @@ struct Message{
 	const T& as() const{
 		return dynamic_cast<T&>(*this);
 	}
-
-	static MessagePtr createFromMethod(messages::Method method); // generated implementation in messages.cpp
 };
 
 struct ClientToServerMessage : virtual Message{};

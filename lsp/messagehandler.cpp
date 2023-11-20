@@ -1,6 +1,5 @@
 #include "messagehandler.h"
 
-#include <lsp/messages.h>
 #include <lsp/connection.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 #include "error.h"
@@ -131,7 +130,6 @@ void MessageHandler::addHandler(messages::Method method, HandlerWrapper&& handle
 }
 
 void MessageHandler::sendRequest(messages::Method method, ResponseResultPtr result, const std::optional<json::Any>& params){
-	assert(method > messages::Method::INVALID && method < messages::Method::MAX_VALUE);
 	std::lock_guard lock{m_requestMutex};
 	auto id = m_uniqueRequestId++;
 	assert(!m_pendingRequests.contains(id));

@@ -824,9 +824,6 @@ R"(#pragma once
 
 namespace lsp::messages{
 
-std::string_view methodToString(Method method);
-Method methodFromString(std::string_view str);
-
 )";
 
 static constexpr const char* MessagesHeaderEnd =
@@ -845,7 +842,8 @@ namespace lsp::messages{
 )";
 
 static constexpr const char* MessagesSourceEnd =
-R"(std::string_view methodToString(Method method){
+R"(
+std::string_view methodToString(Method method){
 	return MethodStrings[static_cast<int>(method)];
 }
 
@@ -928,7 +926,7 @@ private:
 		                                     "\treturn std::make_pair(MethodStrings[static_cast<int>(method)], method);\n"
 		                                     "}\n\n"
 		                                     "static const util::str::UnorderedMap<std::string_view, Method> MethodsByString = {\n";
-		std::string messageCreateFromMethod = "MessagePtr Message::createFromMethod(messages::Method method){\n"
+		std::string messageCreateFromMethod = "MessagePtr createFromMethod(messages::Method method){\n"
 		                                      "\tswitch(method){\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request)){
@@ -951,6 +949,11 @@ private:
 			messageCreateFromMethod += "\t\treturn std::make_unique<messages::" + id + ">();\n";
 		}
 
+		messageCreateFromMethod += "\tdefault:\n"
+		                           "\t\treturn nullptr;\n"
+		                           "\t}\n"
+		                           "}\n\n";
+
 		m_messagesHeaderFileContent += "\tMAX_VALUE\n};\n\n";
 		m_messagesSourceFileContent.pop_back();
 		m_messagesSourceFileContent.pop_back();
@@ -958,11 +961,7 @@ private:
 		messageMethodsByString.pop_back();
 		messageMethodsByString.pop_back();
 		messageMethodsByString += "\n};\n\n";
-		m_messagesSourceFileContent += messageMethodsByString;
-		messageCreateFromMethod += "\tdefault:\n"
-		                           "\t\treturn nullptr;\n"
-		                           "\t}\n"
-		                           "}\n\n";
+		m_messagesSourceFileContent += messageMethodsByString + messageCreateFromMethod;
 
 		// Structs
 
@@ -977,7 +976,7 @@ private:
 			generateMessage(method, message, true);
 
 		m_messagesHeaderFileContent += MessagesHeaderEnd;
-		m_messagesSourceFileContent += std::string{MessagesSourceEnd} + "\nnamespace lsp{\n\n" + messageCreateFromMethod + "} // namespace lsp\n";
+		m_messagesSourceFileContent += MessagesSourceEnd;
 	}
 
 	void generateMessage(const std::string& method, const Message& message, bool isNotification){

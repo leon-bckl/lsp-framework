@@ -8,10 +8,13 @@
 #include <functional>
 #include <type_traits>
 #include <unordered_map>
-#include <lsp/messages.h>
+#include <lsp/messagebase.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
+namespace types{
+class ErrorCodes;
+}
 
 template<typename T>
 concept HasParams = requires{
