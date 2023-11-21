@@ -6,36 +6,42 @@
 
 namespace lsp{
 
-jsonrpc::ResponsePtr MessageHandler::processRequest(const jsonrpc::Request& request)
+std::optional<jsonrpc::Response> MessageHandler::processRequest(const jsonrpc::Request& request)
 {
 	auto method = messages::methodFromString(request.method);
+	std::optional<jsonrpc::Response> response;
 
-	if(!handlesRequest(method))
+	if(handlesRequest(method))
 	{
-		if(!request.isNotification())
-			return jsonrpc::createErrorResponse(*request.id, types::ErrorCodes::MethodNotFound, "Unsupported method: " + request.method, std::nullopt);
-
-		return nullptr;
+		try
+		{
+			// Call handler for the method type and return optional response
+			response = m_requestHandlers[static_cast<std::size_t>(method)](
+				request.id.has_value() ? *request.id : json::Null{},
+				request.params.has_value() ? *request.params : json::Null{}
+			);
+		}
+		catch(const json::TypeError& e)
+		{
+			if(!request.isNotification())
+			{
+				response = jsonrpc::createErrorResponse(
+				 *request.id, types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
+			}
+		}
+		catch(const RequestError& e)
+		{
+			if(!request.isNotification())
+			{
+				response = jsonrpc::createErrorResponse(
+				 *request.id, e.code(), e.what(), e.data());
+			}
+		}
 	}
-
-	jsonrpc::ResponsePtr response;
-
-	try
+	else if(!request.isNotification())
 	{
-		response = m_requestHandlers[static_cast<std::size_t>(method)](
-			request.id.has_value() ? *request.id : json::Null{},
-			request.params.has_value() ? *request.params : json::Null{}
-		);
-	}
-	catch(const json::TypeError& e)
-	{
-		if(!request.isNotification())
-			response = jsonrpc::createErrorResponse(*request.id, types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
-	}
-	catch(const RequestError& e)
-	{
-		if(!request.isNotification())
-			response = jsonrpc::createErrorResponse(*request.id, e.code(), e.what(), e.data());
+		response = jsonrpc::createErrorResponse(
+		 *request.id, types::ErrorCodes::MethodNotFound, "Unsupported method: " + request.method);
 	}
 
 	return response;
@@ -76,13 +82,13 @@ void MessageHandler::processResponse(const jsonrpc::Response& response)
 	}
 }
 
-jsonrpc::ResponsePtr MessageHandler::processMessage(const jsonrpc::Message& message)
+std::optional<jsonrpc::Response> MessageHandler::processMessage(const jsonrpc::Message& message)
 {
 	if(message.isRequest())
 		return processRequest(static_cast<const jsonrpc::Request&>(message));
 
 	processResponse(static_cast<const jsonrpc::Response&>(message));
-	return nullptr;
+	return std::nullopt;
 }
 
 jsonrpc::MessageBatch MessageHandler::processMessageBatch(const jsonrpc::MessageBatch& batch)
@@ -92,10 +98,10 @@ jsonrpc::MessageBatch MessageHandler::processMessageBatch(const jsonrpc::Message
 
 	for(const auto& m : batch)
 	{
-		jsonrpc::MessagePtr response = processMessage(*m);
+		auto response = processMessage(*m);
 
-		if(response)
-			responseBatch.push_back(std::move(response));
+		if(response.has_value())
+			responseBatch.push_back(std::make_unique<jsonrpc::Response>(std::move(*response)));
 	}
 
 	return responseBatch;
@@ -105,19 +111,18 @@ void MessageHandler::processIncomingMessages()
 {
 	try
 	{
-		auto result = m_connection.receiveMessage();
+		auto incoming = m_connection.receiveMessage();
 
-		if(std::holds_alternative<jsonrpc::MessagePtr>(result))
+		if(std::holds_alternative<jsonrpc::MessagePtr>(incoming))
 		{
-			const auto& message = std::get<jsonrpc::MessagePtr>(result);
-			auto response = processMessage(*message);
+			auto response = processMessage(*std::get<jsonrpc::MessagePtr>(incoming));
 
-			if(response)
+			if(response.has_value())
 				m_connection.sendMessage(*response);
 		}
 		else
 		{
-			auto responseBatch = processMessageBatch(std::get<jsonrpc::MessageBatch>(result));
+			auto responseBatch = processMessageBatch(std::get<jsonrpc::MessageBatch>(incoming));
 
 			if(!responseBatch.empty())
 				m_connection.sendMessageBatch(responseBatch);
@@ -169,18 +174,18 @@ void MessageHandler::sendRequest(messages::Method method, ResponseResultPtr resu
 	assert(!m_pendingRequests.contains(id));
 	m_pendingRequests[id] = std::move(result);
 	auto methodStr = messages::methodToString(method);
-	m_connection.sendMessage(*jsonrpc::createRequest(id, methodStr, params));
+	m_connection.sendMessage(jsonrpc::createRequest(id, methodStr, params));
 }
 
 void MessageHandler::sendNotification(messages::Method method, const std::optional<json::Any>& params)
 {
 	auto methodStr = std::string{messages::methodToString(method)};
-	m_connection.sendMessage(*jsonrpc::createNotification(methodStr, params));
+	m_connection.sendMessage(jsonrpc::createNotification(methodStr, params));
 }
 
 void MessageHandler::sendErrorMessage(types::ErrorCodes code, const std::string& message)
 {
-	m_connection.sendMessage(*jsonrpc::createErrorResponse(json::Null{}, code, message, std::nullopt));
+	m_connection.sendMessage(jsonrpc::createErrorResponse(json::Null{}, code, message, std::nullopt));
 }
 
 } // namespace lsp

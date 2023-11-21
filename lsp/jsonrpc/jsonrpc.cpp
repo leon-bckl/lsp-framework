@@ -180,40 +180,40 @@ std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json)
 	return batch;
 }
 
-RequestPtr createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params)
+Request createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params)
 {
-	auto request = std::make_unique<Request>();
-	request->id = id;
-	request->method = method;
-	request->params = params;
+	Request request;
+	request.id = id;
+	request.method = method;
+	request.params = params;
 
 	return request;
 }
 
-RequestPtr createNotification(std::string_view method, const std::optional<json::Any>& params)
+Request createNotification(std::string_view method, const std::optional<json::Any>& params)
 {
-	auto notification = std::make_unique<Request>();
-	notification->method = method;
-	notification->params = params;
+	Request notification;
+	notification.method = method;
+	notification.params = params;
 
 	return notification;
 }
 
-ResponsePtr createResponse(const MessageId& id, const json::Any& result)
+Response createResponse(const MessageId& id, const json::Any& result)
 {
-	auto response = std::make_unique<Response>();
-	response->id = id;
-	response->result = result;
+	Response response;
+	response.id = id;
+	response.result = result;
 
 	return response;
 }
 
-ResponsePtr createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data)
+Response createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data)
 {
-	auto response = std::make_unique<Response>();
-	response->id = id;
+	Response response;
+	response.id = id;
 
-	auto& error = response->error.emplace();
+	auto& error = response.error.emplace();
 	error.code = errorCode;
 	error.message = message;
 	error.data = data;

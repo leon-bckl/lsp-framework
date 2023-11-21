@@ -26,10 +26,11 @@ std::size_t textOffset(const char* start, const char* pos)
 
 class Parser{
 public:
-	Parser(std::string_view text) : m_start{text.data()},
-	                                m_end{text.data() + text.size()},
-	                                m_pos{m_start}
-	                                {
+	Parser(std::string_view text) :
+		m_start{text.data()},
+		m_end{text.data() + text.size()},
+		m_pos{m_start}
+	{
 		m_stateStack.reserve(10);
 	}
 
@@ -73,16 +74,14 @@ public:
 	}
 
 private:
-	enum class State
-	{
+	enum class State{
 		Value,
 		Object,
 		ObjectKey,
 		Array
 	};
 
-	struct StateStackEntry
-	{
+	struct StateStackEntry{
 		State context;
 		Any*    value;
 	};

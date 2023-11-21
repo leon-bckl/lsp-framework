@@ -68,9 +68,9 @@ namespace lsp::jsonrpc{
 	};
 
 	std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json);
-	RequestPtr createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params = std::nullopt);
-	RequestPtr createNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);
-	ResponsePtr createResponse(const MessageId& id, const json::Any& result);
-	ResponsePtr createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data = std::nullopt);
+	Request createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params = std::nullopt);
+	Request createNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);
+	Response createResponse(const MessageId& id, const json::Any& result);
+	Response createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data = std::nullopt);
 
 }

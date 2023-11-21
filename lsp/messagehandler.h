@@ -91,7 +91,7 @@ public:
 private:
 	class ResponseResultBase;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
-	using HandlerWrapper = std::function<jsonrpc::ResponsePtr(const jsonrpc::MessageId&, const json::Any&)>;
+	using HandlerWrapper = std::function<std::optional<jsonrpc::Response>(const jsonrpc::MessageId&, const json::Any&)>;
 
 	Connection&                                               m_connection;
 	std::vector<HandlerWrapper>                               m_requestHandlers;
@@ -99,9 +99,9 @@ private:
 	std::unordered_map<jsonrpc::MessageId, ResponseResultPtr> m_pendingRequests;
 	json::Integer                                             m_uniqueRequestId = 0;
 
-	jsonrpc::ResponsePtr processRequest(const jsonrpc::Request& request);
+	std::optional<jsonrpc::Response> processRequest(const jsonrpc::Request& request);
 	void processResponse(const jsonrpc::Response& response);
-	jsonrpc::ResponsePtr processMessage(const jsonrpc::Message& message);
+	std::optional<jsonrpc::Response> processMessage(const jsonrpc::Message& message);
 	jsonrpc::MessageBatch processMessageBatch(const jsonrpc::MessageBatch& batch);
 	void addHandler(messages::Method method, HandlerWrapper&& handlerFunc);
 	void sendRequest(messages::Method method, ResponseResultPtr result, const std::optional<json::Any>& params = std::nullopt);
@@ -109,7 +109,7 @@ private:
 	void sendErrorMessage(types::ErrorCodes code, const std::string& message);
 
 	template<typename T>
-	jsonrpc::ResponsePtr createResponse(const jsonrpc::MessageId& id, const T& result)
+	jsonrpc::Response createResponse(const jsonrpc::MessageId& id, const T& result)
 	{
 		return jsonrpc::createResponse(id, toJson(result));
 	}
@@ -156,7 +156,7 @@ MessageHandler& MessageHandler::add(const std::function<void(const typename Mess
 		typename MessageType::Params params;
 		fromJson(json, params);
 		handlerFunc(params);
-		return nullptr;
+		return std::nullopt;
 	});
 
 	return *this;
@@ -195,7 +195,7 @@ MessageHandler& MessageHandler::add(const std::function<void()>& handlerFunc)
 	addHandler(MessageType::MessageMethod, [handlerFunc](const jsonrpc::MessageId&, const json::Any&)
 	{
 		handlerFunc();
-		return nullptr;
+		return std::nullopt;
 	});
 
 	return *this;
