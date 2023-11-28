@@ -551,6 +551,8 @@ struct Message{
 	// Those should be omitted if the strings are empty
 	std::string paramsTypeName;
 	std::string resultTypeName;
+	std::string partialResultTypeName;
+	std::string registrationOptionsTypeName;
 
 	static std::string memberTypeName(const json::Object& json, const std::string& key)
 	{
@@ -581,6 +583,8 @@ struct Message{
 
 		paramsTypeName = memberTypeName(json, strings::params);
 		resultTypeName = memberTypeName(json, strings::result);
+		partialResultTypeName = memberTypeName(json, strings::partialResult);
+		registrationOptionsTypeName = memberTypeName(json, strings::registrationOptions);
 	}
 };
 
@@ -1006,7 +1010,7 @@ private:
 		                                     "static const util::str::UnorderedMap<std::string_view, Method> MethodsByString = {\n";
 		std::string messageCreateFromMethod = "MessagePtr createFromMethod(messages::Method method)"
 		                                      "{\n"
-		                                      "\tswitch(method){\n";
+		                                      "\tswitch(method)\n\t{\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 		{
@@ -1082,11 +1086,19 @@ private:
 		m_messagesHeaderFileContent += std::string{isNotification ? "Notification" : "Request"} + "{\n"
 		                               "\tstatic constexpr auto MessageMethod = Method::" + messageCppName + ";\n";
 
+		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
+		const bool hasPartialResult = !message.partialResultTypeName.empty();
 		const bool hasParams = !message.paramsTypeName.empty();
 		const bool hasResult = !message.resultTypeName.empty();
 
-		if(hasParams || hasResult)
+		if(hasRegistrationOptions || hasPartialResult || hasParams || hasResult)
 			m_messagesHeaderFileContent += '\n';
+
+		if(hasRegistrationOptions)
+			m_messagesHeaderFileContent += "\tusing RegistrationOptions = types::" + upperCaseIdentifier(message.registrationOptionsTypeName) + ";\n";
+
+		if(hasPartialResult)
+			m_messagesHeaderFileContent += "\tusing PartialResult = types::" + upperCaseIdentifier(message.partialResultTypeName) + ";\n";
 
 		if(hasParams)
 			m_messagesHeaderFileContent += "\tusing Params = types::" + upperCaseIdentifier(message.paramsTypeName) + ";\n";
@@ -1094,7 +1106,7 @@ private:
 		if(hasResult)
 			m_messagesHeaderFileContent += "\tusing Result = types::" + upperCaseIdentifier(message.resultTypeName) + ";\n";
 
-		if(hasParams || hasResult)
+		if(hasParams || hasResult || hasRegistrationOptions || hasPartialResult)
 			m_messagesHeaderFileContent += '\n';
 
 		if(hasParams)
@@ -1374,8 +1386,7 @@ private:
 			typeName += upperCaseIdentifier(type.as<ReferenceType>().name);
 			break;
 		case Type::Array:
-
-		{
+			{
 				const auto& arrayType = type.as<ArrayType>();
 				if(arrayType.elementType->isA<ReferenceType>() && arrayType.elementType->as<ReferenceType>().name == "LSPAny")
 					typeName += "LSPArray";
@@ -1385,8 +1396,7 @@ private:
 				break;
 			}
 		case Type::Map:
-
-		{
+			{
 				const auto& keyType = type.as<MapType>().keyType;
 				const auto& valueType = type.as<MapType>().valueType;
 
@@ -1403,8 +1413,7 @@ private:
 			typeName += "LSPObject"; // TODO: Generate a proper and type should they ever actually be used by the LSP
 			break;
 		case Type::Or:
-
-		{
+			{
 				const auto& orType = type.as<OrType>();
 
 				if(orType.typeList.size() > 1)
@@ -1453,8 +1462,7 @@ private:
 				break;
 			}
 		case Type::Tuple:
-
-		{
+			{
 				std::string cppTupleType = "std::tuple<";
 				const auto& tupleType = type.as<TupleType>();
 
@@ -1534,8 +1542,7 @@ private:
 			generateAggregateTypeList(type->as<TupleType>().typeList, baseName + (alias ? "_Element" : ""));
 			break;
 		case Type::StructureLiteral:
-
-		{
+			{
 				// HACK:
 				// Temporarily transfer ownership of property types to temporary structure so the same generator code can be used for structure literals.
 				auto& structureLiteral = type->as<StructureLiteralType>();
