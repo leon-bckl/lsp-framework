@@ -49,7 +49,7 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
                                                               m_out{out}{}
 
-std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::receiveMessage()
+std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> Connection::receiveMessage()
 {
 	std::lock_guard lock{m_readMutex};
 
@@ -69,7 +69,7 @@ std::variant<jsonrpc::MessagePtr, std::vector<jsonrpc::MessagePtr>> Connection::
 	if(!contentType.starts_with("application/vscode-jsonrpc"))
 		throw ProtocolError{"Unsupported or invalid content type: " + header.contentType};
 
-	const std::string_view charsetKey{"charset="};
+	constexpr std::string_view charsetKey{"charset="};
 	if(auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
 	{
 		auto charset = contentType.substr(idx + charsetKey.size());

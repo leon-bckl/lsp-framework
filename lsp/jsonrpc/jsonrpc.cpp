@@ -163,7 +163,7 @@ std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json)
 		return messageFromJson(json.get<json::Object>());
 
 	if(!json.isArray())
-		throw ProtocolError{"Message must be either a single object or an array of messages"};
+		throw ProtocolError{"Message must be either a single object or an array of message objects"};
 
 	const auto& array = json.get<json::Array>();
 	MessageBatch batch;
@@ -186,7 +186,6 @@ Request createRequest(const MessageId& id, std::string_view method, const std::o
 	request.id = id;
 	request.method = method;
 	request.params = params;
-
 	return request;
 }
 
@@ -195,7 +194,6 @@ Request createNotification(std::string_view method, const std::optional<json::An
 	Request notification;
 	notification.method = method;
 	notification.params = params;
-
 	return notification;
 }
 
@@ -204,7 +202,6 @@ Response createResponse(const MessageId& id, const json::Any& result)
 	Response response;
 	response.id = id;
 	response.result = result;
-
 	return response;
 }
 
@@ -212,12 +209,10 @@ Response createErrorResponse(const MessageId& id, json::Integer errorCode, const
 {
 	Response response;
 	response.id = id;
-
 	auto& error = response.error.emplace();
 	error.code = errorCode;
 	error.message = message;
 	error.data = data;
-
 	return response;
 }
 

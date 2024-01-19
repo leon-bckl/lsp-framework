@@ -1304,8 +1304,8 @@ private:
 		m_typesBoilerPlateHeaderFileContent += toJson + ";\n" +
 		                                       fromJson + ";\n";
 
-	  if(enumeration.supportsCustomValues)
-	  {
+		if(enumeration.supportsCustomValues)
+		{
 			m_typesSourceFileContent += enumerationCppName + "& " + enumerationCppName + "::operator=(ValueIndex index)\n"
 			                            "{\n"
 			                            "\tassert(index < MAX_VALUE);\n"

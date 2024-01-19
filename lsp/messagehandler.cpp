@@ -2,6 +2,7 @@
 
 #include <lsp/connection.h>
 #include <lsp/jsonrpc/jsonrpc.h>
+#include <lsp/types.h>
 #include "error.h"
 
 namespace lsp{
@@ -122,6 +123,7 @@ void MessageHandler::processIncomingMessages()
 		}
 		else
 		{
+			assert(std::holds_alternative<jsonrpc::MessageBatch>(incoming));
 			auto responseBatch = processMessageBatch(std::get<jsonrpc::MessageBatch>(incoming));
 
 			if(!responseBatch.empty())
