@@ -27,7 +27,7 @@ private:
 	UnderlyingType m_flags = 0;
 };
 
-#define DECLARE_ENUM_FLAGS(enumName, typedefName) \
+#define LSP_DECLARE_ENUM_FLAGS(enumName, typedefName) \
 	using typedefName = lsp::util::EnumFlags<enumName>; \
 	inline constexpr typedefName operator&(enumName e1, enumName e2){ return typedefName{e1} & e2; } \
 	inline constexpr typedefName operator|(enumName e1, enumName e2){ return typedefName{e1} | e2; } \

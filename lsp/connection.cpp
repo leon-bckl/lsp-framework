@@ -5,15 +5,15 @@
 #include <string_view>
 #include <lsp/util/str.h>
 
-#ifndef ENABLE_DEBUG_MESSAGE_LOG
+#ifndef LSP_MESSAGE_DEBUG_LOG
 	#ifdef NDEBUG
-		#define ENABLE_DEBUG_MESSAGE_LOG 0
+		#define LSP_MESSAGE_DEBUG_LOG 0
 	#else
-		#define ENABLE_DEBUG_MESSAGE_LOG 1
+		#define LSP_MESSAGE_DEBUG_LOG 1
 	#endif
 #endif
 
-#if ENABLE_DEBUG_MESSAGE_LOG
+#if LSP_MESSAGE_DEBUG_LOG
 	#ifdef __APPLE__
 		#include <os/log.h>
 	#elif defined(_WIN32)
@@ -29,7 +29,7 @@ namespace{
  * Message logging
  */
 
-#if ENABLE_DEBUG_MESSAGE_LOG
+#if LSP_MESSAGE_DEBUG_LOG
 void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Any& json)
 {
 #ifdef __APPLE__
@@ -80,7 +80,7 @@ std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> Connection::receiveMess
 	}
 
 	auto json = json::parse(content);
-#if ENABLE_DEBUG_MESSAGE_LOG
+#if LSP_MESSAGE_DEBUG_LOG
 	debugLogMessageJson("incoming", json);
 #endif
 	return jsonrpc::messageFromJson(json);
@@ -105,7 +105,7 @@ void Connection::sendMessageBatch(const jsonrpc::MessageBatch& batch)
 
 void Connection::writeJsonMessage(const json::Any& content)
 {
-#if ENABLE_DEBUG_MESSAGE_LOG
+#if LSP_MESSAGE_DEBUG_LOG
 	debugLogMessageJson("outgoing", content);
 #endif
 	std::string contentStr = json::stringify(content);
