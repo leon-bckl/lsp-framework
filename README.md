@@ -12,7 +12,7 @@ The project is built as a static library. LSP type definitions, messages and ser
   
 Here's a short example on how to handle and send requests:
 ```cpp
-#include <lsp/messages.h> // Generated message definitions
+#include <lsp/messages.h> /* Generated message definitions */
 #include <lsp/connection.h>
 #include <lsp/io/standardio.h>
 #include <lsp/messagehandler.h>
