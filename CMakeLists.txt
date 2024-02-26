@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 project(lsp)
 
@@ -14,46 +14,54 @@ endif()
 add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/util/str.cpp)
 target_include_directories(lspgen PRIVATE .)
 
-set(GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
-file(MAKE_DIRECTORY ${GENERATED_FILES_DIR}/lsp)
+SET(SRC_DIR lsp/)
 
 set(HEADERS
 	# lsp
-	lsp/connection.h
-	lsp/error.h
-	lsp/messagebase.h
-	lsp/messagehandler.h
-	lsp/serialization.h
+	connection.h
+	error.h
+	messagebase.h
+	messagehandler.h
+	serialization.h
 	# io
-	lsp/io/standardio.h
+	io/standardio.h
 	# json
-	lsp/json/json.h
+	json/json.h
 	# jsonrpc
-	lsp/json/jsonrpc.h
+	json/jsonrpc.h
 	# util
-	lsp/util/nullable.h
-	lsp/util/str.h
-	lsp/util/uri.h
-	lsp/util/util.h
-	# generated
+	util/nullable.h
+	util/str.h
+	util/uri.h
+	util/util.h
+)
+list(TRANSFORM HEADERS PREPEND ${SRC_DIR})
+
+set(SOURCES
+	# lsp
+	connection.cpp
+	messagehandler.cpp
+	# io
+	io/standardio.cpp
+	# json
+	json/json.cpp
+	# jsonrpc
+	jsonrpc/jsonrpc.cpp
+	# util
+	util/str.cpp
+	util/uri.cpp
+)
+list(TRANSFORM SOURCES PREPEND ${SRC_DIR})
+
+set(GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+file(MAKE_DIRECTORY ${GENERATED_FILES_DIR}/lsp)
+
+set(GENERATED_HEADERS
 	${GENERATED_FILES_DIR}/lsp/types.h
 	${GENERATED_FILES_DIR}/lsp/messages.h
 )
 
-set(SOURCES
-	# lsp
-	lsp/connection.cpp
-	lsp/messagehandler.cpp
-	# io
-	lsp/io/standardio.cpp
-	# json
-	lsp/json/json.cpp
-	# jsonrpc
-	lsp/jsonrpc/jsonrpc.cpp
-	# util
-	lsp/util/str.cpp
-	lsp/util/uri.cpp
-	# generated
+set(GENERATED_SOURCES
 	${GENERATED_FILES_DIR}/lsp/types.cpp
 	${GENERATED_FILES_DIR}/lsp/messages.cpp
 )
@@ -64,14 +72,11 @@ add_custom_command(
 	COMMAND lspgen ${LSP_METAMODEL_JSON}
 	WORKING_DIRECTORY ${GENERATED_FILES_DIR}/lsp
 	OUTPUT
-		${GENERATED_FILES_DIR}/lsp/types.h
-		${GENERATED_FILES_DIR}/lsp/types.cpp
-		${GENERATED_FILES_DIR}/lsp/messages.h
-		${GENERATED_FILES_DIR}/lsp/messages.cpp
-	DEPENDS lspgen ${LSP_METAMODEL_JSON}
+		${GENERATED_HEADERS}
+		${GENERATED_SOURCES}
 	COMMENT "Generating lsp types from meta model..."
 )
 
 add_library(lsp STATIC)
 target_include_directories(lsp PUBLIC . ${GENERATED_FILES_DIR})
-target_sources(lsp PRIVATE ${SOURCES})
+target_sources(lsp PRIVATE ${SOURCES} ${GENERATED_SOURCES})
