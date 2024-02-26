@@ -63,12 +63,40 @@ json::Any toJson(const std::tuple<Args...>& tuple)
 	return result;
 }
 
+namespace impl{
+
+// Helpers to treat FileURI as a string which can be used to look up values in a json::Object
+
+template<typename T>
+struct MapKeyType{
+	using Type = T;
+};
+
+template<>
+struct MapKeyType<util::FileURI>{
+	using Type = std::string;
+};
+
+template<typename T>
+const MapKeyType<T>::Type& mapKey(const T& u)
+{
+	return u;
+}
+
+template<>
+inline const std::string& mapKey(const util::FileURI& uri)
+{
+	return uri.path();
+}
+
+}
+
 template<typename K, typename T>
 json::Any toJson(const util::str::UnorderedMap<K, T>& map)
 {
 	json::Object result;
 	for(const auto& [k, v] : map)
-		result[k] = toJson(v);
+		result[impl::mapKey(k)] = toJson(v);
 
 	return result;
 }

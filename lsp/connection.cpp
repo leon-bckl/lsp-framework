@@ -1,6 +1,5 @@
 #include "connection.h"
 
-#include <cassert>
 #include <charconv>
 #include <string_view>
 #include <lsp/util/str.h>
@@ -62,7 +61,7 @@ std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> Connection::receiveMess
 	content.resize(header.contentLength);
 	m_in.read(&content[0], static_cast<std::streamsize>(header.contentLength));
 
-	// Verify only after reading the entire message so no partial unread message is left in the stream
+	// Verify only after reading the entire message so no partially unread message is left in the stream
 
 	std::string_view contentType{header.contentType};
 
@@ -108,10 +107,7 @@ void Connection::writeJsonMessage(const json::Any& content)
 #if LSP_MESSAGE_DEBUG_LOG
 	debugLogMessageJson("outgoing", content);
 #endif
-	std::string contentStr = json::stringify(content);
-	assert(!contentStr.empty());
-	MessageHeader header{contentStr.size()};
-	writeMessage(contentStr);
+	writeMessage(json::stringify(content));
 }
 
 void Connection::writeMessage(const std::string& content)
@@ -125,8 +121,6 @@ void Connection::writeMessage(const std::string& content)
 
 void Connection::writeMessageHeader(const MessageHeader& header)
 {
-	assert(header.contentLength > 0);
-	assert(!header.contentType.empty());
 	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
 	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }

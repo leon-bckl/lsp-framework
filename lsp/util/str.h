@@ -8,6 +8,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include "uri.h"
 
 namespace lsp::util::str{
 
@@ -16,6 +17,7 @@ struct Hash{
 	std::size_t operator()(const char* str) const{ return std::hash<std::string_view>{}(str); }
 	std::size_t operator()(std::string_view str) const{ return std::hash<std::string_view>{}(str); }
 	std::size_t operator()(const std::string& str) const{ return std::hash<std::string_view>{}(str); }
+	std::size_t operator()(const FileURI& uri) const{ return std::hash<std::string_view>{}(uri.path()); }
 };
 
 /*
