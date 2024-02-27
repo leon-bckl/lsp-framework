@@ -74,6 +74,9 @@ add_custom_command(
 	OUTPUT
 		${GENERATED_HEADERS}
 		${GENERATED_SOURCES}
+	DEPENDS
+		lspgen
+		${LSP_METAMODEL_JSON}
 	COMMENT "Generating lsp types from meta model..."
 )
 
