@@ -78,7 +78,7 @@ struct MapKeyType<util::FileURI>{
 };
 
 template<typename T>
-const MapKeyType<T>::Type& mapKey(const T& u)
+const typename MapKeyType<T>::Type& mapKey(const T& u)
 {
 	return u;
 }

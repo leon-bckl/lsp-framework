@@ -1,5 +1,9 @@
 #include "str.h"
 
+#include <cctype>
+#include <iterator>
+#include <algorithm>
+
 namespace lsp::util::str{
 
 std::string_view trimViewLeft(std::string_view str)
