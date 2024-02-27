@@ -1509,12 +1509,22 @@ private:
 	void generateAggregateTypeList(const std::vector<TypePtr>& typeList, const std::string& baseName)
 	{
 		// Only append unique number to type name if there are multiple structure literals
-		auto structLiteralCount = std::count_if(typeList.begin(), typeList.end(), [](const TypePtr& type){ return type->isA<StructureLiteralType>(); });
-		int unique = 0;
 		for(const auto& t : typeList)
 		{
-			generateType(t, baseName + (structLiteralCount > 1 ? std::to_string(unique) : ""));
-			unique += t->isA<StructureLiteralType>();
+			std::string nameSuffix;
+
+			if(t->isA<StructureLiteralType>())
+			{
+				const auto& structLit = t->as<StructureLiteralType>();
+
+				for(const auto& p : structLit.properties)
+				{
+					if(!p.isOptional)
+						nameSuffix += '_' + util::str::capitalize(p.name);
+				}
+			}
+
+			generateType(t, baseName + nameSuffix);
 		}
 	}
 
@@ -1536,7 +1546,7 @@ private:
 			generateAggregateTypeList(type->as<AndType>().typeList, baseName + (alias ? "_Base" : ""));
 			break;
 		case Type::Or:
-			generateAggregateTypeList(type->as<OrType>().typeList, baseName + (alias ? "_Variant" : ""));
+			generateAggregateTypeList(type->as<OrType>().typeList, baseName);
 			break;
 		case Type::Tuple:
 			generateAggregateTypeList(type->as<TupleType>().typeList, baseName + (alias ? "_Element" : ""));
