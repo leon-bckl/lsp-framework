@@ -89,6 +89,22 @@ std::string replace(std::string_view str, std::string_view pattern, std::string_
 	return result;
 }
 
+std::string lower(std::string_view str)
+{
+	std::string result;
+	result.reserve(str.size());
+	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return std::tolower(c); });
+	return result;
+}
+
+std::string upper(std::string_view str)
+{
+	std::string result;
+	result.reserve(str.size());
+	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return std::toupper(c); });
+	return result;
+}
+
 std::string capitalize(std::string_view str)
 {
 	std::string result{str};

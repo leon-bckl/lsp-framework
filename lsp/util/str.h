@@ -97,6 +97,8 @@ inline std::string join(const std::vector<std::string_view>& strings, const std:
 }
 
 [[nodiscard]] std::string replace(std::string_view str, std::string_view pattern, std::string_view replacement);
+[[nodiscard]] std::string lower(std::string_view str);
+[[nodiscard]] std::string upper(std::string_view str);
 [[nodiscard]] std::string capitalize(std::string_view str);
 [[nodiscard]] std::string uncapitalize(std::string_view str);
 [[nodiscard]] std::string quote(std::string_view str);
