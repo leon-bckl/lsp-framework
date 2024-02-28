@@ -64,7 +64,7 @@ template<typename F>
 	return result;
 }
 
-inline std::string join(const std::vector<std::string>& strings, const std::string& separator)
+[[nodiscard]] inline std::string join(const std::vector<std::string>& strings, const std::string& separator)
 {
 	return join(strings, separator, [](const std::string& str)->const std::string&{ return str; });
 }

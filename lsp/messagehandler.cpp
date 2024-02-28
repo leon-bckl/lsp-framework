@@ -9,7 +9,7 @@ namespace lsp{
 
 std::optional<jsonrpc::Response> MessageHandler::processRequest(const jsonrpc::Request& request)
 {
-	auto method = messages::methodFromString(request.method);
+	auto method = messageMethodFromString(request.method);
 	std::optional<jsonrpc::Response> response;
 
 	if(handlesRequest(method))
@@ -27,7 +27,7 @@ std::optional<jsonrpc::Response> MessageHandler::processRequest(const jsonrpc::R
 			if(!request.isNotification())
 			{
 				response = jsonrpc::createErrorResponse(
-				 *request.id, types::ErrorCodes{types::ErrorCodes::InvalidParams}, e.what());
+				 *request.id, ErrorCodes{ErrorCodes::InvalidParams}, e.what());
 			}
 		}
 		catch(const RequestError& e)
@@ -42,7 +42,7 @@ std::optional<jsonrpc::Response> MessageHandler::processRequest(const jsonrpc::R
 	else if(!request.isNotification())
 	{
 		response = jsonrpc::createErrorResponse(
-		 *request.id, types::ErrorCodes::MethodNotFound, "Unsupported method: " + request.method);
+		 *request.id, ErrorCodes::MethodNotFound, "Unsupported method: " + request.method);
 	}
 
 	return response;
@@ -79,7 +79,7 @@ void MessageHandler::processResponse(const jsonrpc::Response& response)
 	{
 		assert(response.error.has_value());
 		const auto& error = *response.error;
-		result->setException(std::make_exception_ptr(ResponseError{error.message, types::ErrorCodes{error.code}, error.data}));
+		result->setException(std::make_exception_ptr(ResponseError{error.message, ErrorCodes{error.code}, error.data}));
 	}
 }
 
@@ -132,15 +132,15 @@ void MessageHandler::processIncomingMessages()
 	}
 	catch(const json::ParseError& e)
 	{
-		sendErrorMessage(types::ErrorCodes::ParseError, std::string{"JSON parse error: "} + e.what());
+		sendErrorMessage(ErrorCodes::ParseError, std::string{"JSON parse error: "} + e.what());
 	}
 	catch(const jsonrpc::ProtocolError& e)
 	{
-		sendErrorMessage(types::ErrorCodes::InvalidRequest, std::string{"Message does not conform to the jsonrpc protocol: "} + e.what());
+		sendErrorMessage(ErrorCodes::InvalidRequest, std::string{"Message does not conform to the jsonrpc protocol: "} + e.what());
 	}
 	catch(const ProtocolError& e)
 	{
-		sendErrorMessage(types::ErrorCodes::InvalidRequest, std::string{"Base protocol error: "} + e.what());
+		sendErrorMessage(ErrorCodes::InvalidRequest, std::string{"Base protocol error: "} + e.what());
 	}
 	catch(const ConnectionError&)
 	{
@@ -148,18 +148,18 @@ void MessageHandler::processIncomingMessages()
 	}
 	catch(...)
 	{
-		sendErrorMessage(types::ErrorCodes::UnknownErrorCode, "Unknown internal error");
+		sendErrorMessage(ErrorCodes::UnknownErrorCode, "Unknown internal error");
 		throw;
 	}
 }
 
-bool MessageHandler::handlesRequest(messages::Method method)
+bool MessageHandler::handlesRequest(MessageMethod method)
 {
 	auto index = static_cast<std::size_t>(method);
 	return index < m_requestHandlers.size() && m_requestHandlers[index];
 }
 
-void MessageHandler::addHandler(messages::Method method, HandlerWrapper&& handlerFunc)
+void MessageHandler::addHandler(MessageMethod method, HandlerWrapper&& handlerFunc)
 {
 	const auto index = static_cast<std::size_t>(method);
 
@@ -169,23 +169,23 @@ void MessageHandler::addHandler(messages::Method method, HandlerWrapper&& handle
 	m_requestHandlers[index] = std::move(handlerFunc);
 }
 
-void MessageHandler::sendRequest(messages::Method method, ResponseResultPtr result, const std::optional<json::Any>& params)
+void MessageHandler::sendRequest(MessageMethod method, ResponseResultPtr result, const std::optional<json::Any>& params)
 {
 	std::lock_guard lock{m_requestMutex};
 	auto id = m_uniqueRequestId++;
 	assert(!m_pendingRequests.contains(id));
 	m_pendingRequests[id] = std::move(result);
-	auto methodStr = messages::methodToString(method);
+	auto methodStr = messageMethodToString(method);
 	m_connection.sendMessage(jsonrpc::createRequest(id, methodStr, params));
 }
 
-void MessageHandler::sendNotification(messages::Method method, const std::optional<json::Any>& params)
+void MessageHandler::sendNotification(MessageMethod method, const std::optional<json::Any>& params)
 {
-	auto methodStr = std::string{messages::methodToString(method)};
+	auto methodStr = std::string{messageMethodToString(method)};
 	m_connection.sendMessage(jsonrpc::createNotification(methodStr, params));
 }
 
-void MessageHandler::sendErrorMessage(types::ErrorCodes code, const std::string& message)
+void MessageHandler::sendErrorMessage(ErrorCodes code, const std::string& message)
 {
 	m_connection.sendMessage(jsonrpc::createErrorResponse(json::Null{}, code, message, std::nullopt));
 }

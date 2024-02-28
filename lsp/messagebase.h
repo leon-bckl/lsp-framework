@@ -9,14 +9,10 @@ namespace lsp{
 struct Message;
 using MessagePtr = std::unique_ptr<Message>;
 
-namespace messages{ // Generated definitions
-
-enum class Method;
-std::string_view methodToString(Method method);
-Method methodFromString(std::string_view str);
-MessagePtr createFromMethod(messages::Method method);
-
-}
+enum class MessageMethod;
+std::string_view messageMethodToString(MessageMethod method);
+MessageMethod messageMethodFromString(std::string_view str);
+MessagePtr createMessageFromMethod(MessageMethod method);
 
 /*
  * Message
@@ -24,7 +20,7 @@ MessagePtr createFromMethod(messages::Method method);
 
 struct Message{
 	virtual ~Message() = default;
-	virtual messages::Method method() const = 0;
+	virtual MessageMethod method() const = 0;
 
 	template<typename T>
 	requires std::derived_from<T, Message>

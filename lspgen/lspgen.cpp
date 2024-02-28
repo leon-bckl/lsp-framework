@@ -823,7 +823,7 @@ R"(#pragma once
 #include <lsp/serialization.h>
 #include <lsp/util/nullable.h>
 
-namespace lsp::types{
+namespace lsp{
 
 inline constexpr std::string_view VersionStr{"${LSP_VERSION}"};
 
@@ -837,7 +837,7 @@ using Map = util::str::UnorderedMap<K, T>;
 )";
 
 static constexpr const char* TypesHeaderEnd =
-R"(} // namespace lsp::types
+R"(} // namespace lsp
 )";
 
 static constexpr const char* TypesSourceBegin =
@@ -851,7 +851,7 @@ R"(#include "types.h"
 #include <iterator>
 #include <algorithm>
 
-namespace lsp::types {
+namespace lsp{
 
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -882,7 +882,7 @@ R"(#if defined(__clang__) || defined(__GNUC__)
 #elif defined(_MSC_VER)
 #pragma warning(pop)
 #endif
-} // namespace lsp::types
+} // namespace lsp
 )";
 
 static constexpr const char* MessagesHeaderBegin =
@@ -895,12 +895,12 @@ R"(#pragma once
 #include "types.h"
 #include <lsp/messagebase.h>
 
-namespace lsp::messages{
+namespace lsp{
 
 )";
 
 static constexpr const char* MessagesHeaderEnd =
-R"(} // namespace lsp::messages
+R"(} // namespace lsp
 )";
 
 static constexpr const char* MessagesSourceBegin =
@@ -910,28 +910,28 @@ R"(#include "messages.h"
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
-namespace lsp::messages{
+namespace lsp{
 
 )";
 
 static constexpr const char* MessagesSourceEnd =
 R"(
-std::string_view methodToString(Method method)
+std::string_view messageMethodToString(MessageMethod method)
 {
 	return MethodStrings[static_cast<int>(method)];
 }
 
-Method methodFromString(std::string_view str)
+MessageMethod messageMethodFromString(std::string_view str)
 {
 	auto it = MethodsByString.find(str);
 
 	if(it != MethodsByString.end())
 		return it->second;
 
-	return Method::INVALID;
+	return MessageMethod::INVALID;
 }
 
-} // namespace lsp::messages
+} // namespace lsp
 )";
 
 class CppGenerator
@@ -998,17 +998,17 @@ private:
 	{
 		// Message method enum
 
-		m_messagesHeaderFileContent = std::string{MessagesHeaderBegin} + "enum class Method{\n"
+		m_messagesHeaderFileContent = std::string{MessagesHeaderBegin} + "enum class MessageMethod{\n"
 		                              "\tINVALID = -1,\n\n"
 		                              "\t// Requests\n\n";
-		m_messagesSourceFileContent = std::string{MessagesSourceBegin} + "static constexpr std::string_view MethodStrings[static_cast<int>(Method::MAX_VALUE)] = {\n";
+		m_messagesSourceFileContent = std::string{MessagesSourceBegin} + "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
 
-		std::string messageMethodsByString = "static auto methodStringPair(Method method)"
+		std::string messageMethodsByString = "static auto methodStringPair(MessageMethod method)"
 		                                     "{\n"
 		                                     "\treturn std::make_pair(MethodStrings[static_cast<int>(method)], method);\n"
 		                                     "}\n\n"
-		                                     "static const util::str::UnorderedMap<std::string_view, Method> MethodsByString = {\n";
-		std::string messageCreateFromMethod = "MessagePtr createFromMethod(messages::Method method)"
+		                                     "static const util::str::UnorderedMap<std::string_view, MessageMethod> MethodsByString = {\n";
+		std::string messageCreateFromMethod = "MessagePtr createMessageFromMethod(MessageMethod method)"
 		                                      "{\n"
 		                                      "\tswitch(method)\n\t{\n";
 
@@ -1017,9 +1017,9 @@ private:
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
-			messageMethodsByString += "\tmethodStringPair(Method::" + id + "),\n";
-			messageCreateFromMethod += "\tcase messages::Method::" + id + ":\n";
-			messageCreateFromMethod += "\t\treturn std::make_unique<messages::" + id + ">();\n";
+			messageMethodsByString += "\tmethodStringPair(MessageMethod::" + id + "),\n";
+			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
+			messageCreateFromMethod += "\t\treturn std::make_unique<requests::" + id + ">();\n";
 		}
 
 		m_messagesHeaderFileContent += "\n\t// Notifications\n\n";
@@ -1029,9 +1029,9 @@ private:
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
-			messageMethodsByString += "\tmethodStringPair(Method::" + id + "),\n";
-			messageCreateFromMethod += "\tcase messages::Method::" + id + ":\n";
-			messageCreateFromMethod += "\t\treturn std::make_unique<messages::" + id + ">();\n";
+			messageMethodsByString += "\tmethodStringPair(MessageMethod::" + id + "),\n";
+			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
+			messageCreateFromMethod += "\t\treturn std::make_unique<notifications::" + id + ">();\n";
 		}
 
 		messageCreateFromMethod += "\tdefault:\n"
@@ -1050,15 +1050,27 @@ private:
 
 		// Structs
 
-		m_messagesHeaderFileContent += documentationComment("Requests", {}) + '\n';
+		const char* namespaceStr = "namespace requests{\n\n";
+
+		m_messagesHeaderFileContent += namespaceStr;
+		m_messagesSourceFileContent += namespaceStr;
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 			generateMessage(method, message, false);
 
-		m_messagesHeaderFileContent += documentationComment("Notifications", {}) + '\n';
+		namespaceStr = "} // namespace requests\n\n"
+		               "namespace notifications{\n\n";
+
+		m_messagesHeaderFileContent += namespaceStr;
+		m_messagesSourceFileContent += namespaceStr;
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
 			generateMessage(method, message, true);
+
+		namespaceStr = "} // namespace notifications\n";
+
+		m_messagesHeaderFileContent += namespaceStr;
+		m_messagesSourceFileContent += namespaceStr;
 
 		m_messagesHeaderFileContent += MessagesHeaderEnd;
 		m_messagesSourceFileContent += MessagesSourceEnd;
@@ -1084,7 +1096,7 @@ private:
 		}
 
 		m_messagesHeaderFileContent += std::string{isNotification ? "Notification" : "Request"} + "{\n"
-		                               "\tstatic constexpr auto MessageMethod = Method::" + messageCppName + ";\n";
+		                               "\tstatic constexpr auto Method = MessageMethod::" + messageCppName + ";\n";
 
 		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
 		const bool hasPartialResult = !message.partialResultTypeName.empty();
@@ -1095,16 +1107,16 @@ private:
 			m_messagesHeaderFileContent += '\n';
 
 		if(hasRegistrationOptions)
-			m_messagesHeaderFileContent += "\tusing RegistrationOptions = types::" + upperCaseIdentifier(message.registrationOptionsTypeName) + ";\n";
+			m_messagesHeaderFileContent += "\tusing RegistrationOptions = " + upperCaseIdentifier(message.registrationOptionsTypeName) + ";\n";
 
 		if(hasPartialResult)
-			m_messagesHeaderFileContent += "\tusing PartialResult = types::" + upperCaseIdentifier(message.partialResultTypeName) + ";\n";
+			m_messagesHeaderFileContent += "\tusing PartialResult = " + upperCaseIdentifier(message.partialResultTypeName) + ";\n";
 
 		if(hasParams)
-			m_messagesHeaderFileContent += "\tusing Params = types::" + upperCaseIdentifier(message.paramsTypeName) + ";\n";
+			m_messagesHeaderFileContent += "\tusing Params = " + upperCaseIdentifier(message.paramsTypeName) + ";\n";
 
 		if(hasResult)
-			m_messagesHeaderFileContent += "\tusing Result = types::" + upperCaseIdentifier(message.resultTypeName) + ";\n";
+			m_messagesHeaderFileContent += "\tusing Result = " + upperCaseIdentifier(message.resultTypeName) + ";\n";
 
 		if(hasParams || hasResult || hasRegistrationOptions || hasPartialResult)
 			m_messagesHeaderFileContent += '\n';
@@ -1115,8 +1127,8 @@ private:
 		if(hasResult)
 			m_messagesHeaderFileContent += "\tResult result;\n";
 
-		m_messagesHeaderFileContent += "\n\tMethod method() const override;\n";
-		m_messagesSourceFileContent += "Method " + messageCppName + "::method() const{ return MessageMethod; }\n";
+		m_messagesHeaderFileContent += "\n\tMessageMethod method() const override;\n";
+		m_messagesSourceFileContent += "MessageMethod " + messageCppName + "::method() const{ return Method; }\n";
 
 		if(hasParams)
 		{
@@ -1177,12 +1189,12 @@ private:
 
 	static std::string toJsonSig(const std::string& typeName)
 	{
-		return "template<>\njson::Any toJson(const types::" + typeName + "& value)";
+		return "template<>\njson::Any toJson(const " + typeName + "& value)";
 	}
 
 	static std::string fromJsonSig(const std::string& typeName)
 	{
-		return "template<>\nvoid fromJson(const json::Any& json, types::" + typeName + "& value)";
+		return "template<>\nvoid fromJson(const json::Any& json, " + typeName + "& value)";
 	}
 
 	static std::string documentationComment(const std::string& title, const std::string& documentation, int indentLevel = 0)
@@ -1333,13 +1345,13 @@ private:
 		{
 			m_typesBoilerPlateSourceFileContent += toJson + "\n"
 			                                       "{\n"
-																	           "\treturn toJson(types::" + enumValuesVarName + "[static_cast<int>(value)]);\n}\n\n" +
+																	           "\treturn toJson(" + enumValuesVarName + "[static_cast<int>(value)]);\n}\n\n" +
 																	           fromJson + "\n"
 																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
 																	           "\tfromJson(json, jsonVal);\n"
-			                                       "\tvalue = types::findEnumValue<types::" + enumerationCppName + ">(types::" + enumValuesVarName + ", jsonVal);\n"
-			                                       "\tif(value == types::" + enumerationCppName + "::MAX_VALUE)\n"
+			                                       "\tvalue = findEnumValue<" + enumerationCppName + ">(" + enumValuesVarName + ", jsonVal);\n"
+			                                       "\tif(value == " + enumerationCppName + "::MAX_VALUE)\n"
 																	           "\t\tthrow json::TypeError{\"Invalid value for '" + enumerationCppName + "'\"};\n"
 																	           "}\n\n";
 		}
@@ -1624,7 +1636,7 @@ private:
 		                               "const " + structureCppName + "& value, json::Object& json)\n{\n";
 		std::string propertiesFromJson = "static void " + util::str::uncapitalize(structureCppName) + "FromJson("
 		                                 "const json::Object& json, " + structureCppName + "& value)\n{\n";
-		std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<types::" + structureCppName + ">()";
+		std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<" + structureCppName + ">()";
 		std::vector<std::string> requiredPropertiesList;
 		std::string requiredProperties = requiredPropertiesSig + "\n{\n\tstatic const char* properties[] = {\n";
 
@@ -1706,13 +1718,13 @@ private:
 		m_typesBoilerPlateSourceFileContent += toJson + "\n"
 		                                       "{\n"
 		                                       "\tjson::Object obj;\n"
-		                                       "\ttypes::" + util::str::uncapitalize(structureCppName) + "ToJson(value, obj);\n"
+		                                       "\t" + util::str::uncapitalize(structureCppName) + "ToJson(value, obj);\n"
 		                                       "\treturn obj;\n"
 		                                       "}\n\n" +
 		                                       fromJson + "\n"
 		                                       "{\n"
 		                                       "\tconst auto& obj = json.get<json::Object>();\n"
-		                                       "\ttypes::" + util::str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
+		                                       "\t" + util::str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
 		                                       "}\n\n";
 	}
 

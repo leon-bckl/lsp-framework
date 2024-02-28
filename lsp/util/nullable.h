@@ -16,6 +16,7 @@ template<typename T>
 class Nullable{
 public:
 	Nullable() = default;
+	Nullable(std::nullptr_t) : Nullable{}{}
 	Nullable(const T& t){ *this = t; }
 	Nullable(T&& t){ *this = std::forward<T>(t); }
 
@@ -61,6 +62,7 @@ public:
 	using VariantType = std::variant<Args...>;
 
 	NullableVariant() = default;
+	NullableVariant(std::nullptr_t) : NullableVariant{}{}
 
 	template<typename T>
 	NullableVariant(const T& t)
