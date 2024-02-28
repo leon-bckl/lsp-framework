@@ -947,10 +947,10 @@ public:
 
 	void writeFiles()
 	{
-		writeFile("types.h", m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent);
-		writeFile("types.cpp", m_typesSourceFileContent + m_typesBoilerPlateSourceFileContent);
-		writeFile("messages.h", m_messagesHeaderFileContent);
-		writeFile("messages.cpp", m_messagesSourceFileContent);
+		writeFile("types.h", util::str::replace(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version) + m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent + TypesHeaderEnd);
+		writeFile("types.cpp", TypesSourceBegin + m_typesSourceFileContent + m_typesBoilerPlateSourceFileContent + TypesSourceEnd);
+		writeFile("messages.h", MessagesHeaderBegin + m_messagesHeaderFileContent + MessagesHeaderEnd);
+		writeFile("messages.cpp", MessagesSourceBegin + m_messagesSourceFileContent + MessagesSourceEnd);
 	}
 
 private:
@@ -980,28 +980,21 @@ private:
 	{
 		m_processedTypes = {"LSPArray", "LSPObject", "LSPAny"};
 		m_typesBeingProcessed = {};
-		m_typesHeaderFileContent = util::str::replace(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version);
-		m_typesBoilerPlateHeaderFileContent = "\nnamespace lsp{\n\n/*\n * Serialization boilerplate\n */\n\n";
+		m_typesBoilerPlateHeaderFileContent = "/*\n * Serialization boilerplate\n */\n\n";
 		m_typesBoilerPlateSourceFileContent = m_typesBoilerPlateHeaderFileContent;
-		m_typesSourceFileContent = TypesSourceBegin;
 
 		for(const auto& name : m_metaModel.typeNames())
 			generateNamedType(name);
-
-		m_typesHeaderFileContent += TypesHeaderEnd;
-		m_typesSourceFileContent += TypesSourceEnd;
-		m_typesBoilerPlateHeaderFileContent += "\n} // namespace lsp\n";
-		m_typesBoilerPlateSourceFileContent += "} // namespace lsp\n";
 	}
 
 	void generateMessages()
 	{
 		// Message method enum
 
-		m_messagesHeaderFileContent = std::string{MessagesHeaderBegin} + "enum class MessageMethod{\n"
+		m_messagesHeaderFileContent = "enum class MessageMethod{\n"
 		                              "\tINVALID = -1,\n\n"
 		                              "\t// Requests\n\n";
-		m_messagesSourceFileContent = std::string{MessagesSourceBegin} + "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
+		m_messagesSourceFileContent = "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
 
 		std::string messageMethodsByString = "static auto methodStringPair(MessageMethod method)"
 		                                     "{\n"
@@ -1071,9 +1064,6 @@ private:
 
 		m_messagesHeaderFileContent += namespaceStr;
 		m_messagesSourceFileContent += namespaceStr;
-
-		m_messagesHeaderFileContent += MessagesHeaderEnd;
-		m_messagesSourceFileContent += MessagesSourceEnd;
 	}
 
 	void generateMessage(const std::string& method, const Message& message, bool isNotification)
