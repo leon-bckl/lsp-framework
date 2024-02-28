@@ -40,11 +40,11 @@ public:
 
 	template<typename MessageType>
 	requires HasParams<MessageType> && (!HasResult<MessageType>)
-	MessageHandler& add(const std::function<void(const typename MessageType::Params&)>& handlerFunc);
+	MessageHandler& add(const std::function<void(typename MessageType::Params&&)>& handlerFunc);
 
 	template<typename MessageType>
 	requires HasParams<MessageType> && HasResult<MessageType>
-	MessageHandler& add(const std::function<typename MessageType::Result(const typename MessageType::Params&)>& handlerFunc);
+	MessageHandler& add(const std::function<typename MessageType::Result(typename MessageType::Params&&)>& handlerFunc);
 
 	template<typename MessageType>
 	requires HasResult<MessageType> && (!HasParams<MessageType>)
@@ -147,13 +147,13 @@ private:
 
 template<typename MessageType>
 requires HasParams<MessageType> && (!HasResult<MessageType>)
-MessageHandler& MessageHandler::add(const std::function<void(const typename MessageType::Params&)>& handlerFunc)
+MessageHandler& MessageHandler::add(const std::function<void(typename MessageType::Params&&)>& handlerFunc)
 {
 	addHandler(MessageType::Method, [handlerFunc](const jsonrpc::MessageId&, const json::Any& json)
 	{
 		typename MessageType::Params params;
 		fromJson(json, params);
-		handlerFunc(params);
+		handlerFunc(std::move(params));
 		return std::nullopt;
 	});
 
@@ -162,13 +162,13 @@ MessageHandler& MessageHandler::add(const std::function<void(const typename Mess
 
 template<typename MessageType>
 requires HasParams<MessageType> && HasResult<MessageType>
-MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result(const typename MessageType::Params&)>& handlerFunc)
+MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result(typename MessageType::Params&&)>& handlerFunc)
 {
 	addHandler(MessageType::Method, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any& json)
 	{
 		typename MessageType::Params params;
 		fromJson(json, params);
-		return createResponse(id, handlerFunc(params));
+		return createResponse(id, handlerFunc(std::move(params)));
 	});
 
 	return *this;

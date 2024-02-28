@@ -11,6 +11,7 @@ There aren't any external dependencies except for `cmake` and a compiler that su
 The project is built as a static library. LSP type definitions, messages and serialization boilerplate are generated during the build from the official [meta model](https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/metaModel/metaModel.json).  
   
 Here's a short example on how to handle and send requests:
+
 ```cpp
 #include <lsp/messages.h> /* Generated message definitions */
 #include <lsp/connection.h>
@@ -24,13 +25,13 @@ lsp::MessageHandler messageHandler{connection};
 bool running = true;
 
 messageHandler
-.add<lsp::messages::Initialize>([](const lsp::messages::Initialize::Params& params) // Initialize request
+.add<lsp::requests::Initialize>([](lsp::requests::Initialize::Params&& params)
 {
-  lsp::messages::Initialize::Result result;
-  // Initialize the result and return it or throw a lsp::RequestError if there was a problem
+  lsp::requests::Initialize::Result result;
+  // Initialize the result and return it or throw an lsp::RequestError if there was a problem
   return result;
 })
-.add<lsp::messages::Exit>([&running]() // Exit notification
+.add<lsp::notifications::Exit>([&running]()
 {
   running = false;
 });
@@ -38,12 +39,16 @@ messageHandler
 while(running)
   messageHandler.processIncomingMessages();
 
+...
+```
+
+```cpp
 // The sendRequest method returns a std::future for the result type of the message.
 // Be careful not to call std::future::wait on the same thread that calls
 // MessageHandler::processIncomingMessages since it would block.
 
-auto result = messageHandler.sendRequest<lsp::messages::TextDocument_Diagnostic>(
-    lsp::messages::TextDocument_Diagnostic::Params{...}
+auto result = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(
+    lsp::requests::TextDocument_Diagnostic::Params{...}
   );
 
 ```
