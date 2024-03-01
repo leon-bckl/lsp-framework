@@ -892,6 +892,11 @@ R"(#pragma once
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
+/*
+ * Define LSP_MESSAGE_TYPES to enable the members for the messages types in case you wish to instantiate and use them.
+ * This is only necessary if you want to roll your own message handling since the MessageHandler class only needs the typedefs inside of the structs.
+ */
+
 #include "types.h"
 #include <lsp/messagebase.h>
 
@@ -996,12 +1001,10 @@ private:
 		                              "\t// Requests\n\n";
 		m_messagesSourceFileContent = "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
 
-		std::string messageMethodsByString = "static auto methodStringPair(MessageMethod method)"
-		                                     "{\n"
-		                                     "\treturn std::make_pair(MethodStrings[static_cast<int>(method)], method);\n"
-		                                     "}\n\n"
-		                                     "static const util::str::UnorderedMap<std::string_view, MessageMethod> MethodsByString = {\n";
-		std::string messageCreateFromMethod = "MessagePtr createMessageFromMethod(MessageMethod method)"
+		std::string messageMethodsByString = "static const util::str::UnorderedMap<std::string_view, MessageMethod> MethodsByString = {\n"
+		                                     "#define LSP_MS_PAIR(x) {MethodStrings[static_cast<int>(x)], x}\n";
+		std::string messageCreateFromMethod = "#ifdef LSP_MESSAGE_TYPES\n"
+		                                      "MessagePtr createMessageFromMethod(MessageMethod method)"
 		                                      "{\n"
 		                                      "\tswitch(method)\n\t{\n";
 
@@ -1010,7 +1013,7 @@ private:
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
-			messageMethodsByString += "\tmethodStringPair(MessageMethod::" + id + "),\n";
+			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
 			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
 			messageCreateFromMethod += "\t\treturn std::make_unique<requests::" + id + ">();\n";
 		}
@@ -1022,7 +1025,7 @@ private:
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
-			messageMethodsByString += "\tmethodStringPair(MessageMethod::" + id + "),\n";
+			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
 			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
 			messageCreateFromMethod += "\t\treturn std::make_unique<notifications::" + id + ">();\n";
 		}
@@ -1030,7 +1033,9 @@ private:
 		messageCreateFromMethod += "\tdefault:\n"
 		                           "\t\treturn nullptr;\n"
 		                           "\t}\n"
-		                           "}\n\n";
+		                           "#undef LSP_MS_PAIR\n"
+		                           "}\n"
+		                           "#endif\n";
 
 		m_messagesHeaderFileContent += "\tMAX_VALUE\n};\n\n";
 		m_messagesSourceFileContent.pop_back();
@@ -1043,6 +1048,8 @@ private:
 
 		// Structs
 
+		m_messagesSourceFileContent += "#ifdef LSP_MESSAGE_TYPES\n";
+
 		const char* namespaceStr = "namespace requests{\n\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
@@ -1051,7 +1058,7 @@ private:
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 			generateMessage(method, message, false);
 
-		namespaceStr = "} // namespace requests\n\n"
+		namespaceStr = "\n} // namespace requests\n\n"
 		               "namespace notifications{\n\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
@@ -1060,10 +1067,11 @@ private:
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
 			generateMessage(method, message, true);
 
-		namespaceStr = "} // namespace notifications\n";
+		namespaceStr = "\n} // namespace notifications\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
 		m_messagesSourceFileContent += namespaceStr;
+		m_messagesSourceFileContent += "#endif\n";
 	}
 
 	void generateMessage(const std::string& method, const Message& message, bool isNotification)
@@ -1111,10 +1119,14 @@ private:
 		if(hasParams || hasResult || hasRegistrationOptions || hasPartialResult)
 			m_messagesHeaderFileContent += '\n';
 
+		m_messagesHeaderFileContent += "#ifdef LSP_MESSAGE_TYPES\n";
+
 		if(hasParams)
 			m_messagesHeaderFileContent += "\tParams params;\n";
 
-		if(hasResult)
+		if(hasPartialResult)
+			m_messagesHeaderFileContent += "\tstd::variant<Result, PartialResult> result;\n";
+		else if(hasResult)
 			m_messagesHeaderFileContent += "\tResult result;\n";
 
 		m_messagesHeaderFileContent += "\n\tMessageMethod method() const override;\n";
@@ -1144,6 +1156,7 @@ private:
 			m_messagesSourceFileContent += "json::Any " + messageCppName + "::resultJson() const{ return toJson(result); }\n";
 		}
 
+		m_messagesHeaderFileContent += "#endif\n";
 		m_messagesHeaderFileContent += "};\n\n";
 	}
 

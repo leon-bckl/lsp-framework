@@ -7,12 +7,15 @@
 namespace lsp{
 
 struct Message;
-using MessagePtr = std::unique_ptr<Message>;
 
 enum class MessageMethod;
 std::string_view messageMethodToString(MessageMethod method);
 MessageMethod messageMethodFromString(std::string_view str);
+
+#ifdef LSP_MESSAGE_TYPES
+using MessagePtr = std::unique_ptr<Message>;
 MessagePtr createMessageFromMethod(MessageMethod method);
+#endif
 
 /*
  * Message
