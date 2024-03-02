@@ -81,4 +81,30 @@ struct ClientToServerNotification : ClientToServerMessage, virtual ParamsMessage
 struct ServerToClientNotification : ServerToClientMessage, virtual ParamsMessage{};
 struct BidirectionalNotification : ClientToServerNotification, ServerToClientNotification{};
 
-}
+/*
+ * Concepts
+ */
+
+namespace message{
+
+template<typename T>
+concept HasParams = requires
+{
+	typename T::Params;
+};
+
+template<typename T>
+concept HasResult = requires
+{
+	typename T::Result;
+};
+
+template<typename T>
+concept HasPartialResult = requires
+{
+	typename T::PartialResult;
+};
+
+} // namespace message
+
+} // namespace lsp

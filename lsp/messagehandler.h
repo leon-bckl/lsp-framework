@@ -12,22 +12,52 @@
 #include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
+
 class ErrorCodes;
-
-template<typename T>
-concept HasParams = requires
-{
-	typename T::Params;
-};
-
-template<typename T>
-concept HasResult = requires
-{
-	typename T::Result;
-};
-
 class Connection;
 
+template<typename MessageType, typename F>
+concept IsRequestCallback = (message::HasParams<MessageType> &&
+                             message::HasResult<MessageType> &&
+                             std::convertible_to<F, std::function<typename MessageType::Result(typename MessageType::Params&&)>>);
+
+template<typename MessageType, typename F>
+concept IsNoParamsRequestCallback = ((!message::HasParams<MessageType>) &&
+                                     message::HasResult<MessageType> &&
+                                     std::convertible_to<F, std::function<typename MessageType::Result()>>);
+
+template<typename MessageType, typename F>
+concept IsNotificationCallback = (message::HasParams<MessageType> &&
+							  						      (!message::HasResult<MessageType>) &&
+							  						      std::convertible_to<F, std::function<void(typename MessageType::Params&&)>>);
+
+template<typename MessageType, typename F>
+concept IsNoParamsNotificationCallback = ((!message::HasParams<MessageType>) &&
+                                          (!message::HasResult<MessageType>) &&
+                                          std::convertible_to<F, std::function<void()>>);
+
+/*
+ * The MessageHandler is used to send or receive requests and notifications.
+ * 'processIncomingMessages' will read all messages from the connection and invoke callbacks or update the result of sent requests.
+ *
+ * Callbacks for the different message types can be registered using the 'add' method.
+ * A callback can by any callable type that has the same return and parameter types as the message itself.
+ * For example the following registers a callback for the Initialize request:
+ *
+ * messageHandler->add<requests::Initialize>([](const auto& params)
+ * {
+ *     return InitializeResult{};
+ * });
+ *
+ * There are also convenience typedefs for the message return and parameter types:
+ *  - MessageType::Result
+ *  - MessageType::Params
+ *
+ * If an error occurs the callback should throw a RequestError with a fitting error code and description.
+ *
+ * The 'sendRequest' method returns a std::future for the result type.
+ * Make sure not to call std::future::wait on the same thread that calls 'processIncomingMessages' as it would block.
+ */
 class MessageHandler{
 public:
 	MessageHandler(Connection& connection) : m_connection{connection}{}
@@ -38,32 +68,40 @@ public:
 	 * Callback registration
 	 */
 
-	template<typename MessageType>
-	requires HasParams<MessageType> && (!HasResult<MessageType>)
-	MessageHandler& add(const std::function<void(typename MessageType::Params&&)>& handlerFunc);
+	template<typename MessageType, typename F>
+	requires IsRequestCallback<MessageType, F>
+	MessageHandler& add(F&& handlerFunc);
 
-	template<typename MessageType>
-	requires HasParams<MessageType> && HasResult<MessageType>
-	MessageHandler& add(const std::function<typename MessageType::Result(typename MessageType::Params&&)>& handlerFunc);
+	template<typename MessageType, typename F>
+	requires IsNoParamsRequestCallback<MessageType, F>
+	MessageHandler& add(F&& handlerFunc);
 
-	template<typename MessageType>
-	requires HasResult<MessageType> && (!HasParams<MessageType>)
-	MessageHandler& add(const std::function<typename MessageType::Result()>& handlerFunc);
+	template<typename MessageType, typename F>
+	requires IsNotificationCallback<MessageType, F>
+	MessageHandler& add(F&& handlerFunc);
 
-	template<typename MessageType>
-	requires (!HasParams<MessageType>) && (!HasResult<MessageType>)
-	MessageHandler& add(const std::function<void()>& handlerFunc);
+	template<typename MessageType, typename F>
+	requires IsNoParamsNotificationCallback<MessageType, F>
+	MessageHandler& add(F&& handlerFunc);
 
 	/*
 	 * sendRequest
 	 */
 
 	template<typename MessageType>
-	requires HasParams<MessageType> && HasResult<MessageType>
+	requires message::HasParams<MessageType> && message::HasResult<MessageType>
 	[[nodiscard]] std::future<typename MessageType::Result> sendRequest(const typename MessageType::Params& params);
 
 	template<typename MessageType>
-	requires HasResult<MessageType> && (!HasParams<MessageType>)
+	requires message::HasParams<MessageType> && message::HasResult<MessageType> && message::HasPartialResult<MessageType>
+	[[nodiscard]] std::future<typename MessageType::Result> sendRequest(const typename MessageType::Params& params);
+
+	template<typename MessageType>
+	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
+	[[nodiscard]] std::future<typename MessageType::Result> sendRequest();
+
+	template<typename MessageType>
+	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) && (!message::HasPartialResult<MessageType>)
 	[[nodiscard]] std::future<typename MessageType::Result> sendRequest();
 
 	/*
@@ -71,14 +109,14 @@ public:
 	 */
 
 	template<typename MessageType>
-	requires (!HasParams<MessageType>) && (!HasResult<MessageType>)
+	requires (!message::HasParams<MessageType>) && (!message::HasResult<MessageType>)
 	void sendNotification()
 	{
 		sendNotification(MessageType::Method);
 	}
 
 	template<typename MessageType>
-	requires HasParams<MessageType> && (!HasResult<MessageType>)
+	requires message::HasParams<MessageType> && (!message::HasResult<MessageType>)
 	void sendNotification(const typename MessageType::Params& params)
 	{
 		sendNotification(MessageType::Method, toJson(params));
@@ -145,9 +183,35 @@ private:
 	};
 };
 
-template<typename MessageType>
-requires HasParams<MessageType> && (!HasResult<MessageType>)
-MessageHandler& MessageHandler::add(const std::function<void(typename MessageType::Params&&)>& handlerFunc)
+template<typename MessageType, typename F>
+requires IsRequestCallback<MessageType, F>
+MessageHandler& MessageHandler::add(F&& handlerFunc)
+{
+	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, const json::Any& json)
+	{
+		typename MessageType::Params params;
+		fromJson(json, params);
+		return createResponse(id, f(std::move(params)));
+	});
+
+	return *this;
+}
+
+template<typename MessageType, typename F>
+requires IsNoParamsRequestCallback<MessageType, F>
+MessageHandler& MessageHandler::add(F&& handlerFunc)
+{
+	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, const json::Any&)
+	{
+		return createResponse(id, f());
+	});
+
+	return *this;
+}
+
+template<typename MessageType, typename F>
+requires IsNotificationCallback<MessageType, F>
+MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
 	addHandler(MessageType::Method, [handlerFunc](const jsonrpc::MessageId&, const json::Any& json)
 	{
@@ -160,39 +224,13 @@ MessageHandler& MessageHandler::add(const std::function<void(typename MessageTyp
 	return *this;
 }
 
-template<typename MessageType>
-requires HasParams<MessageType> && HasResult<MessageType>
-MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result(typename MessageType::Params&&)>& handlerFunc)
+template<typename MessageType, typename F>
+requires IsNoParamsNotificationCallback<MessageType, F>
+MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
-	addHandler(MessageType::Method, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any& json)
+	addHandler(MessageType::Method, [f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId&, const json::Any&)
 	{
-		typename MessageType::Params params;
-		fromJson(json, params);
-		return createResponse(id, handlerFunc(std::move(params)));
-	});
-
-	return *this;
-}
-
-template<typename MessageType>
-requires HasResult<MessageType> && (!HasParams<MessageType>)
-MessageHandler& MessageHandler::add(const std::function<typename MessageType::Result()>& handlerFunc)
-{
-	addHandler(MessageType::Method, [this, handlerFunc](const jsonrpc::MessageId& id, const json::Any&)
-	{
-		return createResponse(id, handlerFunc());
-	});
-
-	return *this;
-}
-
-template<typename MessageType>
-requires (!HasParams<MessageType>) && (!HasResult<MessageType>)
-MessageHandler& MessageHandler::add(const std::function<void()>& handlerFunc)
-{
-	addHandler(MessageType::Method, [handlerFunc](const jsonrpc::MessageId&, const json::Any&)
-	{
-		handlerFunc();
+		f();
 		return std::nullopt;
 	});
 
@@ -200,7 +238,7 @@ MessageHandler& MessageHandler::add(const std::function<void()>& handlerFunc)
 }
 
 template<typename MessageType>
-requires HasParams<MessageType> && HasResult<MessageType>
+requires message::HasParams<MessageType> && message::HasResult<MessageType>
 std::future<typename MessageType::Result> MessageHandler::sendRequest(const typename MessageType::Params& params)
 {
 	auto result = std::make_unique<ResponseResult<typename MessageType::Result>>();
@@ -210,7 +248,7 @@ std::future<typename MessageType::Result> MessageHandler::sendRequest(const type
 }
 
 template<typename MessageType>
-requires HasResult<MessageType> && (!HasParams<MessageType>)
+requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
 std::future<typename MessageType::Result> MessageHandler::sendRequest()
 {
 	auto result = std::make_unique<ResponseResult<typename MessageType::Result>>();
