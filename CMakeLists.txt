@@ -34,7 +34,6 @@ set(HEADERS
 	# util
 	util/nullable.h
 	util/str.h
-	util/threadpool.h
 	util/uri.h
 	util/util.h
 )
@@ -52,7 +51,6 @@ set(SOURCES
 	jsonrpc/jsonrpc.cpp
 	# util
 	util/str.cpp
-	util/threadpool.cpp
 	util/uri.cpp
 )
 list(TRANSFORM SOURCES PREPEND ${SRC_DIR})
