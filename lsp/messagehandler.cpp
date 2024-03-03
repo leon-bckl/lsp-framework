@@ -1,111 +1,59 @@
 #include "messagehandler.h"
 
+#include <lsp/types.h>
 #include <lsp/connection.h>
 #include <lsp/jsonrpc/jsonrpc.h>
-#include <lsp/types.h>
 #include "error.h"
 
 namespace lsp{
 
-std::optional<jsonrpc::Response> MessageHandler::processRequest(const jsonrpc::Request& request)
+std::atomic<json::Integer> MessageHandler::s_uniqueRequestId = 0;
+
+MessageHandler::MessageHandler(Connection& connection) : m_connection{connection}
 {
-	auto method = messageMethodFromString(request.method);
-	std::optional<jsonrpc::Response> response;
+	m_responseThread = std::thread{[this](){
+		while(true)
+		{
+			std::unique_lock lock{m_pendingResponsesMutex};
+			m_pendingResponses.erase(std::find_if(m_pendingResponses.begin(), m_pendingResponses.end(),
+				[this](const auto& p)
+				{
+					const auto& result = p.second;
+					const auto ready = result->isReady();
 
-	if(handlesRequest(method))
-	{
-		try
-		{
-			// Call handler for the method type and return optional response
-			response = m_requestHandlers[static_cast<std::size_t>(method)](
-				request.id.has_value() ? *request.id : json::Null{},
-				request.params.has_value() ? *request.params : json::Null{}
-			);
-		}
-		catch(const json::TypeError& e)
-		{
-			if(!request.isNotification())
-			{
-				response = jsonrpc::createErrorResponse(
-				 *request.id, ErrorCodes{ErrorCodes::InvalidParams}, e.what());
-			}
-		}
-		catch(const RequestError& e)
-		{
-			if(!request.isNotification())
-			{
-				response = jsonrpc::createErrorResponse(
-				 *request.id, e.code(), e.what(), e.data());
-			}
-		}
-	}
-	else if(!request.isNotification())
-	{
-		response = jsonrpc::createErrorResponse(
-		 *request.id, ErrorCodes::MethodNotFound, "Unsupported method: " + request.method);
-	}
+					if(ready)
+					{
+						try
+						{
+							m_connection.sendMessage(result->get());
+						}
+						catch(const RequestError& e)
+						{
+							sendErrorMessage(ErrorCodes{e.code()}, e.what());
+						}
+					}
 
-	return response;
+					return ready;
+				}),
+				m_pendingResponses.end());
+
+			if(!m_running)
+				break;
+
+			lock.unlock();
+			std::this_thread::sleep_for(std::chrono::milliseconds{100}); // TODO: Implement non-busy waiting solution
+		}
+	}};
 }
 
-void MessageHandler::processResponse(const jsonrpc::Response& response)
+MessageHandler::~MessageHandler()
 {
-	ResponseResultPtr result;
-
 	{
-		std::lock_guard lock{m_requestMutex};
-		if(auto it = m_pendingRequests.find(response.id); it != m_pendingRequests.end())
-		{
-			result = std::move(it->second);
-			m_pendingRequests.erase(it);
-		}
+		std::lock_guard lock{m_pendingResponsesMutex};
+		m_running = false;
 	}
 
-	if(!result) // If there's no result it means a response was received without a request which makes no sense but just ignore it...
-		return;
-
-	if(response.result.has_value())
-	{
-		try
-		{
-			result->setValueFromJson(*response.result);
-		}
-		catch(const json::TypeError& e)
-		{
-			result->setException(std::make_exception_ptr(e));
-		}
-	}
-	else
-	{
-		assert(response.error.has_value());
-		const auto& error = *response.error;
-		result->setException(std::make_exception_ptr(ResponseError{error.message, ErrorCodes{error.code}, error.data}));
-	}
-}
-
-std::optional<jsonrpc::Response> MessageHandler::processMessage(const jsonrpc::Message& message)
-{
-	if(message.isRequest())
-		return processRequest(static_cast<const jsonrpc::Request&>(message));
-
-	processResponse(static_cast<const jsonrpc::Response&>(message));
-	return std::nullopt;
-}
-
-jsonrpc::MessageBatch MessageHandler::processMessageBatch(const jsonrpc::MessageBatch& batch)
-{
-	jsonrpc::MessageBatch responseBatch;
-	responseBatch.reserve(batch.size());
-
-	for(const auto& m : batch)
-	{
-		auto response = processMessage(*m);
-
-		if(response.has_value())
-			responseBatch.push_back(std::make_unique<jsonrpc::Response>(std::move(*response)));
-	}
-
-	return responseBatch;
+	m_responseThread.join();
 }
 
 void MessageHandler::processIncomingMessages()
@@ -153,6 +101,107 @@ void MessageHandler::processIncomingMessages()
 	}
 }
 
+std::optional<jsonrpc::Response> MessageHandler::processRequest(const jsonrpc::Request& request)
+{
+	auto method = messageMethodFromString(request.method);
+	std::optional<jsonrpc::Response> response;
+
+	if(handlesRequest(method))
+	{
+		try
+		{
+			// Call handler for the method type and return optional response
+			response = m_requestHandlers[static_cast<std::size_t>(method)](
+				request.id.has_value() ? *request.id : json::Null{},
+				request.params.has_value() ? *request.params : json::Null{}
+			);
+		}
+		catch(const json::TypeError& e)
+		{
+			if(!request.isNotification())
+			{
+				response = jsonrpc::createErrorResponse(
+				 *request.id, ErrorCodes{ErrorCodes::InvalidParams}, e.what());
+			}
+		}
+		catch(const RequestError& e)
+		{
+			if(!request.isNotification())
+			{
+				response = jsonrpc::createErrorResponse(
+				 *request.id, e.code(), e.what(), e.data());
+			}
+		}
+	}
+	else if(!request.isNotification())
+	{
+		response = jsonrpc::createErrorResponse(
+		 *request.id, ErrorCodes::MethodNotFound, "Unsupported method: " + request.method);
+	}
+
+	return response;
+}
+
+void MessageHandler::processResponse(const jsonrpc::Response& response)
+{
+	RequestResultPtr result;
+
+	{
+		std::lock_guard lock{m_pendingRequestsMutex};
+		if(auto it = m_pendingRequests.find(response.id); it != m_pendingRequests.end())
+		{
+			result = std::move(it->second);
+			m_pendingRequests.erase(it);
+		}
+	}
+
+	if(!result) // If there's no result it means a response was received without a request which makes no sense but just ignore it...
+		return;
+
+	if(response.result.has_value())
+	{
+		try
+		{
+			result->setValueFromJson(*response.result);
+		}
+		catch(const json::TypeError& e)
+		{
+			result->setException(std::make_exception_ptr(e));
+		}
+	}
+	else
+	{
+		assert(response.error.has_value());
+		const auto& error = *response.error;
+		result->setException(std::make_exception_ptr(ResponseError{ErrorCodes{error.code}, error.message, error.data}));
+	}
+}
+
+std::optional<jsonrpc::Response> MessageHandler::processMessage(const jsonrpc::Message& message)
+{
+	if(message.isRequest())
+		return processRequest(static_cast<const jsonrpc::Request&>(message));
+
+	processResponse(static_cast<const jsonrpc::Response&>(message));
+	return std::nullopt;
+}
+
+jsonrpc::MessageBatch MessageHandler::processMessageBatch(const jsonrpc::MessageBatch& batch)
+{
+	jsonrpc::MessageBatch responseBatch;
+	responseBatch.reserve(batch.size());
+
+	for(const auto& m : batch)
+	{
+		auto response = processMessage(*m);
+
+		if(response.has_value())
+			responseBatch.push_back(std::make_unique<jsonrpc::Response>(std::move(*response)));
+	}
+
+	return responseBatch;
+}
+
 bool MessageHandler::handlesRequest(MessageMethod method)
 {
 	auto index = static_cast<std::size_t>(method);
@@ -169,11 +218,21 @@ void MessageHandler::addHandler(MessageMethod method, HandlerWrapper&& handlerFu
 	m_requestHandlers[index] = std::move(handlerFunc);
 }
 
-void MessageHandler::sendRequest(MessageMethod method, ResponseResultPtr result, const std::optional<json::Any>& params)
+void MessageHandler::addResponseResult(const jsonrpc::MessageId& id, ResponseResultPtr result)
 {
-	std::lock_guard lock{m_requestMutex};
-	auto id = m_uniqueRequestId++;
-	assert(!m_pendingRequests.contains(id));
+	std::lock_guard lock{m_pendingResponsesMutex};
+	auto it = m_pendingResponses.find(id);
+
+	if(it != m_pendingResponses.end())
+		throw RequestError{ErrorCodes::InvalidRequest, "Request id is not unique"};
+
+	m_pendingResponses.emplace(id, std::move(result));
+}
+
+void MessageHandler::sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params)
+{
+	std::lock_guard lock{m_pendingRequestsMutex};
+	auto id = s_uniqueRequestId++;
 	m_pendingRequests[id] = std::move(result);
 	auto methodStr = messageMethodToString(method);
 	m_connection.sendMessage(jsonrpc::createRequest(id, methodStr, params));

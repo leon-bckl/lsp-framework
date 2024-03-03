@@ -29,7 +29,9 @@ void ThreadPool::start(std::size_t threadCount)
 
 					{
 						std::unique_lock lock{m_mutex};
-						m_event.wait(lock, [this](){ return !m_running || !m_taskQueue.empty(); });
+
+						if(m_running && m_taskQueue.empty())
+							m_event.wait(lock, [this](){ return !m_running || !m_taskQueue.empty(); });
 
 						if(!m_taskQueue.empty())
 						{

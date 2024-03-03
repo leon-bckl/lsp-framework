@@ -26,6 +26,7 @@ public:
 		auto task = std::make_shared<std::packaged_task<ReturnType()>>(boundFunc);
 		auto future = task->get_future();
 		m_taskQueue.emplace([t = std::move(task)](){ (*t)(); });
+		m_event.notify_one();
 
 		return future;
 	}
