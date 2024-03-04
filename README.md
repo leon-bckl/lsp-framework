@@ -24,7 +24,7 @@ lsp::Connection connection{lsp::io::standardInput(), lsp::io::standardOutput()};
 lsp::MessageHandler messageHandler{connection};
 bool running = true;
 
-messageHandler
+messageHandler.requestHandler()
 .add<lsp::requests::Initialize>([](const jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
 {
   lsp::requests::Initialize::Result result;
@@ -38,7 +38,7 @@ messageHandler
 });
 
 while(running)
-  messageHandler.processMessages();
+  messageHandler.processIncomingMessages();
 
 ...
 ```
@@ -46,9 +46,9 @@ while(running)
 ```cpp
 // The sendRequest method returns a std::future for the result type of the message.
 // Be careful not to call std::future::wait on the same thread that calls
-// MessageHandler::processMessages since it would block.
+// MessageHandler::processIncomingMessages since it would block.
 
-auto result = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(
+auto result = messageHandler.messageDispatcher().sendRequest<lsp::requests::TextDocument_Diagnostic>(
     lsp::requests::TextDocument_Diagnostic::Params{...}
   );
 

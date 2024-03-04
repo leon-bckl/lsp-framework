@@ -1,8 +1,11 @@
 #include "connection.h"
 
+#include <cassert>
 #include <charconv>
 #include <string_view>
 #include <lsp/util/str.h>
+#include <lsp/json/json.h>
+#include <lsp/jsonrpc/jsonrpc.h>
 
 #ifndef LSP_MESSAGE_DEBUG_LOG
 	#ifdef NDEBUG
@@ -45,10 +48,13 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
  * Connection
  */
 
-Connection::Connection(std::istream& in, std::ostream& out) : m_in{in},
-                                                              m_out{out}{}
+Connection::Connection(std::istream& in, std::ostream& out)
+	: m_in{in},
+	  m_out{out}
+{
+}
 
-std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> Connection::receiveMessage()
+void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, ResponseHandlerInterface& responseHandler)
 {
 	std::lock_guard lock{m_readMutex};
 
@@ -78,51 +84,54 @@ std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> Connection::receiveMess
 			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
 	}
 
-	auto json = json::parse(content);
+	try
+	{
+		auto json = json::parse(content);
 #if LSP_MESSAGE_DEBUG_LOG
-	debugLogMessageJson("incoming", json);
+		debugLogMessageJson("incoming", json);
 #endif
-	return jsonrpc::messageFromJson(json);
+
+		if(json.isObject())
+		{
+			auto message = jsonrpc::messageFromJson(std::move(json.get<json::Object>()));
+
+			if(std::holds_alternative<jsonrpc::Request>(message))
+				requestHandler.onRequest(std::move(std::get<jsonrpc::Request>(message)));
+			else
+				responseHandler.onResponse(std::move(std::get<jsonrpc::Response>(message)));
+		}
+		else if(json.isArray())
+		{
+			auto batch = jsonrpc::messageBatchFromJson(std::move(json.get<json::Array>()));
+
+			if(std::holds_alternative<jsonrpc::RequestBatch>(batch))
+				requestHandler.onRequestBatch(std::move(std::get<jsonrpc::RequestBatch>(batch)));
+			else
+				responseHandler.onResponseBatch(std::move(std::get<jsonrpc::ResponseBatch>(batch)));
+		}
+	}
+	catch(const jsonrpc::ProtocolError& e)
+	{
+		sendResponse(jsonrpc::createErrorResponse(json::Null{}, jsonrpc::error::InvalidRequest, e.what()));
+	}
+	catch(const json::TypeError& e)
+	{
+		sendResponse(jsonrpc::createErrorResponse(json::Null{}, jsonrpc::error::InvalidRequest, e.what()));
+	}
+	catch(const json::ParseError& e)
+	{
+		sendResponse(jsonrpc::createErrorResponse(json::Null{}, jsonrpc::error::ParseError, std::string{"Parse error: "} + e.what()));
+	}
 }
 
-void Connection::sendMessage(const jsonrpc::Message& message)
+void Connection::sendRequest(jsonrpc::Request&& request)
 {
-	writeJsonMessage(message.toJson());
+	writeJsonMessage(jsonrpc::requestToJson(std::move(request)));
 }
 
-void Connection::sendMessageBatch(const jsonrpc::MessageBatch& batch)
+void Connection::sendResponse(jsonrpc::Response&& response)
 {
-	json::Any content = json::Array{};
-	auto& array = content.get<json::Array>();
-	array.reserve(batch.size());
-
-	for(const auto& m : batch)
-		array.push_back(m->toJson());
-
-	writeJsonMessage(content);
-}
-
-void Connection::writeJsonMessage(const json::Any& content)
-{
-#if LSP_MESSAGE_DEBUG_LOG
-	debugLogMessageJson("outgoing", content);
-#endif
-	writeMessage(json::stringify(content));
-}
-
-void Connection::writeMessage(const std::string& content)
-{
-	std::lock_guard lock{m_writeMutex};
-	MessageHeader header{content.size()};
-	writeMessageHeader(header);
-	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));
-	m_out.flush();
-}
-
-void Connection::writeMessageHeader(const MessageHeader& header)
-{
-	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
-	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
+	writeJsonMessage(jsonrpc::responseToJson(std::move(response)));
 }
 
 Connection::MessageHeader Connection::readMessageHeader()
@@ -163,6 +172,29 @@ void Connection::readNextMessageHeaderField(MessageHeader& header)
 		else if(key == "Content-Type")
 			header.contentType = std::string{value.data(), value.size()};
 	}
+}
+
+void Connection::writeJsonMessage(const json::Any& content)
+{
+#if LSP_MESSAGE_DEBUG_LOG
+	debugLogMessageJson("outgoing", content);
+#endif
+	writeMessage(json::stringify(content));
+}
+
+void Connection::writeMessage(const std::string& content)
+{
+	std::lock_guard lock{m_writeMutex};
+	MessageHeader header{content.size()};
+	writeMessageHeader(header);
+	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));
+	m_out.flush();
+}
+
+void Connection::writeMessageHeader(const MessageHeader& header)
+{
+	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
+	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }
 
 } // namespace lsp

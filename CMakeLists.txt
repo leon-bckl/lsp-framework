@@ -23,7 +23,9 @@ set(HEADERS
 	connection.h
 	error.h
 	messagebase.h
+	messagedispatcher.h
 	messagehandler.h
+	requesthandler.h
 	serialization.h
 	# io
 	io/standardio.h
@@ -42,7 +44,8 @@ list(TRANSFORM HEADERS PREPEND ${SRC_DIR})
 set(SOURCES
 	# lsp
 	connection.cpp
-	messagehandler.cpp
+	messagedispatcher.cpp
+	requesthandler.cpp
 	# io
 	io/standardio.cpp
 	# json

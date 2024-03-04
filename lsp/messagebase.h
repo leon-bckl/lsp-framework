@@ -1,5 +1,6 @@
 #pragma once
 
+#include <future>
 #include <memory>
 #include <type_traits>
 #include <lsp/json/json.h>
@@ -16,6 +17,9 @@ MessageMethod messageMethodFromString(std::string_view str);
 using MessagePtr = std::unique_ptr<Message>;
 MessagePtr createMessageFromMethod(MessageMethod method);
 #endif
+
+template<typename MessageType>
+using ASyncRequestResult = std::future<typename MessageType::Result>;
 
 /*
  * Message

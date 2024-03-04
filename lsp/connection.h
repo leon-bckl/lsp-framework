@@ -8,6 +8,18 @@
 
 namespace lsp{
 
+class RequestHandlerInterface{
+public:
+	virtual void onRequest(jsonrpc::Request&& request) = 0;
+	virtual void onRequestBatch(jsonrpc::RequestBatch&& batch) = 0;
+};
+
+class ResponseHandlerInterface{
+public:
+	virtual void onResponse(jsonrpc::Response&& response) = 0;
+	virtual void onResponseBatch(jsonrpc::ResponseBatch&& response) = 0;
+};
+
 /*
  * Connection between the server and a client.
  * I/O happens via std::istream and std::ostream so the underlying implementation can be anything from stdio to sockets
@@ -16,15 +28,15 @@ class Connection{
 public:
 	Connection(std::istream& in, std::ostream& out);
 
-	std::variant<jsonrpc::MessagePtr, jsonrpc::MessageBatch> receiveMessage();
-	void sendMessage(const jsonrpc::Message& message);
-	void sendMessageBatch(const jsonrpc::MessageBatch& batch);
+	void receiveNextMessage(RequestHandlerInterface& requestHandler, ResponseHandlerInterface& responseHandler);
+	void sendRequest(jsonrpc::Request&& request);
+	void sendResponse(jsonrpc::Response&& response);
 
 private:
-	std::istream& m_in;
-	std::ostream& m_out;
-	std::mutex    m_readMutex;
-	std::mutex    m_writeMutex;
+	std::istream&    m_in;
+	std::ostream&    m_out;
+	std::mutex       m_readMutex;
+	std::mutex       m_writeMutex;
 
 	struct MessageHeader{
 		std::size_t contentLength = 0;

@@ -13,13 +13,10 @@ namespace lsp::jsonrpc{
 		std::string jsonrpc = "2.0";
 
 		virtual ~Message() = default;
-		virtual json::Any toJson() const = 0;
 		virtual bool isRequest() const{ return false; }
 		virtual bool isResponse() const{ return false; }
 	};
 
-	using MessagePtr = std::unique_ptr<Message>;
-	using MessageBatch = std::vector<MessagePtr>;
 	using MessageId = std::variant<json::String, json::Integer, json::Null>;
 
 	/*
@@ -31,16 +28,25 @@ namespace lsp::jsonrpc{
 		std::string              method;
 		std::optional<json::Any> params;
 
-		json::Any toJson() const override;
 		bool isRequest() const override{ return true; }
 		bool isNotification() const{ return !id.has_value(); }
 	};
 
-	using RequestPtr = std::unique_ptr<Request>;
+	using RequestBatch = std::vector<Request>;
 
 	/*
 	 * Response
 	 */
+
+	namespace error{
+
+		inline constexpr json::Integer ParseError     = -32700;
+		inline constexpr json::Integer InvalidRequest = -32600;
+		inline constexpr json::Integer MethodNotFound = -32601;
+		inline constexpr json::Integer InvalidParams  = -32602;
+		inline constexpr json::Integer InternalError  = -32603;
+
+	} // namespace error
 
 	struct ResponseError{
 		json::Integer            code;
@@ -53,11 +59,10 @@ namespace lsp::jsonrpc{
 		std::optional<json::Any>     result;
 		std::optional<ResponseError> error;
 
-		json::Any toJson() const override;
 		bool isResponse() const override{ return true; }
 	};
 
-	using ResponsePtr = std::unique_ptr<Response>;
+	using ResponseBatch = std::vector<Response>;
 
 	/*
 	 * Error thrown when a message has an invalid structure
@@ -67,10 +72,15 @@ namespace lsp::jsonrpc{
 		using std::runtime_error::runtime_error;
 	};
 
-	std::variant<MessagePtr, MessageBatch> messageFromJson(const json::Any& json);
+	std::variant<Request, Response> messageFromJson(json::Object&& json);
+	std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& json);
+	json::Object requestToJson(Request&& request);
+	json::Object responseToJson(Response&& response);
+	json::Array requestBatchToJson(RequestBatch&& batch);
+	json::Array responseBatchToJson(ResponseBatch&& batch);
 	Request createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params = std::nullopt);
 	Request createNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);
 	Response createResponse(const MessageId& id, const json::Any& result);
 	Response createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data = std::nullopt);
 
-}
+} // namespace lsp::jsonrpc

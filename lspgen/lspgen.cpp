@@ -827,6 +827,7 @@ namespace lsp{
 
 inline constexpr std::string_view VersionStr{"${LSP_VERSION}"};
 
+using uint      = unsigned int;
 using LSPArray  = json::Array;
 using LSPObject = json::Object;
 using LSPAny    = json::Any;
@@ -891,11 +892,6 @@ R"(#pragma once
 /*#############################################################
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
-
-/*
- * Define LSP_MESSAGE_TYPES to enable the members for the messages types in case you wish to instantiate and use them.
- * This is only necessary if you want to roll your own message handling since the MessageHandler class only needs the typedefs inside of the structs.
- */
 
 #include "types.h"
 #include <lsp/messagebase.h>
@@ -1003,10 +999,6 @@ private:
 
 		std::string messageMethodsByString = "static const util::str::UnorderedMap<std::string_view, MessageMethod> MethodsByString = {\n"
 		                                     "#define LSP_MS_PAIR(x) {MethodStrings[static_cast<int>(x)], x}\n";
-		std::string messageCreateFromMethod = "#ifdef LSP_MESSAGE_TYPES\n"
-		                                      "MessagePtr createMessageFromMethod(MessageMethod method)"
-		                                      "{\n"
-		                                      "\tswitch(method)\n\t{\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 		{
@@ -1014,8 +1006,6 @@ private:
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
 			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
-			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
-			messageCreateFromMethod += "\t\treturn std::make_unique<requests::" + id + ">();\n";
 		}
 
 		m_messagesHeaderFileContent += "\n\t// Notifications\n\n";
@@ -1026,16 +1016,7 @@ private:
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
 			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
 			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
-			messageCreateFromMethod += "\tcase MessageMethod::" + id + ":\n";
-			messageCreateFromMethod += "\t\treturn std::make_unique<notifications::" + id + ">();\n";
 		}
-
-		messageCreateFromMethod += "\tdefault:\n"
-		                           "\t\treturn nullptr;\n"
-		                           "\t}\n"
-		                           "#undef LSP_MS_PAIR\n"
-		                           "}\n"
-		                           "#endif\n";
 
 		m_messagesHeaderFileContent += "\tMAX_VALUE\n};\n\n";
 		m_messagesSourceFileContent.pop_back();
@@ -1044,16 +1025,13 @@ private:
 		messageMethodsByString.pop_back();
 		messageMethodsByString.pop_back();
 		messageMethodsByString += "\n};\n\n";
-		m_messagesSourceFileContent += messageMethodsByString + messageCreateFromMethod;
+		m_messagesSourceFileContent += messageMethodsByString;
 
 		// Structs
-
-		m_messagesSourceFileContent += "#ifdef LSP_MESSAGE_TYPES\n";
 
 		const char* namespaceStr = "namespace requests{\n\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
-		m_messagesSourceFileContent += namespaceStr;
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 			generateMessage(method, message, false);
@@ -1062,7 +1040,6 @@ private:
 		               "namespace notifications{\n\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
-		m_messagesSourceFileContent += namespaceStr;
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
 			generateMessage(method, message, true);
@@ -1070,8 +1047,6 @@ private:
 		namespaceStr = "\n} // namespace notifications\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
-		m_messagesSourceFileContent += namespaceStr;
-		m_messagesSourceFileContent += "#endif\n";
 	}
 
 	void generateMessage(const std::string& method, const Message& message, bool isNotification)
@@ -1119,44 +1094,6 @@ private:
 		if(hasParams || hasResult || hasRegistrationOptions || hasPartialResult)
 			m_messagesHeaderFileContent += '\n';
 
-		m_messagesHeaderFileContent += "#ifdef LSP_MESSAGE_TYPES\n";
-
-		if(hasParams)
-			m_messagesHeaderFileContent += "\tParams params;\n";
-
-		if(hasPartialResult)
-			m_messagesHeaderFileContent += "\tstd::variant<Result, PartialResult> result;\n";
-		else if(hasResult)
-			m_messagesHeaderFileContent += "\tResult result;\n";
-
-		m_messagesHeaderFileContent += "\n\tMessageMethod method() const override;\n";
-		m_messagesSourceFileContent += "MessageMethod " + messageCppName + "::method() const{ return Method; }\n";
-
-		if(hasParams)
-		{
-			m_messagesHeaderFileContent += "\tvoid initParams(const json::Any& json) override;\n";
-			m_messagesSourceFileContent += "void " + messageCppName + "::initParams(const json::Any& json){ fromJson(json, params); }\n";
-		}
-
-		if(hasResult)
-		{
-			m_messagesHeaderFileContent += "\tvoid initResult(const json::Any& json) override;\n";
-			m_messagesSourceFileContent += "void " + messageCppName + "::initResult(const json::Any& json){ fromJson(json, result); }\n";
-		}
-
-		if(hasParams)
-		{
-			m_messagesHeaderFileContent += "\tjson::Any paramsJson() const override;\n";
-			m_messagesSourceFileContent += "json::Any " + messageCppName + "::paramsJson() const{ return toJson(params); }\n";
-		}
-
-		if(hasResult)
-		{
-			m_messagesHeaderFileContent += "\tjson::Any resultJson() const override;\n";
-			m_messagesSourceFileContent += "json::Any " + messageCppName + "::resultJson() const{ return toJson(result); }\n";
-		}
-
-		m_messagesHeaderFileContent += "#endif\n";
 		m_messagesHeaderFileContent += "};\n\n";
 	}
 
@@ -1192,12 +1129,12 @@ private:
 
 	static std::string toJsonSig(const std::string& typeName)
 	{
-		return "template<>\njson::Any toJson(const " + typeName + "& value)";
+		return "template<>\njson::Any toJson(" + typeName + "&& value)";
 	}
 
 	static std::string fromJsonSig(const std::string& typeName)
 	{
-		return "template<>\nvoid fromJson(const json::Any& json, " + typeName + "& value)";
+		return "template<>\nvoid fromJson(json::Any&& json, " + typeName + "& value)";
 	}
 
 	static std::string documentationComment(const std::string& title, const std::string& documentation, int indentLevel = 0)
@@ -1340,7 +1277,7 @@ private:
 																	           fromJson + "\n"
 																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
-																	           "\tfromJson(json, jsonVal);\n"
+																	           "\tfromJson(std::move(json), jsonVal);\n"
 			                                       "\tvalue = jsonVal;\n"
 																	           "}\n\n";
 		}
@@ -1348,11 +1285,11 @@ private:
 		{
 			m_typesBoilerPlateSourceFileContent += toJson + "\n"
 			                                       "{\n"
-																	           "\treturn toJson(" + enumValuesVarName + "[static_cast<int>(value)]);\n}\n\n" +
+																	           "\treturn toJson(" + baseType.data + "{" + enumValuesVarName + "[static_cast<int>(value)]});\n}\n\n" +
 																	           fromJson + "\n"
 																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
-																	           "\tfromJson(json, jsonVal);\n"
+																	           "\tfromJson(std::move(json), jsonVal);\n"
 			                                       "\tvalue = findEnumValue<" + enumerationCppName + ">(" + enumValuesVarName + ", jsonVal);\n"
 			                                       "\tif(value == " + enumerationCppName + "::MAX_VALUE)\n"
 																	           "\t\tthrow json::TypeError{\"Invalid value for '" + enumerationCppName + "'\"};\n"
@@ -1601,15 +1538,15 @@ private:
 			{
 				toJson += "\tif(value." + p.name + ")\n\t";
 				fromJson += "\tif(auto it = json.find(\"" + p.name + "\"); it != json.end())\n\t"
-				            "\tfromJson(it->second, value." + p.name + ");\n";
+				            "\tfromJson(std::move(it->second), value." + p.name + ");\n";
 			}
 			else
 			{
 				requiredProperties.push_back(p.name);
-				fromJson += "\tfromJson(json.get(\"" + p.name + "\"), value." + p.name + ");\n";
+				fromJson += "\tfromJson(std::move(json.get(\"" + p.name + "\")), value." + p.name + ");\n";
 			}
 
-			toJson += "\tjson[\"" + p.name + "\"] = toJson(value." + p.name + ");\n";
+			toJson += "\tjson[\"" + p.name + "\"] = toJson(std::move(value." + p.name + "));\n";
 		}
 	}
 
@@ -1635,10 +1572,10 @@ private:
 		m_typesHeaderFileContent += documentationComment(structureCppName, structure.documentation) +
 		                            "struct " + structureCppName;
 
-		std::string propertiesToJson = "static void " + util::str::uncapitalize(structureCppName) + "ToJson("
-		                               "const " + structureCppName + "& value, json::Object& json)\n{\n";
+		std::string propertiesToJson = "static void " + util::str::uncapitalize(structureCppName) + "ToJson(" +
+		                               structureCppName + "&& value, json::Object& json)\n{\n";
 		std::string propertiesFromJson = "static void " + util::str::uncapitalize(structureCppName) + "FromJson("
-		                                 "const json::Object& json, " + structureCppName + "& value)\n{\n";
+		                                 "json::Object& json, " + structureCppName + "& value)\n{\n";
 		std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<" + structureCppName + ">()";
 		std::vector<std::string> requiredPropertiesList;
 		std::string requiredProperties = requiredPropertiesSig + "\n{\n\tstatic const char* properties[] = {\n";
@@ -1650,7 +1587,7 @@ private:
 			const auto* extends = &(*it)->as<ReferenceType>();
 			m_typesHeaderFileContent += " : " + extends->name;
 			std::string lower = util::str::uncapitalize(extends->name);
-			propertiesToJson += '\t' + lower + "ToJson(value, json);\n";
+			propertiesToJson += '\t' + lower + "ToJson(std::move(value), json);\n";
 			propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 			++it;
 
@@ -1665,7 +1602,7 @@ private:
 				extends = &(*it)->as<ReferenceType>();
 				m_typesHeaderFileContent += ", " + extends->name;
 				lower = util::str::uncapitalize(extends->name);
-				propertiesToJson += '\t' + lower + "ToJson(value, json);\n";
+				propertiesToJson += '\t' + lower + "ToJson(std::move(value), json);\n";
 				propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 				++it;
 
@@ -1721,12 +1658,12 @@ private:
 		m_typesBoilerPlateSourceFileContent += toJson + "\n"
 		                                       "{\n"
 		                                       "\tjson::Object obj;\n"
-		                                       "\t" + util::str::uncapitalize(structureCppName) + "ToJson(value, obj);\n"
+		                                       "\t" + util::str::uncapitalize(structureCppName) + "ToJson(std::move(value), obj);\n"
 		                                       "\treturn obj;\n"
 		                                       "}\n\n" +
 		                                       fromJson + "\n"
 		                                       "{\n"
-		                                       "\tconst auto& obj = json.get<json::Object>();\n"
+		                                       "\tauto& obj = json.get<json::Object>();\n"
 		                                       "\t" + util::str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
 		                                       "}\n\n";
 	}
@@ -1747,7 +1684,7 @@ const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] =
 	{"bool", "bool", "bool", "bool"},
 	{"std::string", "std::string_view", "const std::string&", "const std::string&"},
 	{"int", "int", "int", "int"},
-	{"unsigned int", "unsigned int", "unsigned int", "unsigned int"},
+	{"uint", "uint", "uint", "uint"},
 	{"double", "double", "double", "double"},
 	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
 	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
