@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.12)
 
 project(lsp)
 
-option(MESSAGE_TYPES "Enable message types" OFF)
-
 set(CMAKE_CXX_STANDARD 20)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -88,7 +86,3 @@ add_custom_command(
 add_library(lsp STATIC)
 target_include_directories(lsp PUBLIC . ${GENERATED_FILES_DIR})
 target_sources(lsp PRIVATE ${SOURCES} ${GENERATED_SOURCES})
-
-if(MESSAGE_TYPES)
-	target_compile_definitions(lsp PUBLIC LSP_MESSAGE_TYPES)
-endif()

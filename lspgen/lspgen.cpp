@@ -1024,7 +1024,7 @@ private:
 		m_messagesSourceFileContent += "\n};\n\n";
 		messageMethodsByString.pop_back();
 		messageMethodsByString.pop_back();
-		messageMethodsByString += "\n};\n\n";
+		messageMethodsByString += "\n#undef LSP_MS_PAIR\n};\n";
 		m_messagesSourceFileContent += messageMethodsByString;
 
 		// Structs
@@ -1090,9 +1090,6 @@ private:
 
 		if(hasResult)
 			m_messagesHeaderFileContent += "\tusing Result = " + upperCaseIdentifier(message.resultTypeName) + ";\n";
-
-		if(hasParams || hasResult || hasRegistrationOptions || hasPartialResult)
-			m_messagesHeaderFileContent += '\n';
 
 		m_messagesHeaderFileContent += "};\n\n";
 	}
