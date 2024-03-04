@@ -97,7 +97,7 @@ std::string lower(std::string_view str)
 {
 	std::string result;
 	result.reserve(str.size());
-	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return std::tolower(c); });
+	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return static_cast<char>(std::tolower(c)); });
 	return result;
 }
 
@@ -105,7 +105,7 @@ std::string upper(std::string_view str)
 {
 	std::string result;
 	result.reserve(str.size());
-	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return std::toupper(c); });
+	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return static_cast<char>(std::toupper(c)); });
 	return result;
 }
 

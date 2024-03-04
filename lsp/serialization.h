@@ -4,6 +4,8 @@
 #include <limits>
 #include <memory>
 #include <cassert>
+#include <iterator>
+#include <algorithm>
 #include <type_traits>
 #include <lsp/util/str.h>
 #include <lsp/util/uri.h>
