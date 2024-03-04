@@ -47,6 +47,7 @@ json::Any toJson(std::optional<T>&& v);
 template<typename T>
 json::Any toJson(T&& v)
 {
+	static_assert(std::is_rvalue_reference_v<T&&>, "toJson argument must be an rvalue");
 	return std::forward<T>(v);
 }
 

@@ -1270,7 +1270,7 @@ private:
 			                            "}\n\n";
 			m_typesBoilerPlateSourceFileContent += toJson + "\n"
 			                                       "{\n" +
-																	           "\treturn toJson(value.value());\n}\n\n" +
+																	           "\treturn toJson(" + baseType.data + "{value.value()});\n}\n\n" +
 																	           fromJson + "\n"
 																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
@@ -1523,6 +1523,22 @@ private:
 		}
 	}
 
+	static bool isTrivialBaseType(const TypePtr& type)
+	{
+		if(type->isA<BaseType>())
+		{
+			const auto& base = type->as<BaseType>();
+
+			return base.kind == BaseType::Kind::Boolean ||
+			       base.kind == BaseType::Kind::Integer ||
+			       base.kind == BaseType::Kind::UInteger ||
+			       base.kind == BaseType::Kind::Decimal ||
+			       base.kind == BaseType::Kind::Null;
+		}
+
+		return false;
+	}
+
 	void generateStructureProperties(const std::vector<StructureProperty>& properties, std::string& toJson, std::string& fromJson, std::vector<std::string>& requiredProperties)
 	{
 		for(const auto& p : properties)
@@ -1543,7 +1559,10 @@ private:
 				fromJson += "\tfromJson(std::move(json.get(\"" + p.name + "\")), value." + p.name + ");\n";
 			}
 
-			toJson += "\tjson[\"" + p.name + "\"] = toJson(std::move(value." + p.name + "));\n";
+			if(isTrivialBaseType(p.type))
+				toJson += "\tjson[\"" + p.name + "\"] = toJson(" + typeName + "{value." + p.name + "});\n";
+			else
+				toJson += "\tjson[\"" + p.name + "\"] = toJson(std::move(value." + p.name + "));\n";
 		}
 	}
 
