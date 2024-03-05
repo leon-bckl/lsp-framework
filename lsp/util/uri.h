@@ -14,7 +14,7 @@ public:
 	inline static constexpr std::string_view Scheme{"file://"};
 
 	FileURI() = default;
-	FileURI(const std::filesystem::path& path) : m_path{std::filesystem::canonical(path).string()}{}
+	FileURI(const std::filesystem::path& path);
 	FileURI(std::string_view in) : m_path{fromString(in)}{}
 	FileURI(const std::string& in) : m_path{fromString(in)}{}
 

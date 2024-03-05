@@ -2,10 +2,14 @@
 
 #include <cctype>
 #include <charconv>
-#include <filesystem>
 #include "str.h"
 
 namespace lsp::util{
+
+FileURI::FileURI(const std::filesystem::path& path)
+	: m_path{std::filesystem::canonical(path).string()}
+{
+}
 
 std::string FileURI::toString() const
 {
@@ -22,14 +26,11 @@ std::string FileURI::fromString(std::string_view str)
 
 	if(str.starts_with(Scheme))
 		str.remove_prefix(Scheme.size());
-
-	return std::filesystem::canonical(
-#ifdef _WIN32
-			decode(str.substr(Scheme.size() + (!str.empty() && str[0] == '/'))) // Skip leading '/' for absolute paths
-#else
-			decode(str.substr(Scheme.size()))
+#ifndef _WIN32
+	if(!str.empty() && str[0] == '/')
+		str.remove_prefix(1);
 #endif
-		).string();
+	return std::filesystem::canonical(decode(str)).string();
 }
 
 std::string FileURI::encode(std::string_view decoded)
