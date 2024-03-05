@@ -833,7 +833,7 @@ using LSPObject = json::Object;
 using LSPAny    = json::Any;
 
 template<typename K, typename T>
-using Map = util::str::UnorderedMap<K, T>;
+using Map = util::str::HashMap<K, T>;
 
 )";
 
@@ -997,7 +997,7 @@ private:
 		                              "\t// Requests\n\n";
 		m_messagesSourceFileContent = "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
 
-		std::string messageMethodsByString = "static const util::str::UnorderedMap<std::string_view, MessageMethod> MethodsByString = {\n"
+		std::string messageMethodsByString = "static const util::str::HashMap<std::string_view, MessageMethod> MethodsByString = {\n"
 		                                     "#define LSP_MS_PAIR(x) {MethodStrings[static_cast<int>(x)], x}\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))

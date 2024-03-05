@@ -34,7 +34,7 @@ private:
 	std::string m_message{"Unexpected json value"};
 };
 
-using ObjectMap = util::str::UnorderedMap<String, Any>;
+using ObjectMap = util::str::HashMap<String, Any>;
 class Object : public ObjectMap{
 public:
 	using ObjectMap::ObjectMap;

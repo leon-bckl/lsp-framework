@@ -24,7 +24,7 @@ template<typename... Args>
 json::Any toJson(std::tuple<Args...>&& tuple);
 
 template<typename K, typename T>
-json::Any toJson(util::str::UnorderedMap<K, T>&& map);
+json::Any toJson(util::str::HashMap<K, T>&& map);
 
 template<typename T>
 json::Any toJson(std::vector<T>&& vector);
@@ -95,7 +95,7 @@ inline const std::string& mapKey(const util::FileURI& uri)
 }
 
 template<typename K, typename T>
-json::Any toJson(util::str::UnorderedMap<K, T>&& map)
+json::Any toJson(util::str::HashMap<K, T>&& map)
 {
 	json::Object result;
 	for(auto&& [k, v] : map)
@@ -229,7 +229,7 @@ template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value);
 
 template<typename K, typename T>
-void fromJson(json::Any&& json, util::str::UnorderedMap<K, T>& value);
+void fromJson(json::Any&& json, util::str::HashMap<K, T>& value);
 
 template<typename T>
 void fromJson(json::Any&& json, std::vector<T>& value);
@@ -268,7 +268,7 @@ void fromJson(json::Any&& json, std::tuple<Args...>& value)
 }
 
 template<typename K, typename T>
-void fromJson(json::Any&& json, util::str::UnorderedMap<K, T>& value)
+void fromJson(json::Any&& json, util::str::HashMap<K, T>& value)
 {
 	auto& obj = json.get<json::Object>();
 	for(auto&& [k, v] : obj)
@@ -461,7 +461,7 @@ inline void fromJson(json::Any&& json, float& value)
 template<>
 inline void fromJson(json::Any&& json, util::FileURI& value)
 {
-	value = json.get<json::String>();
+	value = util::FileURI{json.get<json::String>()};
 }
 
 } // namespace lsp

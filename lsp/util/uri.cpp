@@ -2,51 +2,34 @@
 
 #include <cctype>
 #include <charconv>
+#include <filesystem>
 #include "str.h"
 
 namespace lsp::util{
 
 std::string FileURI::toString() const
 {
-	std::string result{Scheme};
-	result +=
+	return std::string{Scheme} +
 #ifdef _WIN32
-	 "/" +
+		"/" +
 #endif
-	       encode(m_path);
-
-	return result;
+		encode(m_path);
 }
 
-FileURI FileURI::fromString(std::string_view str)
+std::string FileURI::fromString(std::string_view str)
 {
-	FileURI result;
-
 	str = str::trimView(str);
-	// Remove the scheme prefix if present
-	auto idx = str.find(':');
 
-	if(idx != std::string_view::npos
+	if(str.starts_with(Scheme))
+		str.remove_prefix(Scheme.size());
+
+	return std::filesystem::canonical(
 #ifdef _WIN32
-		 && idx != 1 // Ignore the colon after the drive letter
-#endif
-	)
-	{
-		if(str.starts_with(Scheme) && str.size() > Scheme.size())
-		{
-#ifdef _WIN32
-			result.m_path = decode(str.substr(Scheme.size() + 1)); // Skip leading '/'
+			decode(str.substr(Scheme.size() + (!str.empty() && str[0] == '/'))) // Skip leading '/' for absolute paths
 #else
-			result.m_path = decode(str.substr(Scheme.size()));
+			decode(str.substr(Scheme.size()))
 #endif
-		}
-	}
-	else
-	{
-		result.m_path = decode(str);
-	}
-
-	return result;
+		).string();
 }
 
 std::string FileURI::encode(std::string_view decoded)

@@ -10,7 +10,7 @@
 
 namespace lsp::util::str{
 
-struct Hash{
+struct TransparentHash{
 	using is_transparent = void;
 	std::size_t operator()(const char* str) const{ return std::hash<std::string_view>{}(str); }
 	std::size_t operator()(std::string_view str) const{ return std::hash<std::string_view>{}(str); }
@@ -18,14 +18,57 @@ struct Hash{
 	std::size_t operator()(const FileURI& uri) const{ return std::hash<std::string_view>{}(uri.path()); }
 };
 
+struct CaseInsensitiveHash{
+	using is_transparent = void;
+
+	std::size_t operator()(const std::string_view str) const
+	{
+		std::string upper;
+		upper.reserve(str.size());
+		std::transform(str.cbegin(), str.cend(), std::back_inserter(upper),
+			[](char c){ return static_cast<char>(std::toupper(c)); });
+		return std::hash<std::string>{}(upper);
+	}
+
+	std::size_t operator()(const FileURI& uri) const
+	{
+		return (*this)(std::string_view{uri.path()});
+	}
+};
+
+struct CaseInsensitiveEqual{
+	using is_transparent = void;
+
+	bool operator()(std::string_view s1, std::string_view s2) const
+	{
+		return s1.size() == s2.size() &&
+#ifdef _MSC_VER
+		_strnicmp(s1.data(), s2.data(), s2.size()) == 0;
+#else
+		strncasecmp(s1.data(), s2.data(), s2.size()) == 0;
+#endif
+	}
+
+	std::size_t operator()(const FileURI& u1, const FileURI& u2) const
+	{
+		return (*this)(std::string_view{u1.path()}, std::string_view{u2.path()});
+	}
+};
+
 /*
  * Unordered map and set types with that allow for faster lookup via string_view
  */
-template<typename StringKeyType, typename ValueType>
-using UnorderedMap = std::unordered_map<StringKeyType, ValueType, Hash, std::equal_to<>>;
+template<typename StringKeyType, typename ValueType, typename HashType = TransparentHash, typename EqualType = std::equal_to<>>
+using HashMap = std::unordered_map<StringKeyType, ValueType, HashType, EqualType>;
 
-template<typename StringType>
-using UnorderedSet = std::unordered_set<StringType, Hash, std::equal_to<>>;
+template<typename StringKeyType, typename ValueType>
+using CaseInsensitiveHashMap = HashMap<StringKeyType, ValueType, CaseInsensitiveHash, CaseInsensitiveEqual>;
+
+template<typename StringType = std::string, typename HashType = TransparentHash, typename EqualType = std::equal_to<>>
+using Set = std::unordered_set<StringType, HashType, EqualType>;
+
+template<typename StringType = std::string>
+using CaseInsensitiveSet = Set<StringType, CaseInsensitiveHash, CaseInsensitiveEqual>;
 
 [[nodiscard]] std::string_view trimViewLeft(std::string_view str);
 [[nodiscard]] std::string_view trimViewRight(std::string_view str);

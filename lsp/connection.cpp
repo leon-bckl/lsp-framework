@@ -134,6 +134,16 @@ void Connection::sendResponse(jsonrpc::Response&& response)
 	writeJsonMessage(jsonrpc::responseToJson(std::move(response)));
 }
 
+void Connection::sendRequestBatch(jsonrpc::RequestBatch&& batch)
+{
+	writeJsonMessage(jsonrpc::requestBatchToJson(std::move(batch)));
+}
+
+void Connection::sendResponseBatch(jsonrpc::ResponseBatch&& batch)
+{
+	writeJsonMessage(jsonrpc::responseBatchToJson(std::move(batch)));
+}
+
 Connection::MessageHeader Connection::readMessageHeader()
 {
 	MessageHeader header;

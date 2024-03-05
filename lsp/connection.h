@@ -31,6 +31,8 @@ public:
 	void receiveNextMessage(RequestHandlerInterface& requestHandler, ResponseHandlerInterface& responseHandler);
 	void sendRequest(jsonrpc::Request&& request);
 	void sendResponse(jsonrpc::Response&& response);
+	void sendRequestBatch(jsonrpc::RequestBatch&& batch);
+	void sendResponseBatch(jsonrpc::ResponseBatch&& batch);
 
 private:
 	std::istream&    m_in;
