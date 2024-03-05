@@ -1546,7 +1546,25 @@ private:
 			std::string typeName = cppTypeName(*p.type, p.isOptional);
 
 			m_typesHeaderFileContent += documentationComment({}, p.documentation, 1) +
-			                            '\t' + typeName + ' ' + p.name + ";\n";
+			                            '\t' + typeName + ' ' + p.name;
+
+			switch(p.type->category())
+			{
+			case Type::StringLiteral:
+				m_typesHeaderFileContent += " = " + util::str::quote(util::str::escape(p.type->as<StringLiteralType>().stringValue));
+				break;
+			case Type::IntegerLiteral:
+				m_typesHeaderFileContent += " = " + std::to_string(p.type->as<IntegerLiteralType>().integerValue);
+				break;
+			case Type::BooleanLiteral:
+				m_typesHeaderFileContent += " = " + std::string{p.type->as<BooleanLiteralType>().booleanValue ? "true" : "false"};
+				break;
+			default:
+				break;
+			}
+
+			m_typesHeaderFileContent += ";\n";
+
 			if(p.isOptional)
 			{
 				toJson += "\tif(value." + p.name + ")\n\t";
