@@ -6,11 +6,6 @@
 
 namespace lsp::util{
 
-FileURI::FileURI(const std::filesystem::path& path)
-	: m_path{std::filesystem::canonical(path).string()}
-{
-}
-
 std::string FileURI::toString() const
 {
 	return std::string{Scheme} +
@@ -30,7 +25,7 @@ std::string FileURI::fromString(std::string_view str)
 	if(!str.empty() && str[0] == '/')
 		str.remove_prefix(1);
 #endif
-	return std::filesystem::canonical(decode(str)).string();
+	return decode(str);
 }
 
 std::string FileURI::encode(std::string_view decoded)
