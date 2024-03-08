@@ -47,7 +47,7 @@ STRING(values)
 
 std::string extractDocumentation(const json::Object& json)
 {
-	if(json.contains("documentation"))
+	if(json.contains(strings::documentation))
 		return json.get<json::String>(strings::documentation);
 
 	return {};
@@ -249,30 +249,51 @@ struct StructureProperty{
 	TypePtr     type;
 	bool        isOptional = false;
 	std::string documentation;
+
+	void extract(const json::Object& json)
+	{
+		name = json.get<json::String>(strings::name);
+		type = Type::createFromJson(json.get<json::Object>(strings::type));
+		isOptional = json.contains(strings::optional) && json.get<bool>(strings::optional);
+		documentation = extractDocumentation(json);
+	}
 };
 
+using StructurePropertyList = std::vector<StructureProperty>;
+
+StructurePropertyList extractStructureProperties(const json::Array& json)
+{
+	StructurePropertyList result;
+	result.reserve(json.size());
+	std::transform(
+		json.begin(),
+		json.end(),
+		std::back_inserter(result),
+		[](const json::Any& e)
+		{
+			StructureProperty prop;
+			prop.extract(e.get<json::Object>());
+			return prop;
+		});
+	// Sort properties so non-optional ones come first
+	std::stable_sort(
+		result.begin(),
+		result.end(),
+		[](const auto& p1, const auto& p2)
+		{
+			return !p1.isOptional && p2.isOptional;
+		});
+
+	return result;
+}
+
 struct StructureLiteralType : Type{
-	std::vector<StructureProperty> properties;
+	StructurePropertyList properties;
 
 	void extract(const json::Object& json) override
 	{
 		const auto& value = json.get<json::Object>(strings::value);
-		const auto& propertiesJson = value.get<json::Array>(strings::properties);
-		properties.reserve(propertiesJson.size());
-
-		for(const auto& p : propertiesJson)
-		{
-			const auto& obj = p.get<json::Object>();
-			auto& property = properties.emplace_back();
-
-			property.name = obj.get<json::String>(strings::name);
-			property.type = createFromJson(obj.get<json::Object>(strings::type));
-
-			if(obj.contains(strings::optional))
-				property.isOptional = obj.get<bool>(strings::optional);
-
-			property.documentation = extractDocumentation(obj);
-		}
+		properties = extractStructureProperties(value.get<json::Array>(strings::properties));
 	}
 
 	Category category() const override{ return Category::StructureLiteral; }
@@ -488,21 +509,7 @@ struct Structure{
 	void extract(const json::Object& json)
 	{
 		name = json.get<json::String>(strings::name);
-		const auto& propertiesJson = json.get<json::Array>(strings::properties);
-		properties.reserve(propertiesJson.size());
-
-		for(const auto& p : propertiesJson)
-		{
-			const auto& obj = p.get<json::Object>();
-			auto& property = properties.emplace_back();
-			property.name = obj.get<json::String>(strings::name);
-			property.type = Type::createFromJson(obj.get<json::Object>(strings::type));
-
-			if(obj.contains(strings::optional))
-				property.isOptional = obj.get<json::Boolean>(strings::optional);
-
-			property.documentation = extractDocumentation(obj);
-		}
+		properties = extractStructureProperties(json.get<json::Array>(strings::properties));
 
 		if(json.contains(strings::extends))
 		{
@@ -1466,6 +1473,7 @@ private:
 			{
 				const auto& structLit = t->as<StructureLiteralType>();
 
+				// Include all non-optional properties in the type name
 				for(const auto& p : structLit.properties)
 				{
 					if(!p.isOptional)
