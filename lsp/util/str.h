@@ -21,13 +21,23 @@ struct TransparentHash{
 struct CaseInsensitiveHash{
 	using is_transparent = void;
 
-	std::size_t operator()(const std::string_view str) const
+	std::size_t operator()(std::string_view str) const
 	{
 		std::string upper;
 		upper.reserve(str.size());
 		std::transform(str.cbegin(), str.cend(), std::back_inserter(upper),
 			[](char c){ return static_cast<char>(std::toupper(c)); });
 		return std::hash<std::string>{}(upper);
+	}
+
+	std::size_t operator()(const char* str) const
+	{
+		return (*this)(std::string_view{str});
+	}
+
+	std::size_t operator()(const std::string& str) const
+	{
+		return (*this)(std::string_view{str});
 	}
 
 	std::size_t operator()(const FileURI& uri) const
@@ -47,6 +57,16 @@ struct CaseInsensitiveEqual{
 #else
 		strncasecmp(s1.data(), s2.data(), s2.size()) == 0;
 #endif
+	}
+
+	std::size_t operator()(const char* s1, const char* s2) const
+	{
+		return (*this)(std::string_view{s1}, std::string_view{s2});
+	}
+
+	std::size_t operator()(const std::string& s1, const std::string& s2) const
+	{
+		return (*this)(std::string_view{s1}, std::string_view{s2});
 	}
 
 	std::size_t operator()(const FileURI& u1, const FileURI& u2) const
