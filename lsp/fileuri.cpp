@@ -2,17 +2,21 @@
 
 #include <cctype>
 #include <charconv>
+#ifdef _WIN32
+#include <filesystem>
+#endif
 #include "str.h"
 
 namespace lsp{
 
 std::string FileURI::toString() const
 {
-	return std::string{Scheme} +
 #ifdef _WIN32
-		"/" +
+	if(std::filesystem::path{m_path}.is_absolute())
+		return Scheme + '/' + encode(m_path);
 #endif
-		encode(m_path);
+
+	return Scheme + encode(m_path);
 }
 
 std::string FileURI::fromString(std::string_view str)
@@ -21,7 +25,7 @@ std::string FileURI::fromString(std::string_view str)
 
 	if(str.starts_with(Scheme))
 		str.remove_prefix(Scheme.size());
-#ifndef _WIN32
+#ifdef _WIN32
 	if(!str.empty() && str[0] == '/')
 		str.remove_prefix(1);
 #endif
