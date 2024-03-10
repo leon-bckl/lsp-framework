@@ -6,7 +6,7 @@
 #include <string>
 #include <charconv>
 #include <algorithm>
-#include <lsp/util/str.h>
+#include <lsp/str.h>
 
 namespace lsp::json{
 namespace{
@@ -248,7 +248,7 @@ private:
 
 		const char* stringEnd = m_pos++;
 
-		return util::str::unescape(std::string_view{stringStart, stringEnd});
+		return str::unescape(std::string_view{stringStart, stringEnd});
 	}
 
 	Any parseNumber()
@@ -375,7 +375,7 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 	}
 	else if(json.isString())
 	{
-		str += util::str::quote(util::str::escape(json.get<String>()));
+		str += str::quote(str::escape(json.get<String>()));
 	}
 	else if(json.isObject())
 	{
@@ -388,7 +388,7 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 			str += listStart;
 			++indentLevel;
 			str += getIndent();
-			str += util::str::quote(util::str::escape(it->first));
+			str += str::quote(str::escape(it->first));
 			str += keySep;
 			stringifyImplementation(it->second, str, indentLevel, format);
 			++it;
@@ -397,7 +397,7 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 			{
 				str += valueSep;
 				str += getIndent();
-				str += util::str::quote(util::str::escape(it->first));
+				str += str::quote(str::escape(it->first));
 				str += keySep;
 				stringifyImplementation(it->second, str, indentLevel, format);
 				++it;

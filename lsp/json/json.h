@@ -6,7 +6,7 @@
 #include <variant>
 #include <stdexcept>
 #include <string_view>
-#include <lsp/util/str.h>
+#include <lsp/str.h>
 
 namespace lsp::json{
 
@@ -34,7 +34,7 @@ private:
 	std::string m_message{"Unexpected json value"};
 };
 
-using ObjectMap = util::str::HashMap<String, Any>;
+using ObjectMap = str::HashMap<String, Any>;
 class Object : public ObjectMap{
 public:
 	using ObjectMap::ObjectMap;

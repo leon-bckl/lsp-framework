@@ -7,11 +7,11 @@
 #include <iterator>
 #include <algorithm>
 #include <type_traits>
-#include <lsp/util/str.h>
-#include <lsp/util/uri.h>
-#include <lsp/util/util.h>
+#include <lsp/str.h>
+#include <lsp/util.h>
+#include <lsp/fileuri.h>
 #include <lsp/json/json.h>
-#include <lsp/util/nullable.h>
+#include <lsp/nullable.h>
 
 namespace lsp{
 
@@ -24,7 +24,7 @@ template<typename... Args>
 json::Any toJson(std::tuple<Args...>&& tuple);
 
 template<typename K, typename T>
-json::Any toJson(util::str::HashMap<K, T>&& map);
+json::Any toJson(str::HashMap<K, T>&& map);
 
 template<typename T>
 json::Any toJson(std::vector<T>&& vector);
@@ -33,10 +33,10 @@ template<typename... Args>
 json::Any toJson(std::variant<Args...>&& variant);
 
 template<typename T>
-json::Any toJson(util::Nullable<T>&& nullable);
+json::Any toJson(Nullable<T>&& nullable);
 
 template<typename... Args>
-json::Any toJson(util::NullableVariant<Args...>&& nullable);
+json::Any toJson(NullableVariant<Args...>&& nullable);
 
 template<typename T>
 json::Any toJson(std::unique_ptr<T>&& v);
@@ -76,7 +76,7 @@ struct MapKeyType{
 };
 
 template<>
-struct MapKeyType<util::FileURI>{
+struct MapKeyType<FileURI>{
 	using Type = std::string;
 };
 
@@ -87,7 +87,7 @@ const typename MapKeyType<T>::Type& mapKey(const T& u)
 }
 
 template<>
-inline const std::string& mapKey(const util::FileURI& uri)
+inline const std::string& mapKey(const FileURI& uri)
 {
 	return uri.path();
 }
@@ -95,7 +95,7 @@ inline const std::string& mapKey(const util::FileURI& uri)
 }
 
 template<typename K, typename T>
-json::Any toJson(util::str::HashMap<K, T>&& map)
+json::Any toJson(str::HashMap<K, T>&& map)
 {
 	json::Object result;
 	for(auto&& [k, v] : map)
@@ -120,7 +120,7 @@ json::Any toJson(std::variant<Args...>&& variant)
 }
 
 template<typename T>
-json::Any toJson(util::Nullable<T>&& nullable)
+json::Any toJson(Nullable<T>&& nullable)
 {
 	if(nullable.isNull())
 		return nullptr;
@@ -129,7 +129,7 @@ json::Any toJson(util::Nullable<T>&& nullable)
 }
 
 template<typename... Args>
-json::Any toJson(util::NullableVariant<Args...>&& nullable)
+json::Any toJson(NullableVariant<Args...>&& nullable)
 {
 	if(nullable.isNull())
 		return nullptr;
@@ -158,7 +158,7 @@ inline json::Any toJson(std::string_view&& v)
 }
 
 template<>
-inline json::Any toJson(util::FileURI&& uri)
+inline json::Any toJson(FileURI&& uri)
 {
 	return uri.toString();
 }
@@ -229,7 +229,7 @@ template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value);
 
 template<typename K, typename T>
-void fromJson(json::Any&& json, util::str::HashMap<K, T>& value);
+void fromJson(json::Any&& json, str::HashMap<K, T>& value);
 
 template<typename T>
 void fromJson(json::Any&& json, std::vector<T>& value);
@@ -238,7 +238,7 @@ template<typename... Args>
 void fromJson(json::Any&& json, std::variant<Args...>& value);
 
 template<typename... Args>
-void fromJson(json::Any&& json, util::NullableVariant<Args...>& nullable);
+void fromJson(json::Any&& json, NullableVariant<Args...>& nullable);
 
 template<typename T>
 void fromJson(json::Any&& json, std::unique_ptr<T>& value);
@@ -268,7 +268,7 @@ void fromJson(json::Any&& json, std::tuple<Args...>& value)
 }
 
 template<typename K, typename T>
-void fromJson(json::Any&& json, util::str::HashMap<K, T>& value)
+void fromJson(json::Any&& json, str::HashMap<K, T>& value)
 {
 	auto& obj = json.get<json::Object>();
 	for(auto&& [k, v] : obj)
@@ -388,7 +388,7 @@ void fromJson(json::Any&& json, std::variant<Args...>& value)
 }
 
 template<typename T>
-void fromJson(json::Any&& json, util::Nullable<T>& nullable)
+void fromJson(json::Any&& json, Nullable<T>& nullable)
 {
 	if(nullable.isNull())
 		nullable = T{};
@@ -397,9 +397,9 @@ void fromJson(json::Any&& json, util::Nullable<T>& nullable)
 }
 
 template<typename... Args>
-void fromJson(json::Any&& json, util::NullableVariant<Args...>& nullable)
+void fromJson(json::Any&& json, NullableVariant<Args...>& nullable)
 {
-	typename util::NullableVariant<Args...>::VariantType variant;
+	typename NullableVariant<Args...>::VariantType variant;
 	fromJson(std::move(json), variant);
 	nullable.emplace(std::move(variant));
 }
@@ -459,9 +459,9 @@ inline void fromJson(json::Any&& json, float& value)
 }
 
 template<>
-inline void fromJson(json::Any&& json, util::FileURI& value)
+inline void fromJson(json::Any&& json, FileURI& value)
 {
-	value = util::FileURI{json.get<json::String>()};
+	value = FileURI{json.get<json::String>()};
 }
 
 } // namespace lsp

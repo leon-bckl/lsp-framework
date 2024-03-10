@@ -11,7 +11,7 @@ else()
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined")
 endif()
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/util/str.cpp)
+add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/str.cpp)
 target_include_directories(lspgen PRIVATE .)
 
 SET(SRC_DIR lsp/)
@@ -20,22 +20,21 @@ set(HEADERS
 	# lsp
 	connection.h
 	error.h
+	fileuri.h
 	messagebase.h
 	messagedispatcher.h
 	messagehandler.h
+	nullable.h
 	requesthandler.h
 	serialization.h
+	str.h
+	util.h
 	# io
 	io/standardio.h
 	# json
 	json/json.h
 	# jsonrpc
-	json/jsonrpc.h
-	# util
-	util/nullable.h
-	util/str.h
-	util/uri.h
-	util/util.h
+	jsonrpc/jsonrpc.h
 )
 list(TRANSFORM HEADERS PREPEND ${SRC_DIR})
 
@@ -44,15 +43,14 @@ set(SOURCES
 	connection.cpp
 	messagedispatcher.cpp
 	requesthandler.cpp
+	str.cpp
+	fileuri.cpp
 	# io
 	io/standardio.cpp
 	# json
 	json/json.cpp
 	# jsonrpc
 	jsonrpc/jsonrpc.cpp
-	# util
-	util/str.cpp
-	util/uri.cpp
 )
 list(TRANSFORM SOURCES PREPEND ${SRC_DIR})
 

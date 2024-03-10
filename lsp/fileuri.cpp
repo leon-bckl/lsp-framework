@@ -1,10 +1,10 @@
-#include "uri.h"
+#include "fileuri.h"
 
 #include <cctype>
 #include <charconv>
 #include "str.h"
 
-namespace lsp::util{
+namespace lsp{
 
 std::string FileURI::toString() const
 {
@@ -80,4 +80,4 @@ std::string FileURI::decode(std::string_view encoded)
 	return decoded;
 }
 
-} // namespace lsp::util
+} // namespace lsp

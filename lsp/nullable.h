@@ -1,12 +1,10 @@
 #pragma once
 
-#include <memory>
 #include <cstddef>
 #include <variant>
 #include <optional>
-#include <concepts>
 
-namespace lsp::util{
+namespace lsp{
 
 /*
  * Either a valid value or null.
@@ -128,4 +126,4 @@ private:
 	std::optional<VariantType> m_value;
 };
 
-} // namespace lsp::util
+} // namespace lsp

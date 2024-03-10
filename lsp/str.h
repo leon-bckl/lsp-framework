@@ -6,9 +6,9 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
-#include "uri.h"
+#include "fileuri.h"
 
-namespace lsp::util::str{
+namespace lsp::str{
 
 struct TransparentHash{
 	using is_transparent = void;
@@ -166,4 +166,4 @@ inline std::string join(const std::vector<std::string_view>& strings, const std:
 [[nodiscard]] std::string escape(std::string_view str);
 [[nodiscard]] std::string unescape(std::string_view str);
 
-} // namespace lsp::util::str
+} // namespace lsp::str

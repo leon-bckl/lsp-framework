@@ -3,7 +3,7 @@
 #include <cassert>
 #include <charconv>
 #include <string_view>
-#include <lsp/util/str.h>
+#include <lsp/str.h>
 #include <lsp/json/json.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 
@@ -78,7 +78,7 @@ void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, Res
 	if(auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
 	{
 		auto charset = contentType.substr(idx + charsetKey.size());
-		charset = util::str::trimView(charset.substr(0, charset.find(';')));
+		charset = str::trimView(charset.substr(0, charset.find(';')));
 
 		if(charset != "utf-8" && charset != "utf8")
 			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
@@ -174,8 +174,8 @@ void Connection::readNextMessageHeaderField(MessageHeader& header)
 
 	if(separatorIdx != std::string_view::npos)
 	{
-		std::string_view key = util::str::trimView(line.substr(0, separatorIdx));
-		std::string_view value = util::str::trimView(line.substr(separatorIdx + 1));
+		std::string_view key = str::trimView(line.substr(0, separatorIdx));
+		std::string_view value = str::trimView(line.substr(separatorIdx + 1));
 
 		if(key == "Content-Length")
 			std::from_chars(value.data(), value.data() + value.size(), header.contentLength);

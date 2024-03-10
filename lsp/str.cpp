@@ -4,7 +4,7 @@
 #include <iterator>
 #include <algorithm>
 
-namespace lsp::util::str{
+namespace lsp::str{
 
 std::string_view trimViewLeft(std::string_view str)
 {
@@ -235,4 +235,4 @@ std::string unescape(std::string_view str)
 	return result;
 }
 
-} // namespace lsp::util::str
+} // namespace lsp::str

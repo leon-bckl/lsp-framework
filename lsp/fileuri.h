@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <string_view>
 
-namespace lsp::util{
+namespace lsp{
 
 /*
  * Really simple uri class that only supports the file:// scheme
@@ -37,4 +37,4 @@ private:
 	static std::string decode(std::string_view encoded);
 };
 
-} // namespace lsp::util
+} // namespace lsp

@@ -7,8 +7,8 @@
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
+#include <lsp/str.h>
 #include <lsp/json/json.h>
-#include <lsp/util/str.h>
 
 /*
  * This is a huge mess because it started out as an experiment only.
@@ -571,7 +571,7 @@ struct Message{
 		if(type.get<json::String>(strings::kind) == "reference")
 			return type.get<json::String>(strings::name);
 
-		return json.get<json::String>(strings::method) + util::str::capitalize(key);
+		return json.get<json::String>(strings::method) + str::capitalize(key);
 	}
 
 	void extract(const json::Object& json)
@@ -765,7 +765,7 @@ private:
 			if(typeJson.get<json::String>(strings::kind) != "reference")
 			{
 				auto& alias = m_typeAliases.emplace_back();
-				alias.name = typeBaseName + util::str::capitalize(key);
+				alias.name = typeBaseName + str::capitalize(key);
 				alias.type = ::Type::createFromJson(typeJson);
 				alias.documentation = extractDocumentation(typeJson);
 				insertType(alias.name, Type::TypeAlias, m_typeAliases.size() - 1);
@@ -824,11 +824,11 @@ R"(#pragma once
 #include <vector>
 #include <variant>
 #include <string_view>
-#include <lsp/util/str.h>
-#include <lsp/util/uri.h>
+#include <lsp/str.h>
+#include <lsp/fileuri.h>
+#include <lsp/nullable.h>
 #include <lsp/json/json.h>
 #include <lsp/serialization.h>
-#include <lsp/util/nullable.h>
 
 namespace lsp{
 
@@ -840,7 +840,7 @@ using LSPObject = json::Object;
 using LSPAny    = json::Any;
 
 template<typename K, typename T>
-using Map = util::str::HashMap<K, T>;
+using Map = str::HashMap<K, T>;
 
 )";
 
@@ -955,7 +955,7 @@ public:
 
 	void writeFiles()
 	{
-		writeFile("types.h", util::str::replace(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version) + m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent + TypesHeaderEnd);
+		writeFile("types.h", str::replace(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version) + m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent + TypesHeaderEnd);
 		writeFile("types.cpp", TypesSourceBegin + m_typesSourceFileContent + m_typesBoilerPlateSourceFileContent + TypesSourceEnd);
 		writeFile("messages.h", MessagesHeaderBegin + m_messagesHeaderFileContent + MessagesHeaderEnd);
 		writeFile("messages.cpp", MessagesSourceBegin + m_messagesSourceFileContent + MessagesSourceEnd);
@@ -1004,14 +1004,14 @@ private:
 		                              "\t// Requests\n\n";
 		m_messagesSourceFileContent = "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
 
-		std::string messageMethodsByString = "static const util::str::HashMap<std::string_view, MessageMethod> MethodsByString = {\n"
+		std::string messageMethodsByString = "static const str::HashMap<std::string_view, MessageMethod> MethodsByString = {\n"
 		                                     "#define LSP_MS_PAIR(x) {MethodStrings[static_cast<int>(x)], x}\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 		{
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
-			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
+			m_messagesSourceFileContent += '\t' + str::quote(method) + ",\n";
 			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
 		}
 
@@ -1021,7 +1021,7 @@ private:
 		{
 			auto id = upperCaseIdentifier(method);
 			m_messagesHeaderFileContent += '\t' + id + ",\n";
-			m_messagesSourceFileContent += '\t' + util::str::quote(method) + ",\n";
+			m_messagesSourceFileContent += '\t' + str::quote(method) + ",\n";
 			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
 		}
 
@@ -1112,8 +1112,8 @@ private:
 		if(str.starts_with('$'))
 			str.remove_prefix(1);
 
-		auto parts = util::str::splitView(str, "/", true);
-		auto id = util::str::join(parts, "_", [](auto&& s){ return util::str::capitalize(s); });
+		auto parts = str::splitView(str, "/", true);
+		auto id = str::join(parts, "_", [](auto&& s){ return str::capitalize(s); });
 
 		std::transform(id.cbegin(), id.cend(), id.begin(), [](char c)
 		{
@@ -1128,7 +1128,7 @@ private:
 
 	static std::string lowerCaseIdentifier(std::string_view str)
 	{
-		return util::str::uncapitalize(str);
+		return str::uncapitalize(str);
 	}
 
 	static std::string toJsonSig(const std::string& typeName)
@@ -1149,7 +1149,7 @@ private:
 		if(!title.empty())
 			comment += indent + " * " + title + "\n";
 
-		auto documentationLines = util::str::splitView(documentation, "\n");
+		auto documentationLines = str::splitView(documentation, "\n");
 
 		if(!documentationLines.empty())
 		{
@@ -1157,7 +1157,7 @@ private:
 				comment += indent + " *\n";
 
 			for(const auto& l : documentationLines)
-				comment += util::str::trimRight(indent + " * " + util::str::replace(util::str::replace(l, "/*", "/_*"), "*/", "*_/")) + '\n';
+				comment += str::trimRight(indent + " * " + str::replace(str::replace(l, "/*", "/_*"), "*/", "*_/")) + '\n';
 		}
 		else if(title.empty())
 		{
@@ -1215,13 +1215,13 @@ private:
 		if(auto it = enumeration.values.begin(); it != enumeration.values.end())
 		{
 			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) +
-			                            valueIndent + util::str::capitalize(it->name);
+			                            valueIndent + str::capitalize(it->name);
 			m_typesSourceFileContent += '\t' + json::stringify(it->value);
 			++it;
 
 			while(it != enumeration.values.end())
 			{
-				m_typesHeaderFileContent += ",\n" + documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) + valueIndent + util::str::capitalize(it->name);
+				m_typesHeaderFileContent += ",\n" + documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) + valueIndent + str::capitalize(it->name);
 				m_typesSourceFileContent += ",\n\t" + json::stringify(it->value);
 				++it;
 			}
@@ -1383,9 +1383,9 @@ private:
 					if(nullType == orType.typeList.end())
 						cppOrType = "std::variant<";
 					else if(orType.typeList.size() > 2)
-						cppOrType = "util::NullableVariant<";
+						cppOrType = "NullableVariant<";
 					else
-						cppOrType = "util::Nullable<";
+						cppOrType = "Nullable<";
 
 					if(auto it = orType.typeList.begin(); it != orType.typeList.end())
 					{
@@ -1477,7 +1477,7 @@ private:
 				for(const auto& p : structLit.properties)
 				{
 					if(!p.isOptional)
-						nameSuffix += '_' + util::str::capitalize(p.name);
+						nameSuffix += '_' + str::capitalize(p.name);
 				}
 			}
 
@@ -1559,7 +1559,7 @@ private:
 			switch(p.type->category())
 			{
 			case Type::StringLiteral:
-				m_typesHeaderFileContent += " = " + util::str::quote(util::str::escape(p.type->as<StringLiteralType>().stringValue));
+				m_typesHeaderFileContent += " = " + str::quote(str::escape(p.type->as<StringLiteralType>().stringValue));
 				break;
 			case Type::IntegerLiteral:
 				m_typesHeaderFileContent += " = " + std::to_string(p.type->as<IntegerLiteralType>().integerValue);
@@ -1608,15 +1608,15 @@ private:
 				generateType(m, {});
 
 			for(const auto& p : structure.properties)
-				generateType(p.type, structureCppName + util::str::capitalize(p.name));
+				generateType(p.type, structureCppName + str::capitalize(p.name));
 		}
 
 		m_typesHeaderFileContent += documentationComment(structureCppName, structure.documentation) +
 		                            "struct " + structureCppName;
 
-		std::string propertiesToJson = "static void " + util::str::uncapitalize(structureCppName) + "ToJson(" +
+		std::string propertiesToJson = "static void " + str::uncapitalize(structureCppName) + "ToJson(" +
 		                               structureCppName + "&& value, json::Object& json)\n{\n";
-		std::string propertiesFromJson = "static void " + util::str::uncapitalize(structureCppName) + "FromJson("
+		std::string propertiesFromJson = "static void " + str::uncapitalize(structureCppName) + "FromJson("
 		                                 "json::Object& json, " + structureCppName + "& value)\n{\n";
 		std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<" + structureCppName + ">()";
 		std::vector<std::string> requiredPropertiesList;
@@ -1628,7 +1628,7 @@ private:
 		{
 			const auto* extends = &(*it)->as<ReferenceType>();
 			m_typesHeaderFileContent += " : " + extends->name;
-			std::string lower = util::str::uncapitalize(extends->name);
+			std::string lower = str::uncapitalize(extends->name);
 			propertiesToJson += '\t' + lower + "ToJson(std::move(value), json);\n";
 			propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 			++it;
@@ -1643,7 +1643,7 @@ private:
 			{
 				extends = &(*it)->as<ReferenceType>();
 				m_typesHeaderFileContent += ", " + extends->name;
-				lower = util::str::uncapitalize(extends->name);
+				lower = str::uncapitalize(extends->name);
 				propertiesToJson += '\t' + lower + "ToJson(std::move(value), json);\n";
 				propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 				++it;
@@ -1700,13 +1700,13 @@ private:
 		m_typesBoilerPlateSourceFileContent += toJson + "\n"
 		                                       "{\n"
 		                                       "\tjson::Object obj;\n"
-		                                       "\t" + util::str::uncapitalize(structureCppName) + "ToJson(std::move(value), obj);\n"
+		                                       "\t" + str::uncapitalize(structureCppName) + "ToJson(std::move(value), obj);\n"
 		                                       "\treturn obj;\n"
 		                                       "}\n\n" +
 		                                       fromJson + "\n"
 		                                       "{\n"
 		                                       "\tauto& obj = json.get<json::Object>();\n"
-		                                       "\t" + util::str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
+		                                       "\t" + str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
 		                                       "}\n\n";
 	}
 
@@ -1728,8 +1728,8 @@ const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] =
 	{"int", "int", "int", "int"},
 	{"uint", "uint", "uint", "uint"},
 	{"double", "double", "double", "double"},
-	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
-	{"util::FileURI", "util::FileURI", "const util::FileURI&", "const util::FileURI&"},
+	{"FileURI", "FileURI", "const FileURI&", "const FileURI&"},
+	{"FileURI", "FileURI", "const FileURI&", "const FileURI&"},
 	{"std::string", "std::string_view", "const std::string&", "const std::string&"},
 	{"std::nullptr_t", "std::nullptr_t", "std::nullptr_t", "std::nullptr_t"}
 };
