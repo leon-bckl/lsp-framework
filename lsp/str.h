@@ -2,6 +2,8 @@
 
 #include <string>
 #include <vector>
+#include <iterator>
+#include <algorithm>
 #include <functional>
 #include <string_view>
 #include <unordered_map>
