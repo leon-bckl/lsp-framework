@@ -390,18 +390,33 @@ void fromJson(json::Any&& json, std::variant<Args...>& value)
 template<typename T>
 void fromJson(json::Any&& json, Nullable<T>& nullable)
 {
-	if(nullable.isNull())
-		nullable = T{};
+	if(json.isNull())
+	{
+		nullable.reset();
+	}
+	else
+	{
+		if(nullable.isNull())
+			nullable = T{};
 
-	fromJson(std::move(json), *nullable);
+		fromJson(std::move(json), *nullable);
+	}
 }
 
 template<typename... Args>
 void fromJson(json::Any&& json, NullableVariant<Args...>& nullable)
 {
-	typename NullableVariant<Args...>::VariantType variant;
-	fromJson(std::move(json), variant);
-	nullable.emplace(std::move(variant));
+	if(json.isNull())
+	{
+		nullable.reset();
+	}
+	else
+	{
+		if(nullable.isNull())
+			nullable = typename NullableVariant<Args...>::VariantType{};
+
+		fromJson(std::move(json), *nullable);
+	}
 }
 
 template<typename T>
@@ -419,7 +434,7 @@ void fromJson(json::Any&& json, std::optional<T>& value)
 	if(!value.has_value())
 		value = T{};
 
-	fromJson(std::move(json), value.value());
+	fromJson(std::move(json), *value);
 }
 
 template<>

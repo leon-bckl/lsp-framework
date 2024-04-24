@@ -42,6 +42,7 @@ public:
 		return m_value.emplace(std::forward<Args>(args)...);
 	}
 
+	void reset(){ m_value.reset(); }
 	bool isNull() const{ return !m_value.has_value(); }
 	T& value(){ return m_value.value(); }
 	const T& value() const{ return m_value.value(); }
@@ -110,6 +111,7 @@ public:
 		return m_value.emplace(std::forward<Params>(params)...);
 	}
 
+	void reset(){ m_value.reset(); }
 	bool isNull() const{ return !m_value.has_value(); }
 
 	template<typename T>
