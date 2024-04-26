@@ -19,15 +19,7 @@ public:
 	[[nodiscard]] ASyncRequestResult<MessageType> sendRequest(const typename MessageType::Params& params);
 
 	template<typename MessageType>
-	requires message::HasParams<MessageType> && message::HasResult<MessageType> && message::HasPartialResult<MessageType>
-	[[nodiscard]] ASyncRequestResult<MessageType> sendRequest(const typename MessageType::Params& params);
-
-	template<typename MessageType>
 	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
-	[[nodiscard]] ASyncRequestResult<MessageType> sendRequest();
-
-	template<typename MessageType>
-	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) && (!message::HasPartialResult<MessageType>)
 	[[nodiscard]] ASyncRequestResult<MessageType> sendRequest();
 
 	/*
