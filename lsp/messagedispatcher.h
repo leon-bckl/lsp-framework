@@ -84,7 +84,7 @@ private:
 		void setValueFromJson(json::Any&& json) override
 		{
 			T value;
-			fromJson(json, std::move(value));
+			fromJson(std::move(json), value);
 			m_promise.set_value(std::move(value));
 		}
 
