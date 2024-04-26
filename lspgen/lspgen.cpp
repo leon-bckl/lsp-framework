@@ -1200,7 +1200,7 @@ private:
 		{
 			m_typesHeaderFileContent += "class " + enumerationCppName + "{\n"
 			                            "public:\n"
-			                            "\tenum ValueIndex{\n";
+			                            "\tenum class ValueIndex{\n";
 			valueIndent = "\t\t";
 		}
 		else
@@ -1231,7 +1231,8 @@ private:
 
 		if(enumeration.supportsCustomValues)
 		{
-			m_typesHeaderFileContent += "\t};\n\n"
+			m_typesHeaderFileContent += "\t};\n"
+			                            "\tusing enum ValueIndex;\n\n"
 			                            "\t" + enumerationCppName + "() = default;\n" +
 			                            "\t" + enumerationCppName + "(ValueIndex index){ *this = index; }\n" +
 			                            "\texplicit " + enumerationCppName + '(' + baseType.param + " value){ *this = value; }\n"
@@ -1266,7 +1267,7 @@ private:
 			                            "{\n"
 			                            "\tassert(index < MAX_VALUE);\n"
 			                            "\tm_index = index;\n"
-			                            "\tm_value = " + enumValuesVarName + "[index];\n"
+			                            "\tm_value = " + enumValuesVarName + "[static_cast<int>(index)];\n"
 			                            "\treturn *this;\n"
 			                            "}\n\n" +
 			                            enumerationCppName + "& " + enumerationCppName + "::operator=(" + baseType.param + " value)\n"

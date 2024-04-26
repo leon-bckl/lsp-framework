@@ -115,7 +115,7 @@ RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request
 	else if(!request.isNotification())
 	{
 		response = jsonrpc::createErrorResponse(
-		 *request.id, ErrorCodes::MethodNotFound, "Unsupported method: " + request.method);
+		 *request.id, ErrorCodes{ErrorCodes::MethodNotFound}, "Unsupported method: " + request.method);
 	}
 
 	return response;
