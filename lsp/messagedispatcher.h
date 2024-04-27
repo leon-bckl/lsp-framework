@@ -16,11 +16,11 @@ public:
 
 	template<typename MessageType>
 	requires message::HasParams<MessageType> && message::HasResult<MessageType>
-	[[nodiscard]] ASyncRequestResult<MessageType> sendRequest(const typename MessageType::Params& params);
+	[[nodiscard]] AsyncRequestResult<MessageType> sendRequest(const typename MessageType::Params& params);
 
 	template<typename MessageType>
 	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
-	[[nodiscard]] ASyncRequestResult<MessageType> sendRequest();
+	[[nodiscard]] AsyncRequestResult<MessageType> sendRequest();
 
 	/*
 	 * sendNotification
@@ -92,7 +92,7 @@ private:
 
 template<typename MessageType>
 requires message::HasParams<MessageType> && message::HasResult<MessageType>
-ASyncRequestResult<MessageType> MessageDispatcher::sendRequest(const typename MessageType::Params& params)
+AsyncRequestResult<MessageType> MessageDispatcher::sendRequest(const typename MessageType::Params& params)
 {
 	auto result = std::make_unique<RequestResult<typename MessageType::Result>>();
 	auto future = result->future();
@@ -102,7 +102,7 @@ ASyncRequestResult<MessageType> MessageDispatcher::sendRequest(const typename Me
 
 template<typename MessageType>
 requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
-ASyncRequestResult<MessageType> MessageDispatcher::sendRequest()
+AsyncRequestResult<MessageType> MessageDispatcher::sendRequest()
 {
 	auto result = std::make_unique<RequestResult<typename MessageType::Result>>();
 	auto future = result->future();

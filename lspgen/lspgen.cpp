@@ -845,7 +845,8 @@ using Map = str::HashMap<K, T>;
 )";
 
 static constexpr const char* TypesHeaderEnd =
-R"(} // namespace lsp
+R"(
+} // namespace lsp
 )";
 
 static constexpr const char* TypesSourceBegin =
@@ -1043,7 +1044,7 @@ private:
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 			generateMessage(method, message, false);
 
-		namespaceStr = "\n} // namespace requests\n\n"
+		namespaceStr = "} // namespace requests\n\n"
 		               "namespace notifications{\n\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
@@ -1051,7 +1052,7 @@ private:
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
 			generateMessage(method, message, true);
 
-		namespaceStr = "\n} // namespace notifications\n";
+		namespaceStr = "} // namespace notifications\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
 	}

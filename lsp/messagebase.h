@@ -9,7 +9,7 @@ std::string_view messageMethodToString(MessageMethod method);
 MessageMethod messageMethodFromString(std::string_view str);
 
 template<typename MessageType>
-using ASyncRequestResult = std::future<typename MessageType::Result>;
+using AsyncRequestResult = std::future<typename MessageType::Result>;
 
 /*
  * Message

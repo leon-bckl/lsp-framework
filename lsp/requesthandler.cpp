@@ -9,7 +9,7 @@ namespace lsp{
 
 RequestHandler::RequestHandler(Connection& connection) : m_connection{connection}
 {
-	m_responseThread = std::thread{[this](){
+	m_asyncResponseThread = std::thread{[this](){
 		while(true)
 		{
 			std::unique_lock lock{m_pendingResponsesMutex};
@@ -51,7 +51,7 @@ RequestHandler::~RequestHandler()
 		m_running = false;
 	}
 
-	m_responseThread.join();
+	m_asyncResponseThread.join();
 }
 
 void RequestHandler::onRequest(jsonrpc::Request&& request)
@@ -78,7 +78,7 @@ void RequestHandler::onRequestBatch(jsonrpc::RequestBatch&& batch)
 	m_connection.sendResponseBatch(std::move(responses));
 }
 
-RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request&& request, bool allowASync)
+RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request&& request, bool allowAsync)
 {
 	const auto method = messageMethodFromString(request.method);
 	const auto index  = static_cast<std::size_t>(method);
@@ -92,7 +92,7 @@ RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request
 			response = m_requestHandlers[static_cast<std::size_t>(method)](
 				request.id.has_value() ? *request.id : json::Null{},
 				request.params.has_value() ? std::move(*request.params) : json::Null{},
-				allowASync
+				allowAsync
 			);
 		}
 		catch(const json::TypeError& e)

@@ -22,13 +22,13 @@ template<typename MessageType, typename F>
 concept IsRequestCallback = (message::HasParams<MessageType> &&
                              message::HasResult<MessageType> &&
                              (std::convertible_to<F, std::function<typename MessageType::Result(const jsonrpc::MessageId&, typename MessageType::Params&&)>> ||
-                              std::convertible_to<F, std::function<ASyncRequestResult<MessageType>(const jsonrpc::MessageId&, typename MessageType::Params&&)>>));
+                              std::convertible_to<F, std::function<AsyncRequestResult<MessageType>(const jsonrpc::MessageId&, typename MessageType::Params&&)>>));
 
 template<typename MessageType, typename F>
 concept IsNoParamsRequestCallback = ((!message::HasParams<MessageType>) &&
                                      message::HasResult<MessageType> &&
                                      (std::convertible_to<F, std::function<typename MessageType::Result(const jsonrpc::MessageId&)>> ||
-                                      std::convertible_to<F, std::function<ASyncRequestResult<MessageType>(const jsonrpc::MessageId&, typename MessageType::Params&&)>>));
+                                      std::convertible_to<F, std::function<AsyncRequestResult<MessageType>(const jsonrpc::MessageId&, typename MessageType::Params&&)>>));
 
 template<typename MessageType, typename F>
 concept IsNotificationCallback = (message::HasParams<MessageType> &&
@@ -101,14 +101,14 @@ private:
 	std::mutex                                                m_requestHandlersMutex;
 
 	bool                                                      m_running = true;
-	std::thread                                               m_responseThread;
+	std::thread                                               m_asyncResponseThread;
 	std::mutex                                                m_pendingResponsesMutex;
 	std::unordered_map<jsonrpc::MessageId, ResponseResultPtr> m_pendingResponses;
 
 	void onRequest(jsonrpc::Request&& request) override;
 	void onRequestBatch(jsonrpc::RequestBatch&& batch) override;
 
-	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowASync);
+	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
 	void addHandler(MessageMethod method, HandlerWrapper&& handlerFunc);
 	void addResponseResult(const jsonrpc::MessageId& id, ResponseResultPtr result);
 	void sendErrorMessage(ErrorCodes code, const std::string& message);
@@ -158,16 +158,16 @@ template<typename MessageType, typename F>
 requires IsRequestCallback<MessageType, F>
 RequestHandler& RequestHandler::add(F&& handlerFunc)
 {
-	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, json::Any&& json, bool allowASync) -> OptionalResponse
+	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, json::Any&& json, bool allowAsync) -> OptionalResponse
 	{
 		typename MessageType::Params params;
 		fromJson(std::move(json), params);
 
-		if constexpr(std::same_as<decltype(f(id, std::move(params))), ASyncRequestResult<MessageType>>)
+		if constexpr(std::same_as<decltype(f(id, std::move(params))), AsyncRequestResult<MessageType>>)
 		{
 			auto result = f(id, std::move(params));
 
-			if(allowASync)
+			if(allowAsync)
 			{
 				addResponseResult(id, std::make_unique<ResponseResult<typename MessageType::Result>>(id, std::move(result)));
 				return std::nullopt;
@@ -189,13 +189,13 @@ template<typename MessageType, typename F>
 requires IsNoParamsRequestCallback<MessageType, F>
 RequestHandler& RequestHandler::add(F&& handlerFunc)
 {
-	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, json::Any&&, bool allowASync) -> OptionalResponse
+	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, json::Any&&, bool allowAsync) -> OptionalResponse
 	{
-		if constexpr(std::same_as<decltype(f(id)), ASyncRequestResult<MessageType>>)
+		if constexpr(std::same_as<decltype(f(id)), AsyncRequestResult<MessageType>>)
 		{
 			auto result = f(id);
 
-			if(allowASync)
+			if(allowAsync)
 			{
 				addResponseResult(id, std::make_unique<ResponseResult<typename MessageType::Result>>(std::move(result)));
 				return std::nullopt;
