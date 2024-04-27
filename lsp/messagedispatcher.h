@@ -16,7 +16,7 @@ public:
 
 	template<typename MessageType>
 	requires message::HasParams<MessageType> && message::HasResult<MessageType>
-	[[nodiscard]] AsyncRequestResult<MessageType> sendRequest(const typename MessageType::Params& params);
+	[[nodiscard]] AsyncRequestResult<MessageType> sendRequest(typename MessageType::Params&& params);
 
 	template<typename MessageType>
 	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
@@ -35,9 +35,9 @@ public:
 
 	template<typename MessageType>
 	requires message::HasParams<MessageType> && (!message::HasResult<MessageType>)
-	void sendNotification(const typename MessageType::Params& params)
+	void sendNotification(typename MessageType::Params&& params)
 	{
-		sendNotification(MessageType::Method, toJson(params));
+		sendNotification(MessageType::Method, toJson(std::move(params)));
 	}
 
 private:
@@ -92,11 +92,11 @@ private:
 
 template<typename MessageType>
 requires message::HasParams<MessageType> && message::HasResult<MessageType>
-AsyncRequestResult<MessageType> MessageDispatcher::sendRequest(const typename MessageType::Params& params)
+AsyncRequestResult<MessageType> MessageDispatcher::sendRequest(typename MessageType::Params&& params)
 {
 	auto result = std::make_unique<RequestResult<typename MessageType::Result>>();
 	auto future = result->future();
-	sendRequest(MessageType::Method, std::move(result), toJson(params));
+	sendRequest(MessageType::Method, std::move(result), toJson(std::move(params)));
 	return future;
 }
 
