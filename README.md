@@ -25,7 +25,7 @@ lsp::MessageHandler messageHandler{connection};
 bool running = true;
 
 messageHandler.requestHandler()
-.add<lsp::requests::Initialize>([](const jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
+.add<lsp::requests::Initialize>([](const lsp::jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
 {
   lsp::requests::Initialize::Result result;
   // Initialize the result and return it or throw an lsp::RequestError if there was a problem
