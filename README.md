@@ -6,11 +6,21 @@ This is an implementation of the [Language Server Protocol](https://microsoft.gi
 
 There aren't any external dependencies except for `cmake` and a compiler that supports C++20.
 
+
+
 ## Usage
 
-The project is built as a static library. LSP type definitions, messages and serialization boilerplate are generated during the build from the official [meta model](https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/metaModel/metaModel.json).  
-  
-Here's a short example on how to handle and send requests:
+The project is built as a static library. LSP type definitions, messages and serialization boilerplate are generated from the official [meta model](https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/metaModel/metaModel.json) during the build. This means all LSP types are proper C++ structs, so there's no need to manually read or write JSON. The framework handles serialization and deserialization automatically.  
+All messages can be found in the generated `<lsp/messages.h>` header with requests inside the `lsp::requests` and notifications inside the `lsp::notifications` namespace respectively.
+
+### Basic Setup
+
+1. **Establish a Connection**: Use the `Connection` class to handle communication via `std::istream` and `std::ostream`. You can pass in `std::cin`/`std::cout` or a custom implementation (e.g. sockets).
+2. **Create a MessageHandler**: The `MessageHandler` class combines message receiving and sending and provides a method to listen for new messages.
+3. **Register Callbacks**: Use the `RequestHandler` to register callbacks for incoming messages. Callbacks for requests always have a `const lsp::jsonrpc::MessageId&` as the first parameter followed by the message params.
+4. **Send Requests and Notifications**: Use the `MessageDispatcher` to send outgoing requests and notifications.
+
+### Example
 
 ```cpp
 #include <lsp/messages.h> /* Generated message definitions */
@@ -18,40 +28,46 @@ Here's a short example on how to handle and send requests:
 #include <lsp/io/standardio.h>
 #include <lsp/messagehandler.h>
 
-...
-
-lsp::Connection connection{lsp::io::standardInput(), lsp::io::standardOutput()};
-lsp::MessageHandler messageHandler{connection};
-bool running = true;
-
-messageHandler.requestHandler()
-.add<lsp::requests::Initialize>([](const lsp::jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
+int main()
 {
-  lsp::requests::Initialize::Result result;
-  // Initialize the result and return it or throw an lsp::RequestError if there was a problem
-  // Alternatively do processing asynchronously and return a std::future here
-  return result;
-})
-.add<lsp::notifications::Exit>([&running]()
-{
-  running = false;
-});
+   // Step 1: Establish a connection using standard input/output
+   lsp::Connection connection{lsp::io::standardInput(), lsp::io::standardOutput()};
+   
+   // Step 2: Create a MessageHandler with the connection
+   lsp::MessageHandler messageHandler{connection};
+   
+   bool running = true;
 
-while(running)
-  messageHandler.processIncomingMessages();
+   // Step 3: Register callbacks for incoming messages
+   messageHandler.requestHandler()
+      .add<lsp::requests::Initialize>([](const lsp::jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
+      {
+         lsp::requests::Initialize::Result result;
+         // Initialize the result and return it or throw an lsp::RequestError if there was a problem
+         // Alternatively do processing asynchronously and return a std::future here
+         return result;
+      })
+      .add<lsp::notifications::Exit>([&running]()
+      {
+         running = false;
+      });
 
-...
+   // Step 4: Start the message processing loop
+   // processIncomingMessages Reads all current messages from the connection and if there are none waits until one becomes available
+   while(running)
+      messageHandler.processIncomingMessages();
+
+   return 0;
+}
 ```
+
+### Sending Requests
 
 ```cpp
 // The sendRequest method returns a std::future for the result type of the message.
-// Be careful not to call std::future::wait on the same thread that calls
-// MessageHandler::processIncomingMessages since it would block.
-
-auto result = messageHandler.messageDispatcher().sendRequest<lsp::requests::TextDocument_Diagnostic>(
-    lsp::requests::TextDocument_Diagnostic::Params{...}
-  );
-
+// Don't call std::future::wait on the same thread that calls MessageHandler::processIncomingMessages since it would block.
+auto result = messageHandler.messageDispatcher()
+   .sendRequest<lsp::requests::TextDocument_Diagnostic>(lsp::requests::TextDocument_Diagnostic::Params{ /* parameters */ });
 ```
 
 ## License
