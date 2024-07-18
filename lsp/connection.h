@@ -35,14 +35,13 @@ public:
 	void sendResponseBatch(jsonrpc::ResponseBatch&& batch);
 
 private:
-	std::istream&    m_in;
-	std::ostream&    m_out;
-	std::mutex       m_readMutex;
-	std::mutex       m_writeMutex;
+	std::istream& m_in;
+	std::ostream& m_out;
+	std::mutex    m_readMutex;
+	std::mutex    m_writeMutex;
 
 	struct MessageHeader{
 		std::size_t contentLength = 0;
-		// Not always given, so just assume utf-8 by default. The protocol does not support anything else anyway
 		std::string contentType = "application/vscode-jsonrpc; charset=utf-8";
 	};
 
@@ -69,4 +68,4 @@ public:
 	using std::runtime_error::runtime_error;
 };
 
-}
+} // namespace lsp

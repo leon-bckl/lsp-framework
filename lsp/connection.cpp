@@ -42,7 +42,7 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 }
 #endif
 
-}
+} // namespace
 
 /*
  * Connection
