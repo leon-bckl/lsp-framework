@@ -57,7 +57,7 @@ void MessageDispatcher::onResponseBatch(jsonrpc::ResponseBatch&& batch)
 void MessageDispatcher::sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params)
 {
 	std::lock_guard lock{m_pendingRequestsMutex};
-	auto id = s_uniqueRequestId++;
+	const auto id = s_uniqueRequestId++;
 	m_pendingRequests[id] = std::move(result);
 	auto methodStr = messageMethodToString(method);
 	m_connection.sendRequest(jsonrpc::createRequest(id, methodStr, params));
@@ -65,8 +65,9 @@ void MessageDispatcher::sendRequest(MessageMethod method, RequestResultPtr resul
 
 void MessageDispatcher::sendNotification(MessageMethod method, const std::optional<json::Any>& params)
 {
-	auto methodStr = std::string{messageMethodToString(method)};
-	m_connection.sendRequest(jsonrpc::createNotification(methodStr, params));
+	const auto methodStr = messageMethodToString(method);
+	auto notification = jsonrpc::createNotification(methodStr, params);
+	m_connection.sendRequest(std::move(notification));
 }
 
 } // namespace lsp

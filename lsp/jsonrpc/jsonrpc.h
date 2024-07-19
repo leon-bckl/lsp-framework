@@ -72,14 +72,16 @@ namespace lsp::jsonrpc{
 		using std::runtime_error::runtime_error;
 	};
 
-	std::variant<Request, Response> messageFromJson(json::Object&& json);
+	std::variant<Request, Response>           messageFromJson(json::Object&& json);
 	std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& json);
+
 	json::Object requestToJson(Request&& request);
 	json::Object responseToJson(Response&& response);
-	json::Array requestBatchToJson(RequestBatch&& batch);
-	json::Array responseBatchToJson(ResponseBatch&& batch);
-	Request createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params = std::nullopt);
-	Request createNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);
+	json::Array  requestBatchToJson(RequestBatch&& batch);
+	json::Array  responseBatchToJson(ResponseBatch&& batch);
+
+	Request  createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params = std::nullopt);
+	Request  createNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);
 	Response createResponse(const MessageId& id, const json::Any& result);
 	Response createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data = std::nullopt);
 

@@ -60,7 +60,7 @@ std::vector<std::string_view> splitView(std::string_view str, std::string_view s
 
 	for(std::size_t idx = str.find(separator); idx != std::string_view::npos; idx = str.find(separator, srcIdx))
 	{
-		auto part = str.substr(srcIdx, idx - srcIdx);
+		const auto part = str.substr(srcIdx, idx - srcIdx);
 		srcIdx = idx + separator.size();
 
 		if(part.empty() && skipEmpty)
@@ -144,7 +144,7 @@ std::string escape(std::string_view str)
 	std::string result;
 	result.reserve(str.size());
 
-	for(char c : str)
+	for(const char c : str)
 	{
 		switch(c)
 		{

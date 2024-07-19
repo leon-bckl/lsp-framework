@@ -40,7 +40,6 @@ Request requestFromJson(json::Object& json)
 	verifyProtocolVersion(json);
 
 	Request request;
-
 	request.jsonrpc = std::move(json.get<json::String>("jsonrpc"));
 	request.method = std::move(json.get<json::String>("method"));
 

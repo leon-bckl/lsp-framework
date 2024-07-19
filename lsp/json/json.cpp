@@ -148,8 +148,8 @@ private:
 		assert(currentState() == State::ObjectKey);
 
 		const char* keyPos = m_pos;
-		auto& object = currentValueWithType<Object>();
-		auto key = parseString();
+		auto&       object = currentValueWithType<Object>();
+		const auto  key    = parseString();
 
 		if(object.contains(key))
 			throw ParseError{"Duplicate key '" + key + "'", textOffset(m_start, keyPos)};
@@ -266,8 +266,8 @@ private:
 
 		if(isDecimal)
 		{
-			std::size_t idx = 0;
-			Decimal decimal = std::stod(std::string{numberStart, m_pos}, &idx);
+			std::size_t   idx     = 0;
+			const Decimal decimal = std::stod(std::string{numberStart, m_pos}, &idx);
 
 			if(idx < static_cast<std::size_t>(std::distance(numberStart, m_pos)))
 				throw ParseError{"Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(m_start, numberStart)};
@@ -276,7 +276,7 @@ private:
 		}
 
 		std::int64_t intValue;
-		auto [ptr, ec] = std::from_chars(numberStart, m_pos, intValue);
+		const auto [ptr, ec] = std::from_chars(numberStart, m_pos, intValue);
 
 		if(ec != std::errc{} || ptr != m_pos)
 			throw ParseError{"Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(m_start, numberStart)};
@@ -445,7 +445,7 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 
 Any& Object::get(std::string_view key)
 {
-	if(auto it = find(key); it != end())
+	if(const auto it = find(key); it != end())
 		return it->second;
 
 	throw TypeError{"Missing key '" + std::string{key} + '\''};
@@ -453,7 +453,7 @@ Any& Object::get(std::string_view key)
 
 const Any& Object::get(std::string_view key) const
 {
-	if(auto it = find(key); it != end())
+	if(const auto it = find(key); it != end())
 		return it->second;
 
 	throw TypeError{"Missing key '" + std::string{key} + '\''};

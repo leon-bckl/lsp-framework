@@ -39,7 +39,7 @@ RequestHandler::RequestHandler(Connection& connection) : m_connection{connection
 				break;
 
 			lock.unlock();
-			std::this_thread::sleep_for(std::chrono::milliseconds{100}); // TODO: Implement non-busy waiting solution
+			std::this_thread::sleep_for(std::chrono::milliseconds{100}); // TODO: Do this in a better way
 		}
 	}};
 }
@@ -135,7 +135,7 @@ void RequestHandler::addHandler(MessageMethod method, HandlerWrapper&& handlerFu
 void RequestHandler::addResponseResult(const jsonrpc::MessageId& id, ResponseResultPtr result)
 {
 	std::lock_guard lock{m_pendingResponsesMutex};
-	auto it = m_pendingResponses.find(id);
+	const auto it = m_pendingResponses.find(id);
 
 	if(it != m_pendingResponses.end())
 		throw RequestError{ErrorCodes::InvalidRequest, "Request id is not unique"};

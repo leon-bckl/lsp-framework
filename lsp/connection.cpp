@@ -61,7 +61,7 @@ void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, Res
 	if(m_in.peek() == std::char_traits<char>::eof())
 		throw ConnectionError{"Connection lost"};
 
-	auto header = readMessageHeader();
+	const auto header = readMessageHeader();
 
 	std::string content;
 	content.resize(header.contentLength);
@@ -75,7 +75,7 @@ void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, Res
 		throw ProtocolError{"Unsupported or invalid content type: " + header.contentType};
 
 	constexpr std::string_view charsetKey{"charset="};
-	if(auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
+	if(const auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
 	{
 		auto charset = contentType.substr(idx + charsetKey.size());
 		charset = str::trimView(charset.substr(0, charset.find(';')));
@@ -170,12 +170,12 @@ void Connection::readNextMessageHeaderField(MessageHeader& header)
 	std::getline(m_in, lineData); // This also consumes the newline so it's only necessary to check for one \r\n before the content
 
 	std::string_view line{lineData};
-	std::size_t separatorIdx = line.find(':');
+	const auto separatorIdx = line.find(':');
 
 	if(separatorIdx != std::string_view::npos)
 	{
-		std::string_view key = str::trimView(line.substr(0, separatorIdx));
-		std::string_view value = str::trimView(line.substr(separatorIdx + 1));
+		const auto key   = str::trimView(line.substr(0, separatorIdx));
+		const auto value = str::trimView(line.substr(separatorIdx + 1));
 
 		if(key == "Content-Length")
 			std::from_chars(value.data(), value.data() + value.size(), header.contentLength);
@@ -203,7 +203,7 @@ void Connection::writeMessage(const std::string& content)
 
 void Connection::writeMessageHeader(const MessageHeader& header)
 {
-	std::string headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
+	const auto headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
 	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
 }
 

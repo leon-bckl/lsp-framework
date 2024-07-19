@@ -873,9 +873,9 @@ namespace lsp{
 template<typename E, typename D, typename T>
 static E findEnumValue(const D* values, const T& value)
 {
-	auto begin = values;
-	auto end = values + static_cast<int>(E::MAX_VALUE);
-	auto it = std::lower_bound(begin, end, value);
+	const auto begin = values;
+	const auto end = values + static_cast<int>(E::MAX_VALUE);
+	const auto it = std::lower_bound(begin, end, value);
 
 	if(it == end || *it != value)
 		return E::MAX_VALUE;
@@ -1005,7 +1005,7 @@ private:
 		                              "\t// Requests\n\n";
 		m_messagesSourceFileContent = "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
 
-		std::string messageMethodsByString = "static const str::HashMap<std::string_view, MessageMethod> MethodsByString = {\n"
+		std::string messageMethodsByString = "const str::HashMap<std::string_view, MessageMethod> MethodsByString = {\n"
 		                                     "#define LSP_MS_PAIR(x) {MethodStrings[static_cast<int>(x)], x}\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
@@ -1037,7 +1037,10 @@ private:
 
 		// Structs
 
-		const char* namespaceStr = "namespace requests{\n\n";
+		const char* namespaceStr = "/*\n"
+		                           " * Request messages\n"
+		                           " */\n\n"
+		                           "namespace requests{\n\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
 
@@ -1045,7 +1048,11 @@ private:
 			generateMessage(method, message, false);
 
 		namespaceStr = "} // namespace requests\n\n"
+		               "/*\n"
+		               " * Notification messages\n"
+		               " */\n\n"
 		               "namespace notifications{\n\n";
+
 
 		m_messagesHeaderFileContent += namespaceStr;
 
@@ -1578,7 +1585,7 @@ private:
 			if(p.isOptional)
 			{
 				toJson += "\tif(value." + p.name + ")\n\t";
-				fromJson += "\tif(auto it = json.find(\"" + p.name + "\"); it != json.end())\n\t"
+				fromJson += "\tif(const auto it = json.find(\"" + p.name + "\"); it != json.end())\n\t"
 				            "\tfromJson(std::move(it->second), value." + p.name + ");\n";
 			}
 			else
