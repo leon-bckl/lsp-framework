@@ -8,15 +8,18 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
 else()
 	add_compile_options(-Wall -Wextra -pedantic)
-	add_compile_options($<$<CONFIG:DEBUG>:-fsanitize=address,undefined>)
+	add_compile_options(
+		$<$<CONFIG:DEBUG>:-fsanitize=address,undefined>
+		$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
+	)
 endif()
 
 add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/str.cpp)
 target_include_directories(lspgen PRIVATE .)
 
-SET(SRC_DIR lsp/)
+SET(LSP_SRC_DIR lsp/)
 
-set(HEADERS
+set(LSP_HEADERS
 	# lsp
 	connection.h
 	error.h
@@ -36,9 +39,9 @@ set(HEADERS
 	# jsonrpc
 	jsonrpc/jsonrpc.h
 )
-list(TRANSFORM HEADERS PREPEND ${SRC_DIR})
+list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR})
 
-set(SOURCES
+set(LSP_SOURCES
 	# lsp
 	connection.cpp
 	messagedispatcher.cpp
@@ -52,31 +55,31 @@ set(SOURCES
 	# jsonrpc
 	jsonrpc/jsonrpc.cpp
 )
-list(TRANSFORM SOURCES PREPEND ${SRC_DIR})
+list(TRANSFORM LSP_SOURCES PREPEND ${LSP_SRC_DIR})
 
-set(GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
-file(MAKE_DIRECTORY ${GENERATED_FILES_DIR}/lsp)
+set(LSP_GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+file(MAKE_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp)
 
-set(GENERATED_HEADERS
-	${GENERATED_FILES_DIR}/lsp/types.h
-	${GENERATED_FILES_DIR}/lsp/messages.h
+set(LSP_GENERATED_HEADERS
+	${LSP_GENERATED_FILES_DIR}/lsp/types.h
+	${LSP_GENERATED_FILES_DIR}/lsp/messages.h
 )
 
-set(GENERATED_SOURCES
-	${GENERATED_FILES_DIR}/lsp/types.cpp
-	${GENERATED_FILES_DIR}/lsp/messages.cpp
+set(LSP_GENERATED_SOURCES
+	${LSP_GENERATED_FILES_DIR}/lsp/types.cpp
+	${LSP_GENERATED_FILES_DIR}/lsp/messages.cpp
 )
 
 set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/lspmetamodel.json)
 
 add_custom_command(
 	COMMAND lspgen ${LSP_METAMODEL_JSON}
-	WORKING_DIRECTORY ${GENERATED_FILES_DIR}/lsp
-	OUTPUT ${GENERATED_HEADERS} ${GENERATED_SOURCES}
+	WORKING_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp
+	OUTPUT ${LSP_GENERATED_HEADERS} ${LSP_GENERATED_SOURCES}
 	DEPENDS lspgen ${LSP_METAMODEL_JSON}
 	COMMENT "Generating lsp types from meta model..."
 )
 
 add_library(lsp STATIC)
-target_include_directories(lsp PUBLIC . ${GENERATED_FILES_DIR})
-target_sources(lsp PRIVATE ${HEADERS} ${SOURCES} ${GENERATED_HEADERS} ${GENERATED_SOURCES})
+target_include_directories(lsp PUBLIC . ${LSP_GENERATED_FILES_DIR})
+target_sources(lsp PRIVATE ${LSP_HEADERS} ${LSP_SOURCES} ${LSP_GENERATED_HEADERS} ${LSP_GENERATED_SOURCES})
