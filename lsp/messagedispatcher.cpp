@@ -54,13 +54,14 @@ void MessageDispatcher::onResponseBatch(jsonrpc::ResponseBatch&& batch)
 		onResponse(std::move(r));
 }
 
-void MessageDispatcher::sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params)
+jsonrpc::MessageId MessageDispatcher::sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params)
 {
 	std::lock_guard lock{m_pendingRequestsMutex};
-	const auto id = s_uniqueRequestId++;
-	m_pendingRequests[id] = std::move(result);
+	auto messageId = s_uniqueRequestId++;
+	m_pendingRequests[messageId] = std::move(result);
 	auto methodStr = messageMethodToString(method);
-	m_connection.sendRequest(jsonrpc::createRequest(id, methodStr, params));
+	m_connection.sendRequest(jsonrpc::createRequest(messageId, methodStr, params));
+	return messageId;
 }
 
 void MessageDispatcher::sendNotification(MessageMethod method, const std::optional<json::Any>& params)

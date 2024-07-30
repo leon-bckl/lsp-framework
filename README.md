@@ -17,7 +17,7 @@ All messages can be found in the generated `<lsp/messages.h>` header with reques
 
 1. **Establish a Connection**: Use the `Connection` class to handle communication via `std::istream` and `std::ostream`. You can pass in `std::cin`/`std::cout` or a custom implementation (e.g. sockets).
 2. **Create a MessageHandler**: The `MessageHandler` class combines message receiving and sending and provides a method to listen for new messages.
-3. **Register Callbacks**: Use the `RequestHandler` to register callbacks for incoming messages. Callbacks for requests always have a `const lsp::jsonrpc::MessageId&` as the first parameter followed by the message params.
+3. **Register Callbacks**: Use the `RequestHandler` to register callbacks for incoming requests and notifications. Request callbacks return a result which is sent back as a response.
 4. **Send Requests and Notifications**: Use the `MessageDispatcher` to send outgoing requests and notifications.
 
 ### Example
@@ -30,16 +30,17 @@ All messages can be found in the generated `<lsp/messages.h>` header with reques
 
 int main()
 {
-   // Step 1: Establish a connection using standard input/output
+   // 1: Establish a connection using standard input/output
    lsp::Connection connection{lsp::io::standardInput(), lsp::io::standardOutput()};
    
-   // Step 2: Create a MessageHandler with the connection
+   // 2: Create a MessageHandler with the connection
    lsp::MessageHandler messageHandler{connection};
    
    bool running = true;
 
-   // Step 3: Register callbacks for incoming messages
+   // 3: Register callbacks for incoming messages
    messageHandler.requestHandler()
+			// Request callbacks always have the message id as the first parameter followed by the params if there are any.
       .add<lsp::requests::Initialize>([](const lsp::jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
       {
          lsp::requests::Initialize::Result result;
@@ -47,12 +48,13 @@ int main()
          // Alternatively do processing asynchronously and return a std::future here
          return result;
       })
+			// Notifications don't have an id parameter because no response is sent back for them.
       .add<lsp::notifications::Exit>([&running]()
       {
          running = false;
       });
 
-   // Step 4: Start the message processing loop
+   // 4: Start the message processing loop
    // processIncomingMessages Reads all current messages from the connection and if there are none waits until one becomes available
    while(running)
       messageHandler.processIncomingMessages();
@@ -64,9 +66,9 @@ int main()
 ### Sending Requests
 
 ```cpp
-// The sendRequest method returns a std::future for the result type of the message.
+// The sendRequest method returns a struct containing the message id and a std::future for the result type of the message.
 // Don't call std::future::wait on the same thread that calls MessageHandler::processIncomingMessages since it would block.
-auto result = messageHandler.messageDispatcher()
+FutureResponse response = messageHandler.messageDispatcher()
    .sendRequest<lsp::requests::TextDocument_Diagnostic>(lsp::requests::TextDocument_Diagnostic::Params{ /* parameters */ });
 ```
 

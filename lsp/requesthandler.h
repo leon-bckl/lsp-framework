@@ -1,13 +1,12 @@
 #pragma once
 
 #include <mutex>
-#include <atomic>
+#include <future>
 #include <thread>
 #include <vector>
 #include <utility>
 #include <concepts>
 #include <functional>
-#include <type_traits>
 #include <unordered_map>
 #include <lsp/connection.h>
 #include <lsp/messagebase.h>
@@ -17,6 +16,16 @@ namespace lsp{
 
 class ErrorCodes;
 class Connection;
+
+/*
+ * The result returned from a request handler callback that does processing asynchronously
+ */
+template<typename MessageType>
+using AsyncRequestResult = std::future<typename MessageType::Result>;
+
+/*
+ * Concepts to verify the type of callback
+ */
 
 template<typename MessageType, typename F>
 concept IsRequestCallback = (message::HasParams<MessageType> &&
