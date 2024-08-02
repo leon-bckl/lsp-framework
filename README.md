@@ -40,7 +40,7 @@ int main()
 
    // 3: Register callbacks for incoming messages
    messageHandler.requestHandler()
-			// Request callbacks always have the message id as the first parameter followed by the params if there are any.
+      // Request callbacks always have the message id as the first parameter followed by the params if there are any.
       .add<lsp::requests::Initialize>([](const lsp::jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
       {
          lsp::requests::Initialize::Result result;
@@ -48,7 +48,7 @@ int main()
          // Alternatively do processing asynchronously and return a std::future here
          return result;
       })
-			// Notifications don't have an id parameter because no response is sent back for them.
+      // Notifications don't have an id parameter because no response is sent back for them.
       .add<lsp::notifications::Exit>([&running]()
       {
          running = false;
