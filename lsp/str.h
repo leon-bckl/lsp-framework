@@ -76,20 +76,43 @@ struct CaseInsensitiveEqual{
 	}
 };
 
+template<typename StringType>
+concept CanBeStringMapKey = std::same_as<StringType, std::string> || std::same_as<StringType, std::string_view> || std::same_as<StringType, FileURI>;
+
 /*
  * Unordered map and set types with that allow for faster lookup via string_view
  */
 template<typename StringKeyType, typename ValueType, typename HashType = TransparentHash, typename EqualType = std::equal_to<>>
-using HashMap = std::unordered_map<StringKeyType, ValueType, HashType, EqualType>;
+requires CanBeStringMapKey<StringKeyType>
+using UnorderedMap = std::unordered_map<StringKeyType, ValueType, HashType, EqualType>;
+
+template<typename StringKeyType, typename ValueType, typename HashType = TransparentHash, typename EqualType = std::equal_to<>>
+requires CanBeStringMapKey<StringKeyType>
+using UnorderedMultiMap = std::unordered_multimap<StringKeyType, ValueType, HashType, EqualType>;
 
 template<typename StringKeyType, typename ValueType>
-using CaseInsensitiveHashMap = HashMap<StringKeyType, ValueType, CaseInsensitiveHash, CaseInsensitiveEqual>;
+requires CanBeStringMapKey<StringKeyType>
+using CaseInsensitiveUnorderedMap = UnorderedMap<StringKeyType, ValueType, CaseInsensitiveHash, CaseInsensitiveEqual>;
+
+template<typename StringKeyType, typename ValueType>
+requires CanBeStringMapKey<StringKeyType>
+using CaseInsensitiveUnorderedMultiMap = UnorderedMultiMap<StringKeyType, ValueType, CaseInsensitiveHash, CaseInsensitiveEqual>;
 
 template<typename StringType = std::string, typename HashType = TransparentHash, typename EqualType = std::equal_to<>>
-using Set = std::unordered_set<StringType, HashType, EqualType>;
+requires CanBeStringMapKey<StringType>
+using UnorderedSet = std::unordered_set<StringType, HashType, EqualType>;
+
+template<typename StringType = std::string, typename HashType = TransparentHash, typename EqualType = std::equal_to<>>
+requires CanBeStringMapKey<StringType>
+using UnorderedMultiSet = std::unordered_multiset<StringType, HashType, EqualType>;
 
 template<typename StringType = std::string>
-using CaseInsensitiveSet = Set<StringType, CaseInsensitiveHash, CaseInsensitiveEqual>;
+requires CanBeStringMapKey<StringType>
+using CaseInsensitiveUnorderedSet = UnorderedSet<StringType, CaseInsensitiveHash, CaseInsensitiveEqual>;
+
+template<typename StringType = std::string>
+requires CanBeStringMapKey<StringType>
+using CaseInsensitiveUnorderedMultiSet = UnorderedMultiSet<StringType, CaseInsensitiveHash, CaseInsensitiveEqual>;
 
 [[nodiscard]] std::string_view trimViewLeft(std::string_view str);
 [[nodiscard]] std::string_view trimViewRight(std::string_view str);
