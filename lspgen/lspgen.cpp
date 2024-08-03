@@ -1456,10 +1456,10 @@ private:
 			typeName += m_generatedTypeNames[&type];
 			break;
 		case Type::StringLiteral:
-			typeName += "json::String";
+			typeName += "std::string";
 			break;
 		case Type::IntegerLiteral:
-			typeName += "json::Integer";
+			typeName += "int";
 			break;
 		case Type::BooleanLiteral:
 			typeName += "bool";

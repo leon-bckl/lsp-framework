@@ -304,7 +304,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 		}
 	}
 
-	if constexpr(std::is_same_v<T, json::String>)
+	if constexpr(std::is_same_v<T, std::string>)
 	{
 		if(json.isString())
 		{
