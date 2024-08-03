@@ -126,7 +126,7 @@ private:
 		}
 		else
 		{
-			if(!currentValueWithType<Object>().empty())
+			if(!currentValue().object().empty())
 			{
 				if(*m_pos != ',')
 					throw ParseError{"Expected ','", textOffset(m_start, m_pos)};
@@ -148,7 +148,7 @@ private:
 		assert(currentState() == State::ObjectKey);
 
 		const char* keyPos = m_pos;
-		auto&       object = currentValueWithType<Object>();
+		auto&       object = currentValue().object();
 		const auto  key    = parseString();
 
 		if(object.contains(key))
@@ -177,7 +177,7 @@ private:
 		}
 		else
 		{
-			auto& array = currentValueWithType<Array>();
+			auto& array = currentValue().array();
 
 			if(!array.empty())
 			{
@@ -206,12 +206,6 @@ private:
 	{
 		assert(!m_stateStack.empty());
 		return *m_stateStack.back().value;
-	}
-
-	template<typename T>
-	T& currentValueWithType()
-	{
-		return currentValue().get<T>();
 	}
 
 	void pushState(State state, Any& value)
@@ -353,15 +347,15 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 	}
 	else if(json.isBoolean())
 	{
-		str += json.get<Boolean>() ? True : False;
+		str += json.boolean() ? True : False;
 	}
 	else if(json.isInteger())
 	{
-		str += std::to_string(json.get<json::Integer>());
+		str += std::to_string(json.integer());
 	}
 	else if(json.isDecimal())
 	{
-		auto numberStr = std::to_string(json.get<json::Decimal>());
+		auto numberStr = std::to_string(json.decimal());
 
 		for(std::size_t i = numberStr.size(); i > 2; --i)
 		{
@@ -375,11 +369,11 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 	}
 	else if(json.isString())
 	{
-		str += str::quote(str::escape(json.get<String>()));
+		str += str::quote(str::escape(json.string()));
 	}
 	else if(json.isObject())
 	{
-		const auto& obj = json.get<Object>();
+		const auto& obj = json.object();
 
 		str += '{';
 
@@ -412,7 +406,7 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 	}
 	else if(json.isArray())
 	{
-		const auto& array = json.get<Array>();
+		const auto& array = json.array();
 
 		str += '[';
 

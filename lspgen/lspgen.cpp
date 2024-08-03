@@ -22,12 +22,15 @@ using namespace lsp;
 namespace strings{
 
 #define STRING(x) const std::string x{#x};
+STRING(both)
+STRING(clientToServer)
 STRING(documentation)
 STRING(element)
 STRING(extends)
 STRING(items)
 STRING(key)
 STRING(kind)
+STRING(messageDirection)
 STRING(method)
 STRING(mixins)
 STRING(name)
@@ -37,6 +40,7 @@ STRING(partialResult)
 STRING(properties)
 STRING(registrationOptions)
 STRING(result)
+STRING(serverToClient)
 STRING(supportsCustomValues)
 STRING(type)
 STRING(value)
@@ -48,7 +52,7 @@ STRING(values)
 std::string extractDocumentation(const json::Object& json)
 {
 	if(json.contains(strings::documentation))
-		return json.get<json::String>(strings::documentation);
+		return json.get(strings::documentation).string();
 
 	return {};
 }
@@ -155,7 +159,7 @@ struct BaseType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		kind = kindFromString(json.get<json::String>(strings::name));
+		kind = kindFromString(json.get(strings::name).string());
 	}
 
 	static Kind kindFromString(std::string_view str)
@@ -177,7 +181,7 @@ struct ReferenceType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		name = json.get<json::String>(strings::name);
+		name = json.get(strings::name).string();
 	}
 };
 
@@ -188,7 +192,7 @@ struct ArrayType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		const auto& elementTypeJson = json.get<json::Object>(strings::element);
+		const auto& elementTypeJson = json.get(strings::element).object();
 		elementType = createFromJson(elementTypeJson);
 	}
 };
@@ -199,8 +203,8 @@ struct MapType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		keyType = createFromJson(json.get<json::Object>(strings::key));
-		valueType = createFromJson(json.get<json::Object>(strings::value));
+		keyType = createFromJson(json.get(strings::key).object());
+		valueType = createFromJson(json.get(strings::value).object());
 	}
 
 	Category category() const override{ return Category::Map; }
@@ -211,11 +215,11 @@ struct AndType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		const auto& items = json.get<json::Array>(strings::items);
+		const auto& items = json.get(strings::items).array();
 		typeList.reserve(items.size());
 
 		for(const auto& i : items)
-			typeList.push_back(createFromJson(i.get<json::Object>()));
+			typeList.push_back(createFromJson(i.object()));
 	}
 
 	Category category() const override{ return Category::And; }
@@ -234,11 +238,11 @@ struct TupleType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		const auto& items = json.get<json::Array>(strings::items);
+		const auto& items = json.get(strings::items).array();
 		typeList.reserve(items.size());
 
 		for(const auto& i : items)
-			typeList.push_back(createFromJson(i.get<json::Object>()));
+			typeList.push_back(createFromJson(i.object()));
 	}
 
 	Category category() const override{ return Category::Tuple; }
@@ -252,9 +256,9 @@ struct StructureProperty{
 
 	void extract(const json::Object& json)
 	{
-		name = json.get<json::String>(strings::name);
-		type = Type::createFromJson(json.get<json::Object>(strings::type));
-		isOptional = json.contains(strings::optional) && json.get<bool>(strings::optional);
+		name = json.get(strings::name).string();
+		type = Type::createFromJson(json.get(strings::type).object());
+		isOptional = json.contains(strings::optional) && json.get(strings::optional).boolean();
 		documentation = extractDocumentation(json);
 	}
 };
@@ -272,7 +276,7 @@ StructurePropertyList extractStructureProperties(const json::Array& json)
 		[](const json::Any& e)
 		{
 			StructureProperty prop;
-			prop.extract(e.get<json::Object>());
+			prop.extract(e.object());
 			return prop;
 		});
 	// Sort properties so non-optional ones come first
@@ -292,8 +296,8 @@ struct StructureLiteralType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		const auto& value = json.get<json::Object>(strings::value);
-		properties = extractStructureProperties(value.get<json::Array>(strings::properties));
+		const auto& value = json.get(strings::value).object();
+		properties = extractStructureProperties(value.get(strings::properties).array());
 	}
 
 	Category category() const override{ return Category::StructureLiteral; }
@@ -301,14 +305,14 @@ struct StructureLiteralType : Type{
 
 void OrType::extract(const json::Object& json)
 {
-	const auto& items = json.get<json::Array>(strings::items);
+	const auto& items = json.get(strings::items).array();
 	typeList.reserve(items.size());
 
 	std::vector<std::unique_ptr<Type>> structureLiterals;
 
 	for(const auto& item : items)
 	{
-		auto type = createFromJson(item.get<json::Object>());
+		auto type = createFromJson(item.object());
 
 		if(type->isA<StructureLiteralType>())
 			structureLiterals.push_back(std::move(type));
@@ -359,7 +363,7 @@ struct StringLiteralType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		stringValue = static_cast<json::String>(json.get<json::String>(strings::value));
+		stringValue = json.get(strings::value).string();
 	}
 
 	Category category() const override{ return Category::StringLiteral; }
@@ -370,7 +374,7 @@ struct IntegerLiteralType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		integerValue = static_cast<json::Integer>(json.get(strings::value).numberValue());
+		integerValue = static_cast<json::Integer>(json.get(strings::value).number());
 	}
 
 	Category category() const override{ return Category::IntegerLiteral; }
@@ -381,7 +385,7 @@ struct BooleanLiteralType : Type{
 
 	void extract(const json::Object& json) override
 	{
-		booleanValue = json.get<json::Boolean>(strings::value);
+		booleanValue = json.get(strings::value).boolean();
 	}
 
 	Category category() const override{ return Category::BooleanLiteral; }
@@ -390,7 +394,7 @@ struct BooleanLiteralType : Type{
 TypePtr Type::createFromJson(const json::Object& json)
 {
 	TypePtr result;
-	auto category = categoryFromString(json.get<json::String>(strings::kind));
+	auto category = categoryFromString(json.get(strings::kind).string());
 
 	switch(category)
 	{
@@ -456,17 +460,17 @@ struct Enumeration{
 
 	void extract(const json::Object& json)
 	{
-		name = json.get<json::String>(strings::name);
-		const auto& typeJson = json.get<json::Object>(strings::type);
+		name = json.get(strings::name).string();
+		const auto& typeJson = json.get(strings::type).object();
 		type = Type::createFromJson(typeJson);
-		const auto& valuesJson = json.get<json::Array>(strings::values);
+		const auto& valuesJson = json.get(strings::values).array();
 		values.reserve(valuesJson.size());
 
 		for(const auto& v : valuesJson)
 		{
-			const auto& obj = v.get<json::Object>();
+			const auto& obj = v.object();
 			auto& enumValue = values.emplace_back();
-			enumValue.name = obj.get<json::String>(strings::name);
+			enumValue.name = obj.get(strings::name).string();
 			enumValue.value = obj.get(strings::value);
 			enumValue.documentation = extractDocumentation(obj);
 		}
@@ -474,7 +478,7 @@ struct Enumeration{
 		documentation = extractDocumentation(json);
 
 		if(json.contains(strings::supportsCustomValues))
-			supportsCustomValues = json.get<bool>(strings::supportsCustomValues);
+			supportsCustomValues = json.get(strings::supportsCustomValues).boolean();
 
 		// Sort values so they can be more efficiently searched
 		std::sort(values.begin(), values.end(), [this](const Value& lhs, const Value& rhs)
@@ -484,14 +488,14 @@ struct Enumeration{
 				if(!rhs.value.isString())
 					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
 
-				return lhs.value.get<json::String>() < rhs.value.get<json::String>();
+				return lhs.value.string() < rhs.value.string();
 			}
 			else if(lhs.value.isNumber())
 			{
 				if(!rhs.value.isNumber())
 					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
 
-				return lhs.value.numberValue() < rhs.value.numberValue();
+				return lhs.value.number() < rhs.value.number();
 			}
 
 			throw std::runtime_error{"Invalid value type in enumeration" + name + "' - Must be string or number"};
@@ -508,25 +512,25 @@ struct Structure{
 
 	void extract(const json::Object& json)
 	{
-		name = json.get<json::String>(strings::name);
-		properties = extractStructureProperties(json.get<json::Array>(strings::properties));
+		name = json.get(strings::name).string();
+		properties = extractStructureProperties(json.get(strings::properties).array());
 
 		if(json.contains(strings::extends))
 		{
-			const auto& extendsJson = json.get<json::Array>(strings::extends);
+			const auto& extendsJson = json.get(strings::extends).array();
 			extends.reserve(extendsJson.size());
 
 			for(const auto& e : extendsJson)
-				extends.push_back(Type::createFromJson(e.get<json::Object>()));
+				extends.push_back(Type::createFromJson(e.object()));
 		}
 
 		if(json.contains(strings::mixins))
 		{
-			const auto& mixinsJson = json.get<json::Array>(strings::mixins);
+			const auto& mixinsJson = json.get(strings::mixins).array();
 			mixins.reserve(mixinsJson.size());
 
 			for(const auto& e : mixinsJson)
-				mixins.push_back(Type::createFromJson(e.get<json::Object>()));
+				mixins.push_back(Type::createFromJson(e.object()));
 		}
 
 		documentation = extractDocumentation(json);
@@ -540,8 +544,8 @@ struct TypeAlias{
 
 	void extract(const json::Object& json)
 	{
-		name = json.get<json::String>(strings::name);
-		type = Type::createFromJson(json.get<json::Object>(strings::type));
+		name = json.get(strings::name).string();
+		type = Type::createFromJson(json.get(strings::type).object());
 		documentation = extractDocumentation(json);
 	}
 };
@@ -566,24 +570,24 @@ struct Message{
 		if(!json.contains(key))
 			return {};
 
-		const auto& type = json.get<json::Object>(key);
+		const auto& type = json.get(key).object();
 
-		if(type.get<json::String>(strings::kind) == "reference")
-			return type.get<json::String>(strings::name);
+		if(type.get(strings::kind).string() == "reference")
+			return type.get(strings::name).string();
 
-		return json.get<json::String>(strings::method) + str::capitalize(key);
+		return json.get(strings::method).string() + str::capitalize(key);
 	}
 
 	void extract(const json::Object& json)
 	{
 		documentation = extractDocumentation(json);
-		const auto& dir = json.get<json::String>("messageDirection");
+		const auto& dir = json.get(strings::messageDirection).string();
 
-		if(dir == "clientToServer")
+		if(dir == strings::clientToServer)
 			direction = Direction::ClientToServer;
-		else if(dir == "serverToClient")
+		else if(dir == strings::serverToClient)
 			direction = Direction::ServerToClient;
-		else if(dir == "both")
+		else if(dir == strings::both)
 			direction = Direction::Both;
 		else
 			throw std::runtime_error{"Invalid message direction: " + dir};
@@ -672,8 +676,8 @@ private:
 
 	void extractMetaData(const json::Object& json)
 	{
-		const auto& metaDataJson = json.get<json::Object>("metaData");
-		m_metaData.version = metaDataJson.get<json::String>("version");
+		const auto& metaDataJson = json.get("metaData").object();
+		m_metaData.version = metaDataJson.get("version").string();
 	}
 
 	void extractTypes(const json::Object& json)
@@ -691,12 +695,12 @@ private:
 
 	void extractRequests(const json::Object& json)
 	{
-		const auto& requests = json.get<json::Array>("requests");
+		const auto& requests = json.get("requests").array();
 
 		for(const auto& r : requests)
 		{
-			const auto& obj = r.get<json::Object>();
-			const auto& method = obj.get<json::String>(strings::method);
+			const auto& obj = r.object();
+			const auto& method = obj.get(strings::method).string();
 
 			if(m_requestsByMethod.contains(method))
 				throw std::runtime_error{"Duplicate request method: " + method};
@@ -707,12 +711,12 @@ private:
 
 	void extractNotifications(const json::Object& json)
 	{
-		const auto& notifications = json.get<json::Array>("notifications");
+		const auto& notifications = json.get("notifications").array();
 
 		for(const auto& r : notifications)
 		{
-			const auto& obj = r.get<json::Object>();
-			const auto& method = obj.get<json::String>(strings::method);
+			const auto& obj = r.object();
+			const auto& method = obj.get(strings::method).string();
 
 			if(m_notificationsByMethod.contains(method))
 				throw std::runtime_error{"Duplicate request method: " + method};
@@ -732,26 +736,26 @@ private:
 
 	void extractEnumerations(const json::Object& json)
 	{
-		const auto& enumerations = json.get<json::Array>("enumerations");
+		const auto& enumerations = json.get("enumerations").array();
 
 		m_enumerations.resize(enumerations.size());
 
 		for(std::size_t i = 0; i < enumerations.size(); ++i)
 		{
-			m_enumerations[i].extract(enumerations[i].get<json::Object>());
+			m_enumerations[i].extract(enumerations[i].object());
 			insertType(m_enumerations[i].name, Type::Enumeration, i);
 		}
 	}
 
 	void extractStructures(const json::Object& json)
 	{
-		const auto& structures = json.get<json::Array>("structures");
+		const auto& structures = json.get("structures").array();
 
 		m_structures.resize(structures.size());
 
 		for(std::size_t i = 0; i < structures.size(); ++i)
 		{
-			m_structures[i].extract(structures[i].get<json::Object>());
+			m_structures[i].extract(structures[i].object());
 			insertType(m_structures[i].name, Type::Structure, i);
 		}
 	}
@@ -760,9 +764,9 @@ private:
 	{
 		if(json.contains(key))
 		{
-			const auto& typeJson = json.get<json::Object>(key);
+			const auto& typeJson = json.get(key).object();
 
-			if(typeJson.get<json::String>(strings::kind) != "reference")
+			if(typeJson.get(strings::kind).string() != "reference")
 			{
 				auto& alias = m_typeAliases.emplace_back();
 				alias.name = typeBaseName + str::capitalize(key);
@@ -775,24 +779,24 @@ private:
 
 	void extractTypeAliases(const json::Object& json)
 	{
-		const auto& typeAliases = json.get<json::Array>("typeAliases");
+		const auto& typeAliases = json.get("typeAliases").array();
 
 		m_typeAliases.resize(typeAliases.size());
 
 		for(std::size_t i = 0; i < typeAliases.size(); ++i)
 		{
-			m_typeAliases[i].extract(typeAliases[i].get<json::Object>());
+			m_typeAliases[i].extract(typeAliases[i].object());
 			insertType(m_typeAliases[i].name, Type::TypeAlias, i);
 		}
 
 		// Extract message and notification parameter and result types
 
-		const auto& requests = json.get<json::Array>("requests");
+		const auto& requests = json.get("requests").array();
 
 		for(const auto& r : requests)
 		{
-			const auto& obj = r.get<json::Object>();
-			const auto& typeBaseName = obj.get<json::String>(strings::method);
+			const auto& obj = r.object();
+			const auto& typeBaseName = obj.get(strings::method).string();
 
 			addTypeAlias(obj, strings::result, typeBaseName);
 			addTypeAlias(obj, strings::params, typeBaseName);
@@ -800,12 +804,12 @@ private:
 			addTypeAlias(obj, strings::registrationOptions, typeBaseName);
 		}
 
-		const auto& notifications = json.get<json::Array>("notifications");
+		const auto& notifications = json.get("notifications").array();
 
 		for(const auto& n : notifications)
 		{
-			const auto& obj = n.get<json::Object>();
-			const auto& typeBaseName = obj.get<json::String>(strings::method);
+			const auto& obj = n.object();
+			const auto& typeBaseName = obj.get(strings::method).string();
 			addTypeAlias(obj, strings::params, typeBaseName);
 			addTypeAlias(obj, strings::registrationOptions, typeBaseName);
 		}
@@ -1141,12 +1145,12 @@ private:
 
 	static std::string toJsonSig(const std::string& typeName)
 	{
-		return "template<>\njson::Any toJson(" + typeName + "&& value)";
+		return "json::Any toJson(" + typeName + "&& value)";
 	}
 
 	static std::string fromJsonSig(const std::string& typeName)
 	{
-		return "template<>\nvoid fromJson(json::Any&& json, " + typeName + "& value)";
+		return "void fromJson(json::Any&& json, " + typeName + "& value)";
 	}
 
 	static std::string documentationComment(const std::string& title, const std::string& documentation, int indentLevel = 0)
@@ -1714,7 +1718,7 @@ private:
 		                                       "}\n\n" +
 		                                       fromJson + "\n"
 		                                       "{\n"
-		                                       "\tauto& obj = json.get<json::Object>();\n"
+		                                       "\tauto& obj = json.object();\n"
 		                                       "\t" + str::uncapitalize(structureCppName) + "FromJson(obj, value);\n"
 		                                       "}\n\n";
 	}
@@ -1765,7 +1769,7 @@ int main(int argc, char** argv)
 			jsonText.resize(static_cast<std::string::size_type>(size));
 			in.read(&jsonText[0], size);
 			in.close();
-			auto json = json::parse(jsonText).get<json::Object>();
+			auto json = json::parse(jsonText).object();
 			MetaModel metaModel;
 			metaModel.extract(json);
 			CppGenerator generator{&metaModel};

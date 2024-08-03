@@ -17,8 +17,58 @@ namespace lsp{
 
 // toJson
 
-template<typename T>
-json::Any toJson(T&& v);
+inline json::Any toJson(std::nullptr_t){ return {}; }
+inline json::Any toJson(bool v){ return v; }
+inline json::Any toJson(int i){ return i; }
+
+inline json::Any toJson(unsigned int i)
+{
+	if(i <= static_cast<unsigned int>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+inline json::Any toJson(long i)
+{
+	if(i <= static_cast<long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+inline json::Any toJson(unsigned long i)
+{
+	if(i <= static_cast<unsigned long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+inline json::Any toJson(long long i)
+{
+	if(i >= static_cast<long long>(std::numeric_limits<json::Integer>::min()) && i <= static_cast<long long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+inline json::Any toJson(unsigned long long i)
+{
+	if(i <= static_cast<unsigned long long>(std::numeric_limits<json::Integer>::max()))
+		return static_cast<json::Integer>(i);
+
+	return static_cast<json::Decimal>(i);
+}
+
+inline json::Any toJson(float i){ return i; }
+inline json::Any toJson(double i){ return i; }
+inline json::Any toJson(std::string&& v){ return std::move(v); }
+inline json::Any toJson(std::string_view v){ return json::String{v}; }
+inline json::Any toJson(const FileURI& uri){ return uri.toString(); }
+inline json::Any toJson(json::Any&& v){ return std::move(v); }
+inline json::Any toJson(json::Object&& v){ return std::move(v); }
+inline json::Any toJson(json::Array&& v){ return std::move(v); }
 
 template<typename... Args>
 json::Any toJson(std::tuple<Args...>&& tuple);
@@ -45,13 +95,6 @@ template<typename T>
 json::Any toJson(std::optional<T>&& v);
 
 // impl
-
-template<typename T>
-json::Any toJson(T&& v)
-{
-	static_assert(std::is_rvalue_reference_v<T&&>, "toJson argument must be an rvalue");
-	return std::forward<T>(v);
-}
 
 template<typename... Args>
 json::Any toJson(std::tuple<Args...>&& tuple)
@@ -151,79 +194,22 @@ json::Any toJson(std::optional<T>&& v)
 	return toJson(std::move(*v));
 }
 
-template<>
-inline json::Any toJson(std::string_view&& v)
-{
-	return json::String{v};
-}
-
-template<>
-inline json::Any toJson(FileURI&& uri)
-{
-	return uri.toString();
-}
-
-template<>
-inline json::Any toJson(int&& i)
-{
-	return i;
-}
-
-template<>
-inline json::Any toJson(unsigned int&& i)
-{
-	if(i <= static_cast<unsigned int>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-template<>
-inline json::Any toJson(long&& i)
-{
-	if(i <= static_cast<long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-template<>
-inline json::Any toJson(unsigned long&& i)
-{
-	if(i <= static_cast<unsigned long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-template<>
-inline json::Any toJson(long long&& i)
-{
-	if(i >= static_cast<long long>(std::numeric_limits<json::Integer>::min()) && i <= static_cast<long long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-template<>
-inline json::Any toJson(unsigned long long&& i)
-{
-	if(i <= static_cast<unsigned long long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-template<>
-inline json::Any toJson(float&& i)
-{
-	return i;
-}
-
 // fromJson
 
-template<typename T>
-void fromJson(json::Any&& json, T& value);
+inline void fromJson(json::Any&&, std::nullptr_t){}
+inline void fromJson(json::Any&& json, bool& value){ value = json.boolean(); }
+inline void fromJson(json::Any&& json, int& value){ value = static_cast<int>(json.number()); }
+inline void fromJson(json::Any&& json, unsigned int& value){ value = static_cast<unsigned int>(json.number()); }
+inline void fromJson(json::Any&& json, long& value){ value = static_cast<long>(json.number()); }
+inline void fromJson(json::Any&& json, unsigned long& value){ value = static_cast<unsigned long>(json.number()); }
+inline void fromJson(json::Any&& json, unsigned long long& value){ value = static_cast<unsigned long long>(json.number()); }
+inline void fromJson(json::Any&& json, float& value){ value = static_cast<float>(json.number()); }
+inline void fromJson(json::Any&& json, double& value){ value = static_cast<double>(json.number()); }
+inline void fromJson(json::Any&& json, std::string& value){ value = std::move(json.string()); }
+inline void fromJson(json::Any&& json, FileURI& value){ value = FileURI{json.string()}; }
+inline void fromJson(json::Any&& json, json::Any& v){ v = std::move(json); }
+inline void fromJson(json::Any&& json, json::Object& v){ v = std::move(json.object()); }
+inline void fromJson(json::Any&& json, json::Array& v){ v = std::move(json.array()); }
 
 template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value);
@@ -248,16 +234,10 @@ void fromJson(json::Any&& json, std::optional<T>& value);
 
 // impl
 
-template<typename T>
-void fromJson(json::Any&& json, T& value)
-{
-	value = std::move(json.get<T>());
-}
-
 template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value)
 {
-	auto& array = json.get<json::Array>();
+	auto& array = json.array();
 	util::tuple::visit(value, [&array](auto& v, int idx)
 	{
 		if(static_cast<std::size_t>(idx) >= array.size())
@@ -270,7 +250,7 @@ void fromJson(json::Any&& json, std::tuple<Args...>& value)
 template<typename K, typename T>
 void fromJson(json::Any&& json, str::UnorderedMap<K, T>& value)
 {
-	auto& obj = json.get<json::Object>();
+	auto& obj = json.object();
 	for(auto&& [k, v] : obj)
 		fromJson(std::move(v), value[k]);
 }
@@ -278,7 +258,7 @@ void fromJson(json::Any&& json, str::UnorderedMap<K, T>& value)
 template<typename T>
 void fromJson(json::Any&& json, std::vector<T>& value)
 {
-	auto& array = json.get<json::Array>();
+	auto& array = json.array();
 	value.reserve(array.size());
 
 	for(auto&& e : array)
@@ -348,7 +328,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isObject())
 		{
-			const auto& obj = json.get<json::Object>();
+			const auto& obj = json.object();
 			bool hasAllRequiredProperties = true;
 			int matchCount = 1; // Make this at least one to signify that an object was successfully created and no error is thrown at the end
 
@@ -435,48 +415,6 @@ void fromJson(json::Any&& json, std::optional<T>& value)
 		value = T{};
 
 	fromJson(std::move(json), *value);
-}
-
-template<>
-inline void fromJson(json::Any&& json, int& value)
-{
-	value = static_cast<int>(json.numberValue());
-}
-
-template<>
-inline void fromJson(json::Any&& json, unsigned int& value)
-{
-	value = static_cast<unsigned int>(json.numberValue());
-}
-
-template<>
-inline void fromJson(json::Any&& json, long& value)
-{
-	value = static_cast<long>(json.numberValue());
-}
-
-template<>
-inline void fromJson(json::Any&& json, unsigned long& value)
-{
-	value = static_cast<unsigned long>(json.numberValue());
-}
-
-template<>
-inline void fromJson(json::Any&& json, unsigned long long& value)
-{
-	value = static_cast<unsigned long long>(json.numberValue());
-}
-
-template<>
-inline void fromJson(json::Any&& json, float& value)
-{
-	value = static_cast<float>(json.numberValue());
-}
-
-template<>
-inline void fromJson(json::Any&& json, FileURI& value)
-{
-	value = FileURI{json.get<json::String>()};
 }
 
 } // namespace lsp

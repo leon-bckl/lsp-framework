@@ -93,7 +93,7 @@ void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, Res
 
 		if(json.isObject())
 		{
-			auto message = jsonrpc::messageFromJson(std::move(json.get<json::Object>()));
+			auto message = jsonrpc::messageFromJson(std::move(json.object()));
 
 			if(std::holds_alternative<jsonrpc::Request>(message))
 				requestHandler.onRequest(std::move(std::get<jsonrpc::Request>(message)));
@@ -102,7 +102,7 @@ void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, Res
 		}
 		else if(json.isArray())
 		{
-			auto batch = jsonrpc::messageBatchFromJson(std::move(json.get<json::Array>()));
+			auto batch = jsonrpc::messageBatchFromJson(std::move(json.array()));
 
 			if(std::holds_alternative<jsonrpc::RequestBatch>(batch))
 				requestHandler.onRequestBatch(std::move(std::get<jsonrpc::RequestBatch>(batch)));

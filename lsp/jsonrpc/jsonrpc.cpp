@@ -17,17 +17,17 @@ void verifyProtocolVersion(const json::Object& json)
 	if(!jsonrpc.isString())
 		throw ProtocolError{"jsonrpc property expected to be a string"};
 
-	if(jsonrpc.get<json::String>() != "2.0")
+	if(jsonrpc.string() != "2.0")
 		throw ProtocolError{"Invalid or unsupported jsonrpc version"};
 }
 
 MessageId messageIdFromJson(json::Any& json)
 {
 	if(json.isString())
-		return std::move(json.get<json::String>());
+		return std::move(json.string());
 
 	if(json.isNumber())
-		return static_cast<json::Integer>(json.numberValue());
+		return static_cast<json::Integer>(json.number());
 
 	if(json.isNull())
 		return nullptr;
@@ -40,8 +40,8 @@ Request requestFromJson(json::Object& json)
 	verifyProtocolVersion(json);
 
 	Request request;
-	request.jsonrpc = std::move(json.get<json::String>("jsonrpc"));
-	request.method = std::move(json.get<json::String>("method"));
+	request.jsonrpc = std::move(json.get("jsonrpc").string());
+	request.method = std::move(json.get("method").string());
 
 	if(json.contains("id"))
 		request.id = messageIdFromJson(json.get("id"));
@@ -51,9 +51,9 @@ Request requestFromJson(json::Object& json)
 		auto& params = json.get("params");
 
 		if(params.isObject())
-			request.params = std::move(params.get<json::Object>());
+			request.params = std::move(params.object());
 		else if(params.isArray())
-			request.params = std::move(params.get<json::Array>());
+			request.params = std::move(params.array());
 		else
 			throw ProtocolError{"Params type must be object or array"};
 	}
@@ -75,31 +75,32 @@ Response responseFromJson(json::Object& json)
 
 	if(json.contains("error"))
 	{
-		auto& errorJson = json.get<json::Object>("error");
+		auto& error = json.get("error");
+		auto& errorObj = error.object();
 		auto& responseError = response.error.emplace();
 
-		if(!errorJson.contains("code"))
+		if(!errorObj.contains("code"))
 			throw ProtocolError{"Response error is missing the error code"};
 
-		const auto& errorCode = errorJson.get("code");
+		const auto& errorCode = errorObj.get("code");
 
 		if(!errorCode.isNumber())
 			throw ProtocolError{"Response error code must be a number"};
 
-		responseError.code = static_cast<json::Integer>(errorCode.numberValue());
+		responseError.code = static_cast<json::Integer>(errorCode.number());
 
-		if(!errorJson.contains("message"))
+		if(!errorObj.contains("message"))
 			throw ProtocolError{"Response error is missing the error message"};
 
-		auto& errorMessage = errorJson.get("message");
+		auto& errorMessage = errorObj.get("message");
 
 		if(!errorMessage.isString())
 			throw ProtocolError{"Response error message must be a string"};
 
-		responseError.message = std::move(errorMessage.get<json::String>());
+		responseError.message = std::move(errorMessage.string());
 
-		if(errorJson.contains("data"))
-			responseError.data = errorJson.get("data");
+		if(errorObj.contains("data"))
+			responseError.data = errorObj.get("data");
 	}
 
 	if((response.result.has_value() && response.error.has_value()) || (!response.result.has_value() && !response.error.has_value()))
@@ -123,14 +124,14 @@ std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& jso
 	if(json.empty())
 		throw ProtocolError{"Message batch must not be empty"};
 
-	auto firstMessage = messageFromJson(std::move(json[0].get<json::Object>()));
+	auto firstMessage = messageFromJson(std::move(json[0].object()));
 
 	if(std::holds_alternative<Request>(firstMessage))
 	{
 		RequestBatch batch;
 		batch.reserve(json.size());
 		batch.push_back(std::move(std::get<Request>(firstMessage)));
-		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Any& v){ return requestFromJson(v.get<json::Object>()); });
+		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Any& v){ return requestFromJson(v.object()); });
 
 		return batch;
 	}
@@ -139,7 +140,7 @@ std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& jso
 		ResponseBatch batch;
 		batch.reserve(json.size());
 		batch.push_back(std::move(std::get<Response>(firstMessage)));
-		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Any& v){ return responseFromJson(v.get<json::Object>()); });
+		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Any& v){ return responseFromJson(v.object()); });
 
 		return batch;
 	}

@@ -41,12 +41,6 @@ public:
 
 	Any& get(std::string_view key);
 	const Any& get(std::string_view key) const;
-
-	template<typename T>
-	T& get(std::string_view key);
-
-	template<typename T>
-	const T& get(std::string_view key) const;
 };
 
 using AnyVariant = std::variant<Null, Boolean, Integer, Decimal, String, Object, Array>;
@@ -64,6 +58,28 @@ public:
 	bool isObject() const{ return std::holds_alternative<Object>(*this); }
 	bool isArray() const{ return std::holds_alternative<Array>(*this); }
 
+	Boolean boolean() const{ return get<Boolean>(); }
+	Integer integer() const{ return get<Integer>(); }
+	Decimal decimal() const{ return get<Decimal>(); }
+	const String& string() const{ return get<String>(); }
+	String& string(){ return get<String>(); }
+	const Object& object() const{ return get<Object>(); }
+	Object& object(){ return get<Object>(); }
+	const Array& array() const{ return get<Array>(); }
+	Array& array(){ return get<Array>(); }
+
+	Decimal number() const
+	{
+		if(isDecimal())
+			return get<Decimal>();
+
+		if(isInteger())
+			return static_cast<Decimal>(get<Integer>());
+
+		throw TypeError{};
+	}
+
+private:
 	template<typename T>
 	T& get()
 	{
@@ -93,30 +109,7 @@ public:
 	{
 		return *this;
 	}
-
-	Decimal numberValue() const
-	{
-		if(isDecimal())
-			return get<Decimal>();
-
-		if(isInteger())
-			return static_cast<Decimal>(get<Integer>());
-
-		throw TypeError{};
-	}
 };
-
-template<typename T>
-inline T& Object::get(std::string_view key)
-{
-	return get(key).get<T>();
-}
-
-template<typename T>
-inline const T& Object::get(std::string_view key) const
-{
-	return get(key).get<T>();
-}
 
 /*
  * parse/stringify
