@@ -1567,7 +1567,7 @@ private:
 
 	void generateStructureProperties(const std::vector<StructureProperty>& properties,
 	                                 const std::unordered_map<std::string_view,
-	                                 const StructureProperty*> basePropertiesByName,
+	                                 const StructureProperty*>& basePropertiesByName,
 	                                 std::string& toJson,
 	                                 std::string& fromJson,
 	                                 std::vector<std::string>& requiredProperties,
@@ -1596,7 +1596,7 @@ private:
 
 				if(basePropertiesByName.contains(p.name))
 				{
-					literalValues.push_back({p.name, std::move(literalValue)});
+					literalValues.emplace_back(p.name, std::move(literalValue));
 					continue; // Don't write literal properties with the same name as an inherited property. Instead initialize the inherited property.
 				}
 			}
@@ -1635,7 +1635,6 @@ private:
 		std::string structureCppName = upperCaseIdentifier(structure.name);
 
 		// Make sure dependencies are generated first
-
 		{
 			for(const auto& e : structure.extends)
 				generateType(e, {});
