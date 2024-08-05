@@ -16,6 +16,7 @@ void MessageDispatcher::onResponse(jsonrpc::Response&& response)
 {
 	RequestResultPtr result;
 
+	// Find pending request for the response that was received based on the message id.
 	{
 		std::lock_guard lock{m_pendingRequestsMutex};
 		if(auto it = m_pendingRequests.find(response.id); it != m_pendingRequests.end())
@@ -39,7 +40,7 @@ void MessageDispatcher::onResponse(jsonrpc::Response&& response)
 			result->setException(std::make_exception_ptr(e));
 		}
 	}
-	else
+	else // Error response received. Create an exception.
 	{
 		assert(response.error.has_value());
 		const auto& error = *response.error;

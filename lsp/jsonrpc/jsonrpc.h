@@ -80,9 +80,9 @@ namespace lsp::jsonrpc{
 	json::Array  requestBatchToJson(RequestBatch&& batch);
 	json::Array  responseBatchToJson(ResponseBatch&& batch);
 
-	Request  createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params = std::nullopt);
-	Request  createNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);
-	Response createResponse(const MessageId& id, const json::Any& result);
-	Response createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data = std::nullopt);
+	Request  createRequest(MessageId id, std::string_view method, std::optional<json::Any> params = std::nullopt);
+	Request  createNotification(std::string_view method, std::optional<json::Any> params = std::nullopt);
+	Response createResponse(MessageId id, json::Any result);
+	Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Any> data = std::nullopt);
 
 } // namespace lsp::jsonrpc

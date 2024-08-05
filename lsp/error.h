@@ -16,10 +16,10 @@ public:
 	const std::optional<json::Any>& data() const{ return m_data; }
 
 protected:
-	Error(json::Integer code, const std::string& message, std::optional<json::Any> data) :
-		std::runtime_error{message},
-	  m_code{code},
-		m_data{std::move(data)}{}
+	Error(json::Integer code, const std::string& message, std::optional<json::Any> data)
+		: std::runtime_error{message},
+		  m_code{code},
+		  m_data{std::move(data)}{}
 
 private:
 	json::Integer            m_code;
@@ -31,10 +31,10 @@ private:
  */
 class RequestError : public Error{
 public:
-	RequestError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt) :
-		Error{code, message, std::move(data)}{}
-	RequestError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt) :
-		Error{code, message, std::move(data)}{}
+	RequestError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt)
+		: Error{code, message, std::move(data)}{}
+	RequestError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt)
+		: Error{code, message, std::move(data)}{}
 };
 
 /*
@@ -42,10 +42,10 @@ public:
  */
 class ResponseError : public Error{
 public:
-	ResponseError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt) :
-		Error{code, message, std::move(data)}{}
-	ResponseError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt) :
-		Error{code, message, std::move(data)}{}
+	ResponseError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt)
+		: Error{code, message, std::move(data)}{}
+	ResponseError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt)
+		: Error{code, message, std::move(data)}{}
 };
 
 } // namespace lsp

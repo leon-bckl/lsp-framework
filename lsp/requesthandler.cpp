@@ -17,19 +17,10 @@ RequestHandler::RequestHandler(Connection& connection) : m_connection{connection
 				[this](const auto& p)
 				{
 					const auto& result = p.second;
-					const auto ready = result->isReady();
+					const auto  ready  = result->isReady();
 
 					if(ready)
-					{
-						try
-						{
-							m_connection.sendResponse(result->get());
-						}
-						catch(const RequestError& e)
-						{
-							sendErrorMessage(ErrorCodes{e.code()}, e.what());
-						}
-					}
+						m_connection.sendResponse(result->createResponse());
 
 					return ready;
 				}),
@@ -141,11 +132,6 @@ void RequestHandler::addResponseResult(const jsonrpc::MessageId& id, ResponseRes
 		throw RequestError{ErrorCodes::InvalidRequest, "Request id is not unique"};
 
 	m_pendingResponses.emplace(id, std::move(result));
-}
-
-void RequestHandler::sendErrorMessage(ErrorCodes code, const std::string& message)
-{
-	m_connection.sendResponse(jsonrpc::createErrorResponse(json::Null{}, code, message, std::nullopt));
 }
 
 } // namespace lsp

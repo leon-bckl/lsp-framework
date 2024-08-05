@@ -209,39 +209,39 @@ json::Array responseBatchToJson(ResponseBatch&& batch)
 	return result;
 }
 
-Request createRequest(const MessageId& id, std::string_view method, const std::optional<json::Any>& params)
+Request createRequest(MessageId id, std::string_view method, std::optional<json::Any> params)
 {
 	Request request;
-	request.id = id;
+	request.id = std::move(id);
 	request.method = method;
-	request.params = params;
+	request.params = std::move(params);
 	return request;
 }
 
-Request createNotification(std::string_view method, const std::optional<json::Any>& params)
+Request createNotification(std::string_view method, std::optional<json::Any> params)
 {
 	Request notification;
 	notification.method = method;
-	notification.params = params;
+	notification.params = std::move(params);
 	return notification;
 }
 
-Response createResponse(const MessageId& id, const json::Any& result)
+Response createResponse(MessageId id, json::Any result)
 {
 	Response response;
-	response.id = id;
-	response.result = result;
+	response.id = std::move(id);
+	response.result = std::move(result);
 	return response;
 }
 
-Response createErrorResponse(const MessageId& id, json::Integer errorCode, const json::String& message, const std::optional<json::Any>& data)
+Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Any> data)
 {
 	Response response;
-	response.id = id;
+	response.id = std::move(id);
 	auto& error = response.error.emplace();
 	error.code = errorCode;
-	error.message = message;
-	error.data = data;
+	error.message = std::move(message);
+	error.data = std::move(data);
 	return response;
 }
 

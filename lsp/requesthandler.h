@@ -8,6 +8,7 @@
 #include <concepts>
 #include <functional>
 #include <unordered_map>
+#include <lsp/error.h>
 #include <lsp/connection.h>
 #include <lsp/messagebase.h>
 #include <lsp/jsonrpc/jsonrpc.h>
@@ -120,7 +121,6 @@ private:
 	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
 	void addHandler(MessageMethod method, HandlerWrapper&& handlerFunc);
 	void addResponseResult(const jsonrpc::MessageId& id, ResponseResultPtr result);
-	void sendErrorMessage(ErrorCodes code, const std::string& message);
 
 	template<typename T>
 	static jsonrpc::Response createResponse(const jsonrpc::MessageId& id, T&& result)
@@ -136,7 +136,7 @@ private:
 	public:
 		virtual ~ResponseResultBase() = default;
 		virtual bool isReady() const = 0;
-		virtual jsonrpc::Response get() = 0;
+		virtual jsonrpc::Response createResponse() = 0;
 	};
 
 	template<typename T>
@@ -151,10 +151,17 @@ private:
 			return m_future.wait_for(std::chrono::seconds{0}) == std::future_status::ready;
 		}
 
-		jsonrpc::Response get() override
+		jsonrpc::Response createResponse() override
 		{
 			assert(isReady());
-			return createResponse(m_id, m_future.get());
+			try
+			{
+				return createResponse(m_id, m_future.get());
+			}
+			catch(const RequestError& e)
+			{
+				return jsonrpc::createErrorResponse(m_id, e.code(), e.what());
+			}
 		}
 
 	private:
