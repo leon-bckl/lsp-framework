@@ -94,6 +94,11 @@ struct Type{
 	virtual Category category() const = 0;
 	virtual void extract(const json::Object& json) = 0;
 
+	bool isLiteral() const{
+		const auto cat = category();
+		return cat == StructureLiteral || cat == StringLiteral || cat == IntegerLiteral || cat == BooleanLiteral;
+	}
+
 	static Category categoryFromString(std::string_view str)
 	{
 		for(std::size_t i = 0; i < std::size(TypeCategoryStrings); ++i)
@@ -1560,29 +1565,49 @@ private:
 		return false;
 	}
 
-	void generateStructureProperties(const std::vector<StructureProperty>& properties, std::string& toJson, std::string& fromJson, std::vector<std::string>& requiredProperties)
+	void generateStructureProperties(const std::vector<StructureProperty>& properties,
+	                                 const std::unordered_map<std::string_view,
+	                                 const StructureProperty*> basePropertiesByName,
+	                                 std::string& toJson,
+	                                 std::string& fromJson,
+	                                 std::vector<std::string>& requiredProperties,
+	                                 std::vector<std::pair<std::string_view, std::string>>& literalValues)
 	{
 		for(const auto& p : properties)
 		{
+			std::string literalValue;
+
+			if(p.type->isLiteral())
+			{
+				switch(p.type->category())
+				{
+				case Type::StringLiteral:
+					literalValue = str::quote(str::escape(p.type->as<StringLiteralType>().stringValue));
+					break;
+				case Type::IntegerLiteral:
+					literalValue = std::to_string(p.type->as<IntegerLiteralType>().integerValue);
+					break;
+				case Type::BooleanLiteral:
+					literalValue = std::string{p.type->as<BooleanLiteralType>().booleanValue ? "true" : "false"};
+					break;
+				default:
+					break;
+				}
+
+				if(basePropertiesByName.contains(p.name))
+				{
+					literalValues.push_back({p.name, std::move(literalValue)});
+					continue; // Don't write literal properties with the same name as an inherited property. Instead initialize the inherited property.
+				}
+			}
+
 			std::string typeName = cppTypeName(*p.type, p.isOptional);
 
 			m_typesHeaderFileContent += documentationComment({}, p.documentation, 1) +
 			                            '\t' + typeName + ' ' + p.name;
 
-			switch(p.type->category())
-			{
-			case Type::StringLiteral:
-				m_typesHeaderFileContent += " = " + str::quote(str::escape(p.type->as<StringLiteralType>().stringValue));
-				break;
-			case Type::IntegerLiteral:
-				m_typesHeaderFileContent += " = " + std::to_string(p.type->as<IntegerLiteralType>().integerValue);
-				break;
-			case Type::BooleanLiteral:
-				m_typesHeaderFileContent += " = " + std::string{p.type->as<BooleanLiteralType>().booleanValue ? "true" : "false"};
-				break;
-			default:
-				break;
-			}
+			if(!literalValue.empty())
+				m_typesHeaderFileContent += " = " + literalValue;
 
 			m_typesHeaderFileContent += ";\n";
 
@@ -1611,7 +1636,7 @@ private:
 
 		// Make sure dependencies are generated first
 
-	{
+		{
 			for(const auto& e : structure.extends)
 				generateType(e, {});
 
@@ -1637,6 +1662,7 @@ private:
 
 		// Add base classes
 
+		std::unordered_map<std::string_view, const StructureProperty*> basePropertiesByName;
 		if(auto it = structure.extends.begin(); it != structure.extends.end())
 		{
 			const auto* extends = &(*it)->as<ReferenceType>();
@@ -1650,6 +1676,8 @@ private:
 			{
 				if(!p.isOptional)
 					requiredPropertiesList.push_back(p.name);
+
+				basePropertiesByName[p.name] = &p;
 			}
 
 			while(it != structure.extends.end())
@@ -1673,6 +1701,7 @@ private:
 
 		// Generate properties
 
+		std::vector<std::pair<std::string_view, std::string>> literalValues;
 		for(const auto& m : structure.mixins)
 		{
 			if(!m->isA<ReferenceType>())
@@ -1683,10 +1712,24 @@ private:
 			if(!std::holds_alternative<const Structure*>(type))
 				throw std::runtime_error{"Mixin type for '" + structure.name + "' must be a structure type"};
 
-			generateStructureProperties(std::get<const Structure*>(type)->properties, propertiesToJson, propertiesFromJson, requiredPropertiesList);
+			generateStructureProperties(std::get<const Structure*>(type)->properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalValues);
 		}
 
-		generateStructureProperties(structure.properties, propertiesToJson, propertiesFromJson, requiredPropertiesList);
+		generateStructureProperties(structure.properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalValues);
+
+		if(!literalValues.empty())
+		{
+			m_typesHeaderFileContent += "\n\t" + structure.name + "()\n\t{\n";
+
+			for(const auto& v : literalValues)
+			{
+				m_typesHeaderFileContent += "\t\t";
+				m_typesHeaderFileContent += v.first;
+				m_typesHeaderFileContent += " = " + v.second + ";\n";
+			}
+
+			m_typesHeaderFileContent += "\t}\n";
+		}
 
 		m_typesHeaderFileContent += "};\n\n";
 
