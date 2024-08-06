@@ -162,6 +162,10 @@ private:
 			{
 				return jsonrpc::createErrorResponse(m_id, e.code(), e.what());
 			}
+			catch(std::exception& e)
+			{
+				return jsonrpc::createErrorResponse(m_id, ErrorCodes{ErrorCodes::InternalError}, e.what());
+			}
 		}
 
 	private:

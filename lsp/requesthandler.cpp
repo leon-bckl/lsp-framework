@@ -102,6 +102,14 @@ RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request
 				 *request.id, e.code(), e.what(), e.data());
 			}
 		}
+		catch(const std::exception& e)
+		{
+			if(!request.isNotification())
+			{
+				response = jsonrpc::createErrorResponse(
+				 *request.id, ErrorCodes{ErrorCodes::InternalError}, e.what());
+			}
+		}
 	}
 	else if(!request.isNotification())
 	{
