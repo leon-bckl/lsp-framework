@@ -80,26 +80,25 @@ RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request
 		try
 		{
 			// Call handler for the method type and return optional response
-			response = m_requestHandlers[static_cast<std::size_t>(method)](
+			response = m_requestHandlers[index](
 				request.id.has_value() ? *request.id : json::Null{},
 				request.params.has_value() ? std::move(*request.params) : json::Null{},
-				allowAsync
-			);
-		}
-		catch(const json::TypeError& e)
-		{
-			if(!request.isNotification())
-			{
-				response = jsonrpc::createErrorResponse(
-				 *request.id, ErrorCodes{ErrorCodes::InvalidParams}, e.what());
-			}
+				allowAsync);
 		}
 		catch(const RequestError& e)
 		{
 			if(!request.isNotification())
 			{
 				response = jsonrpc::createErrorResponse(
-				 *request.id, e.code(), e.what(), e.data());
+					*request.id, e.code(), e.what(), e.data());
+			}
+		}
+		catch(const json::TypeError& e)
+		{
+			if(!request.isNotification())
+			{
+				response = jsonrpc::createErrorResponse(
+					*request.id, ErrorCodes{ErrorCodes::InvalidParams}, e.what());
 			}
 		}
 		catch(const std::exception& e)
@@ -107,14 +106,14 @@ RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request
 			if(!request.isNotification())
 			{
 				response = jsonrpc::createErrorResponse(
-				 *request.id, ErrorCodes{ErrorCodes::InternalError}, e.what());
+					*request.id, ErrorCodes{ErrorCodes::InternalError}, e.what());
 			}
 		}
 	}
 	else if(!request.isNotification())
 	{
 		response = jsonrpc::createErrorResponse(
-		 *request.id, ErrorCodes{ErrorCodes::MethodNotFound}, "Unsupported method: " + request.method);
+			*request.id, ErrorCodes{ErrorCodes::MethodNotFound}, "Unsupported method: " + request.method);
 	}
 
 	return response;

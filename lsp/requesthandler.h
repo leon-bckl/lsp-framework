@@ -142,37 +142,65 @@ private:
 	template<typename T>
 	class ResponseResult : public ResponseResultBase{
 	public:
-		ResponseResult(jsonrpc::MessageId id, std::future<T> future)
-			: m_id{std::move(id)},
-		    m_future{std::move(future)}{}
+		ResponseResult(jsonrpc::MessageId id, std::future<T> future);
 
-		bool isReady() const override
-		{
-			return m_future.wait_for(std::chrono::seconds{0}) == std::future_status::ready;
-		}
-
-		jsonrpc::Response createResponse() override
-		{
-			assert(isReady());
-			try
-			{
-				return createResponse(m_id, m_future.get());
-			}
-			catch(const RequestError& e)
-			{
-				return jsonrpc::createErrorResponse(m_id, e.code(), e.what());
-			}
-			catch(std::exception& e)
-			{
-				return jsonrpc::createErrorResponse(m_id, ErrorCodes{ErrorCodes::InternalError}, e.what());
-			}
-		}
+		bool isReady() const override;
+		jsonrpc::Response createResponse() override;
 
 	private:
 		jsonrpc::MessageId m_id;
 		std::future<T>     m_future;
 	};
 };
+
+/*
+ * RequestHandler::ResponseResult
+ */
+
+template<typename T>
+RequestHandler::ResponseResult<T>::ResponseResult(jsonrpc::MessageId id, std::future<T> future)
+	: m_id{std::move(id)},
+	  m_future{std::move(future)}
+{
+	if(!m_future.valid())
+		throw RequestError{ErrorCodes::InternalError, "Request handler returned invalid result"};
+}
+
+template<typename T>
+bool RequestHandler::ResponseResult<T>::isReady() const
+{
+	const auto status = m_future.wait_for(std::chrono::seconds{0});
+
+	if(status == std::future_status::deferred)
+	{
+		m_future.wait();
+		return true;
+	}
+
+	return status == std::future_status::ready;
+}
+
+template<typename T>
+jsonrpc::Response RequestHandler::ResponseResult<T>::createResponse()
+{
+	assert(isReady());
+	try
+	{
+		return RequestHandler::createResponse(m_id, m_future.get());
+	}
+	catch(const RequestError& e)
+	{
+		return jsonrpc::createErrorResponse(m_id, e.code(), e.what());
+	}
+	catch(std::exception& e)
+	{
+		return jsonrpc::createErrorResponse(m_id, ErrorCodes{ErrorCodes::InternalError}, e.what());
+	}
+}
+
+/*
+ * RequestHandler::add
+ */
 
 template<typename MessageType, typename F>
 requires IsRequestCallback<MessageType, F>
@@ -183,7 +211,10 @@ RequestHandler& RequestHandler::add(F&& handlerFunc)
 		typename MessageType::Params params;
 		fromJson(std::move(json), params);
 
-		if constexpr(std::same_as<decltype(f(id, std::move(params))), AsyncRequestResult<MessageType>>)
+		if constexpr(std::same_as<
+			             std::invoke_result_t<F, jsonrpc::MessageId, typename MessageType::Params>,
+			             AsyncRequestResult<MessageType>
+		             >)
 		{
 			auto result = f(id, std::move(params));
 
@@ -211,7 +242,10 @@ RequestHandler& RequestHandler::add(F&& handlerFunc)
 {
 	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, json::Any&&, bool allowAsync) -> OptionalResponse
 	{
-		if constexpr(std::same_as<decltype(f(id)), AsyncRequestResult<MessageType>>)
+		if constexpr(std::same_as<
+			             std::invoke_result_t<F, jsonrpc::MessageId>,
+			             AsyncRequestResult<MessageType>
+		             >)
 		{
 			auto result = f(id);
 
