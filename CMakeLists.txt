@@ -12,12 +12,13 @@ else()
 		$<$<CONFIG:DEBUG>:-fsanitize=address,undefined>
 		$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
 	)
+	add_link_options($<$<CONFIG:DEBUG>:-fsanitize=address,undefined>)
 endif()
 
 add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/str.cpp)
 target_include_directories(lspgen PRIVATE .)
 
-SET(LSP_SRC_DIR lsp/)
+set(LSP_SRC_DIR lsp/)
 
 set(LSP_HEADERS
 	# lsp
