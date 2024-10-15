@@ -100,6 +100,8 @@ public:
 	requires IsNoParamsNotificationCallback<MessageType, F>
 	RequestHandler& add(F&& handlerFunc);
 
+	void remove(MessageMethod method);
+
 private:
 	class ResponseResultBase;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
@@ -159,8 +161,8 @@ private:
 
 template<typename T>
 RequestHandler::ResponseResult<T>::ResponseResult(jsonrpc::MessageId id, std::future<T> future)
-	: m_id{std::move(id)},
-	  m_future{std::move(future)}
+	: m_id{std::move(id)}
+	, m_future{std::move(future)}
 {
 	if(!m_future.valid())
 		throw RequestError{ErrorCodes::InternalError, "Request handler returned invalid result"};

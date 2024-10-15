@@ -1,4 +1,4 @@
-#include "messagehandler.h"
+#include "requesthandler.h"
 
 #include <lsp/types.h>
 #include <lsp/connection.h>
@@ -43,6 +43,14 @@ RequestHandler::~RequestHandler()
 	}
 
 	m_asyncResponseThread.join();
+}
+
+void RequestHandler::remove(MessageMethod method)
+{
+	const auto idx = static_cast<std::size_t>(method);
+
+	if(idx < m_requestHandlers.size())
+		m_requestHandlers[idx] = nullptr;
 }
 
 void RequestHandler::onRequest(jsonrpc::Request&& request)
