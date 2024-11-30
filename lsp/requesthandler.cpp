@@ -83,7 +83,7 @@ RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request
 	const auto index  = static_cast<std::size_t>(method);
 	OptionalResponse response;
 
-	if(index <= m_requestHandlers.size() && m_requestHandlers[index])
+	if(index < m_requestHandlers.size() && m_requestHandlers[index])
 	{
 		try
 		{
