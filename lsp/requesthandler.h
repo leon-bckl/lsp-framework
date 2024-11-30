@@ -31,24 +31,24 @@ using AsyncRequestResult = std::future<typename MessageType::Result>;
 template<typename MessageType, typename F>
 concept IsRequestCallback = (message::HasParams<MessageType> &&
                              message::HasResult<MessageType> &&
-                             (std::convertible_to<F, std::function<typename MessageType::Result(const jsonrpc::MessageId&, typename MessageType::Params&&)>> ||
-                              std::convertible_to<F, std::function<AsyncRequestResult<MessageType>(const jsonrpc::MessageId&, typename MessageType::Params&&)>>));
+                             (std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&> ||
+                              std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&>));
 
 template<typename MessageType, typename F>
 concept IsNoParamsRequestCallback = ((!message::HasParams<MessageType>) &&
                                      message::HasResult<MessageType> &&
-                                     (std::convertible_to<F, std::function<typename MessageType::Result(const jsonrpc::MessageId&)>> ||
-                                      std::convertible_to<F, std::function<AsyncRequestResult<MessageType>(const jsonrpc::MessageId&, typename MessageType::Params&&)>>));
+                                     (std::invocable<F, const jsonrpc::MessageId&> ||
+                                      std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&>));
 
 template<typename MessageType, typename F>
 concept IsNotificationCallback = (message::HasParams<MessageType> &&
 							  						      (!message::HasResult<MessageType>) &&
-							  						      std::convertible_to<F, std::function<void(typename MessageType::Params&&)>>);
+							  						      std::invocable<F, typename MessageType::Params&&>);
 
 template<typename MessageType, typename F>
 concept IsNoParamsNotificationCallback = ((!message::HasParams<MessageType>) &&
                                           (!message::HasResult<MessageType>) &&
-                                          std::convertible_to<F, std::function<void()>>);
+                                          std::invocable<F>);
 
 /**
  * The RequestHandler class is used to send and receive requests and notifications.
