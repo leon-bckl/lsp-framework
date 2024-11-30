@@ -37,6 +37,7 @@ STRING(name)
 STRING(optional)
 STRING(params)
 STRING(partialResult)
+STRING(errorData)
 STRING(properties)
 STRING(registrationOptions)
 STRING(result)
@@ -568,6 +569,7 @@ struct Message{
 	std::string paramsTypeName;
 	std::string resultTypeName;
 	std::string partialResultTypeName;
+	std::string errorDataTypeName;
 	std::string registrationOptionsTypeName;
 
 	static std::string memberTypeName(const json::Object& json, const std::string& key)
@@ -600,6 +602,7 @@ struct Message{
 		paramsTypeName = memberTypeName(json, strings::params);
 		resultTypeName = memberTypeName(json, strings::result);
 		partialResultTypeName = memberTypeName(json, strings::partialResult);
+		errorDataTypeName = memberTypeName(json, strings::errorData);
 		registrationOptionsTypeName = memberTypeName(json, strings::registrationOptions);
 	}
 };
@@ -806,6 +809,7 @@ private:
 			addTypeAlias(obj, strings::result, typeBaseName);
 			addTypeAlias(obj, strings::params, typeBaseName);
 			addTypeAlias(obj, strings::partialResult, typeBaseName);
+			addTypeAlias(obj, strings::errorData, typeBaseName);
 			addTypeAlias(obj, strings::registrationOptions, typeBaseName);
 		}
 
@@ -1097,6 +1101,7 @@ private:
 
 		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
 		const bool hasPartialResult = !message.partialResultTypeName.empty();
+		const bool hasErrorData = !message.errorDataTypeName.empty();
 		const bool hasParams = !message.paramsTypeName.empty();
 		const bool hasResult = !message.resultTypeName.empty();
 
@@ -1108,6 +1113,9 @@ private:
 
 		if(hasPartialResult)
 			m_messagesHeaderFileContent += "\tusing PartialResult = " + upperCaseIdentifier(message.partialResultTypeName) + ";\n";
+
+		if(hasErrorData)
+			m_messagesHeaderFileContent += "\tusing ErrorData = " + upperCaseIdentifier(message.errorDataTypeName) + ";\n";
 
 		if(hasParams)
 			m_messagesHeaderFileContent += "\tusing Params = " + upperCaseIdentifier(message.paramsTypeName) + ";\n";
