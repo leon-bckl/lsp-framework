@@ -4,8 +4,13 @@
 #include "error.h"
 
 namespace lsp{
-
-std::atomic<json::Integer> MessageDispatcher::s_uniqueRequestId = 0;
+namespace{
+	json::Integer nextUniqueRequestId()
+	{
+		static std::atomic<json::Integer> g_uniqueRequestId = 0;
+		return ++g_uniqueRequestId;
+	}
+}
 
 MessageDispatcher::MessageDispatcher(Connection& connection)
 	: m_connection{connection}
@@ -58,7 +63,7 @@ void MessageDispatcher::onResponseBatch(jsonrpc::ResponseBatch&& batch)
 jsonrpc::MessageId MessageDispatcher::sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params)
 {
 	std::lock_guard lock{m_pendingRequestsMutex};
-	auto messageId = s_uniqueRequestId++;
+	auto messageId = nextUniqueRequestId();
 	m_pendingRequests[messageId] = std::move(result);
 	auto methodStr = messageMethodToString(method);
 	m_connection.sendRequest(jsonrpc::createRequest(messageId, methodStr, params));

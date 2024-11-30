@@ -110,17 +110,9 @@ void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, Res
 				responseHandler.onResponseBatch(std::move(std::get<jsonrpc::ResponseBatch>(batch)));
 		}
 	}
-	catch(const jsonrpc::ProtocolError& e)
+	catch(const std::exception& e)
 	{
-		sendResponse(jsonrpc::createErrorResponse(json::Null{}, jsonrpc::error::InvalidRequest, e.what()));
-	}
-	catch(const json::TypeError& e)
-	{
-		sendResponse(jsonrpc::createErrorResponse(json::Null{}, jsonrpc::error::InvalidRequest, e.what()));
-	}
-	catch(const json::ParseError& e)
-	{
-		sendResponse(jsonrpc::createErrorResponse(json::Null{}, jsonrpc::error::ParseError, std::string{"Parse error: "} + e.what()));
+		throw ConnectionError{e.what()};
 	}
 }
 

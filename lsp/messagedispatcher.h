@@ -4,6 +4,7 @@
 #include <future>
 #include <lsp/connection.h>
 #include <lsp/messagebase.h>
+#include "error.h"
 
 namespace lsp{
 
@@ -47,6 +48,18 @@ public:
 	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
 	[[nodiscard]] FutureResponse<MessageType> sendRequest();
 
+	template<typename MessageType, typename F, typename E = void(*)(const Error&)>
+	requires message::HasParams<MessageType> && message::HasResult<MessageType> &&
+	         std::invocable<F, typename MessageType::Result&&> &&
+	         std::invocable<E, const Error&>
+	jsonrpc::MessageId sendRequest(typename MessageType::Params&& params, F&& then, E&& error = [](const Error&){});
+
+	template<typename MessageType, typename F, typename E = void(*)(const Error&)>
+	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) &&
+	         std::invocable<F, typename MessageType::Result&&> &&
+	         std::invocable<E, const Error&>
+	jsonrpc::MessageId sendRequest(F&& then, E&& error = [](const Error&){});
+
 	/*
 	 * sendNotification
 	 */
@@ -73,8 +86,6 @@ private:
 	std::mutex                                                m_pendingRequestsMutex;
 	std::unordered_map<jsonrpc::MessageId, RequestResultPtr>  m_pendingRequests;
 
-	static std::atomic<json::Integer>                         s_uniqueRequestId;
-
 	void onResponse(jsonrpc::Response&& response) override;
 	void onResponseBatch(jsonrpc::ResponseBatch&& batch) override;
 
@@ -93,7 +104,7 @@ private:
 	};
 
 	template<typename T>
-	class RequestResult : public RequestResultBase{
+	class FutureRequestResult : public RequestResultBase{
 	public:
 		std::future<T> future(){ return m_promise.get_future(); }
 
@@ -112,13 +123,46 @@ private:
 	private:
 		std::promise<T> m_promise;
 	};
+
+	template<typename T, typename F, typename E>
+	class CallbackRequestResult : public RequestResultBase{
+	public:
+		CallbackRequestResult(F&& then, E&& error)
+			: m_then{std::forward<F>(then)}
+			, m_error{std::forward<E>(error)}
+		{
+		}
+
+		void setValueFromJson(json::Any&& json) override
+		{
+			T value;
+			fromJson(std::move(json), value);
+			m_then(std::move(value));
+		}
+
+		void setException(std::exception_ptr e) override
+		{
+			try
+			{
+				std::rethrow_exception(e);
+			}
+			catch(Error& error)
+			{
+				m_error(error);
+			}
+		}
+
+	private:
+		F m_then;
+		E m_error;
+	};
 };
 
 template<typename MessageType>
 requires message::HasParams<MessageType> && message::HasResult<MessageType>
 FutureResponse<MessageType> MessageDispatcher::sendRequest(typename MessageType::Params&& params)
 {
-	auto result    = std::make_unique<RequestResult<typename MessageType::Result>>();
+	auto result    = std::make_unique<FutureRequestResult<typename MessageType::Result>>();
 	auto future    = result->future();
 	auto messageId = sendRequest(MessageType::Method, std::move(result), toJson(std::move(params)));
 	return {std::move(messageId), std::move(future)};
@@ -128,10 +172,30 @@ template<typename MessageType>
 requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
 FutureResponse<MessageType> MessageDispatcher::sendRequest()
 {
-	auto result    = std::make_unique<RequestResult<typename MessageType::Result>>();
+	auto result    = std::make_unique<FutureRequestResult<typename MessageType::Result>>();
 	auto future    = result->future();
 	auto messageId = sendRequest(MessageType::Method, std::move(result));
 	return {std::move(messageId), std::move(future)};
+}
+
+template<typename MessageType, typename F, typename E>
+requires message::HasParams<MessageType> && message::HasResult<MessageType> &&
+         std::invocable<F, typename MessageType::Result&&> &&
+         std::invocable<E, const Error&>
+jsonrpc::MessageId MessageDispatcher::sendRequest(typename MessageType::Params&& params, F&& then, E&& error)
+{
+	auto result = std::make_unique<CallbackRequestResult<typename MessageType::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
+	return sendRequest(MessageType::Method, std::move(result), toJson(std::move(params)));
+}
+
+template<typename MessageType, typename F, typename E>
+requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) &&
+         std::invocable<F, typename MessageType::Result&&> &&
+         std::invocable<E, const Error&>
+jsonrpc::MessageId MessageDispatcher::sendRequest(F&& then, E&& error)
+{
+	auto result = std::make_unique<CallbackRequestResult<typename MessageType::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
+	return sendRequest(MessageType::Method, std::move(result));
 }
 
 } // namespace lsp

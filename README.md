@@ -68,8 +68,19 @@ int main()
 ```cpp
 // The sendRequest method returns a struct containing the message id and a std::future for the result type of the message.
 // Don't call std::future::wait on the same thread that calls MessageHandler::processIncomingMessages since it would block.
-FutureResponse response = messageHandler.messageDispatcher()
+lsp::FutureResponse response = messageHandler.messageDispatcher()
    .sendRequest<lsp::requests::TextDocument_Diagnostic>(lsp::requests::TextDocument_Diagnostic::Params{ /* parameters */ });
+
+// Alternatively you can provide callbacks for the result and error cases instead of using a future
+// The callbacks are called from inside of MessageHandler::processIncomingMessages. Uncaught exceptions will abort the connection.
+jsonrpc::MessageId messageId = messageHandler.messageDispatcher().sendRequest<lsp::requests::TextDocument_Diagnostic>(
+	lsp::requests::TextDocument_Diagnostic::Params{ /* parameters */ },
+	[](lsp::requests::TextDocument_Diagnostic::Result&& result){
+		//...
+	},
+	[](const lsp::Error& error){
+		//...
+	});
 ```
 
 ## License
