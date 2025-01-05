@@ -1,6 +1,5 @@
 #include "connection.h"
 
-#include <cassert>
 #include <charconv>
 #include <string_view>
 #include <lsp/str.h>
