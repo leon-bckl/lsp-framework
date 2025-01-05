@@ -29,26 +29,24 @@ using AsyncRequestResult = std::future<typename MessageType::Result>;
  */
 
 template<typename MessageType, typename F>
-concept IsRequestCallback = (message::HasParams<MessageType> &&
-                             message::HasResult<MessageType> &&
-                             (std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&> ||
-                              std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&>));
+concept IsRequestCallback = message::HasParams<MessageType> &&
+                            message::HasResult<MessageType> &&
+                            std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&>;
 
 template<typename MessageType, typename F>
-concept IsNoParamsRequestCallback = ((!message::HasParams<MessageType>) &&
-                                     message::HasResult<MessageType> &&
-                                     (std::invocable<F, const jsonrpc::MessageId&> ||
-                                      std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&>));
+concept IsNoParamsRequestCallback = !message::HasParams<MessageType> &&
+                                    message::HasResult<MessageType> &&
+                                    std::invocable<F, const jsonrpc::MessageId&>;
 
 template<typename MessageType, typename F>
-concept IsNotificationCallback = (message::HasParams<MessageType> &&
-							  						      (!message::HasResult<MessageType>) &&
-							  						      std::invocable<F, typename MessageType::Params&&>);
+concept IsNotificationCallback = message::HasParams<MessageType> &&
+							  						     !message::HasResult<MessageType> &&
+							  						     std::invocable<F, typename MessageType::Params&&>;
 
 template<typename MessageType, typename F>
-concept IsNoParamsNotificationCallback = ((!message::HasParams<MessageType>) &&
-                                          (!message::HasResult<MessageType>) &&
-                                          std::invocable<F>);
+concept IsNoParamsNotificationCallback = !message::HasParams<MessageType> &&
+                                         !message::HasResult<MessageType> &&
+                                         std::invocable<F>;
 
 /**
  * The RequestHandler class is used to send and receive requests and notifications.
@@ -67,13 +65,6 @@ concept IsNoParamsNotificationCallback = ((!message::HasParams<MessageType>) &&
  *    // Alternatively do processing asynchronously and return a std::future here
  *    return result;
  * });
- *
- * There are convenience typedefs for the message return and parameter types:
- *  - MessageType::Result
- *  - MessageType::Params
- *
- * The 'sendRequest' function returns a std::future for the result type.
- * Make sure not to call std::future::wait on the same thread that reads from the connection since it would block.
  */
 class RequestHandler : public RequestHandlerInterface{
 public:
@@ -298,6 +289,5 @@ RequestHandler& RequestHandler::add(F&& handlerFunc)
 
 	return *this;
 }
-
 
 } // namespace lsp
