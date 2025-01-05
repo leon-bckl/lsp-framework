@@ -10,6 +10,10 @@
 #include <unordered_set>
 #include "fileuri.h"
 
+#ifndef _MSC_VER
+#include <strings.h>
+#endif
+
 namespace lsp::str{
 
 struct TransparentHash{

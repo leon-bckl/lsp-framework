@@ -2,17 +2,26 @@ cmake_minimum_required(VERSION 3.12)
 
 project(lsp)
 
+option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers" ON)
+
 set(CMAKE_CXX_STANDARD 20)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
 else()
 	add_compile_options(-Wall -Wextra -pedantic)
-	add_compile_options(
-		$<$<CONFIG:DEBUG>:-fsanitize=address,undefined>
-		$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
-	)
-	add_link_options($<$<CONFIG:DEBUG>:-fsanitize=address,undefined>)
+
+	if(LSP_USE_SANITIZERS)
+		add_compile_options(
+			$<$<CONFIG:DEBUG>:-fsanitize=address,undefined>
+			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
+		)
+		add_link_options($<$<CONFIG:DEBUG>:-fsanitize=address,undefined>)
+	endif()
+
+	if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		add_compile_options(-Wa,-mbig-obj)
+	endif()
 endif()
 
 add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/str.cpp)

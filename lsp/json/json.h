@@ -89,7 +89,6 @@ private:
 		throw TypeError{};
 	}
 
-	template<>
 	Any& get()
 	{
 		return *this;
@@ -104,7 +103,6 @@ private:
 		throw TypeError{};
 	}
 
-	template<>
 	const Any& get() const
 	{
 		return *this;

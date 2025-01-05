@@ -231,6 +231,7 @@ RequestHandler& RequestHandler::add(F&& handlerFunc)
 		else
 		{
 			(void)this;
+			(void)allowAsync;
 			return createResponse(id, f(id, std::move(params)));
 		}
 	});
@@ -262,6 +263,7 @@ RequestHandler& RequestHandler::add(F&& handlerFunc)
 		else
 		{
 			(void)this;
+			(void)allowAsync;
 			return createResponse(id, f(id));
 		}
 	});
