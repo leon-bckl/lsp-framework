@@ -1616,6 +1616,10 @@ private:
 
 			if(!literalValue.empty())
 				m_typesHeaderFileContent += " = " + literalValue;
+			// Provide default initializer for optional values
+			else if (p.isOptional)
+				m_typesHeaderFileContent += " = {}";
+
 
 			m_typesHeaderFileContent += ";\n";
 
