@@ -232,8 +232,22 @@ private:
 
 		const char* stringStart = ++m_pos;
 
-		while(*m_pos != '\"' || m_pos[-1] == '\\')
+		// while(*m_pos != '\"' || m_pos[-1] == '\\') does not work
+		// Consider the following string: "\\"
+		// "\\"
+		//  ^ *m_pos != '\"'
+		//   ^ *m_pos != '\"'
+		//    ^ m_pos[-1] == '\"'
+		//     ^ Here we get out of bounds and the string was not closed.
+
+		bool escaping = false;
+		while(*m_pos != '\"' || escaping)
 		{
+			if (!escaping && *m_pos == '\\')
+				escaping = true;
+			else // Already escaping or no '\'
+				escaping = false;
+
 			++m_pos;
 
 			if(m_pos >= m_end || *m_pos == '\n')
