@@ -232,8 +232,14 @@ private:
 
 		const char* stringStart = ++m_pos;
 
-		while(*m_pos != '\"' || m_pos[-1] == '\\')
+		bool escaping = false;
+		while(*m_pos != '\"' || escaping)
 		{
+			if (!escaping && *m_pos == '\\')
+				escaping = true;
+			else // Already escaping or no '\'
+				escaping = false;
+
 			++m_pos;
 
 			if(m_pos >= m_end || *m_pos == '\n')
