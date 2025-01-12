@@ -1617,12 +1617,9 @@ private:
 			if(!literalValue.empty())
 				m_typesHeaderFileContent += " = " + literalValue;
 			// Provide default initializer for optional values
-			else if (p.isOptional) {
-				if(!p.type->isA<ReferenceType>() || !m_typesBeingProcessed.contains(p.type->as<ReferenceType>().name))
-					m_typesHeaderFileContent += " = std::nullopt";
-				else
-					m_typesHeaderFileContent += " = nullptr";
-			}
+			else if (p.isOptional)
+				m_typesHeaderFileContent += " = {}";
+
 
 			m_typesHeaderFileContent += ";\n";
 
