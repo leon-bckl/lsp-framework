@@ -24,7 +24,7 @@ else()
 	endif()
 endif()
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/str.cpp)
+add_executable(lspgen lspgenerated/lspgen.cpp lsp/json/json.cpp lsp/str.cpp)
 target_include_directories(lspgen PRIVATE .)
 
 set(LSP_SRC_DIR lsp/)
@@ -80,7 +80,7 @@ set(LSP_GENERATED_SOURCES
 	${LSP_GENERATED_FILES_DIR}/lsp/messages.cpp
 )
 
-set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/lspmetamodel.json)
+set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgenerated/lspmetamodel.json)
 
 add_custom_command(
 	COMMAND lspgen ${LSP_METAMODEL_JSON}
