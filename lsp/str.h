@@ -31,7 +31,7 @@ struct CaseInsensitiveHash{
 	{
 		std::string upper;
 		upper.reserve(str.size());
-		std::transform(str.cbegin(), str.cend(), std::back_inserter(upper), [](char c){ return static_cast<char>(std::toupper(c)); });
+		std::transform(str.cbegin(), str.cend(), std::back_inserter(upper), [](char c){ return static_cast<char>(std::toupper(static_cast<unsigned char>(c))); });
 		return std::hash<std::string>{}(upper);
 	}
 

@@ -8,13 +8,13 @@ namespace lsp::str{
 
 std::string_view trimViewLeft(std::string_view str)
 {
-	str.remove_prefix(std::distance(str.begin(), std::find_if(str.begin(), str.end(), [](char c){ return !std::isspace(c); })));
+	str.remove_prefix(std::distance(str.begin(), std::find_if(str.begin(), str.end(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); })));
 	return str;
 }
 
 std::string_view trimViewRight(std::string_view str)
 {
-	str.remove_suffix(std::distance(str.rbegin(), std::find_if(str.rbegin(), str.rend(), [](char c){ return !std::isspace(c); })));
+	str.remove_suffix(std::distance(str.rbegin(), std::find_if(str.rbegin(), str.rend(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); })));
 	return str;
 }
 
@@ -32,7 +32,7 @@ std::string trimLeft(std::string_view str)
 std::string trimLeft(std::string&& str)
 {
 	auto trimmed = std::move(str);
-	trimmed.erase(trimmed.begin(), std::find_if(trimmed.begin(), trimmed.end(), [](char c){ return !std::isspace(c); }));
+	trimmed.erase(trimmed.begin(), std::find_if(trimmed.begin(), trimmed.end(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); }));
 	return trimmed;
 }
 
@@ -44,7 +44,7 @@ std::string trimRight(std::string_view str)
 std::string trimRight(std::string&& str)
 {
 	auto trimmed = std::move(str);
-	trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](char c){ return !std::isspace(c); }).base(), trimmed.end());
+	trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); }).base(), trimmed.end());
 	return trimmed;
 }
 
@@ -97,7 +97,7 @@ std::string lower(std::string_view str)
 {
 	std::string result;
 	result.reserve(str.size());
-	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return static_cast<char>(std::tolower(c)); });
+	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); });
 	return result;
 }
 
@@ -105,7 +105,7 @@ std::string upper(std::string_view str)
 {
 	std::string result;
 	result.reserve(str.size());
-	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return static_cast<char>(std::toupper(c)); });
+	std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c){ return static_cast<char>(std::toupper(static_cast<unsigned char>(c))); });
 	return result;
 }
 
