@@ -37,9 +37,9 @@ std::string FileURI::encode(std::string_view decoded)
 	std::string encoded;
 	encoded.reserve(decoded.size());
 
-	for(const char c : decoded)
+	for(const unsigned char c : decoded)
 	{
-		if(std::isalnum(static_cast<unsigned char>(c)) || c == '/' || c == '_')
+		if(std::isalnum(c) || c == '/' || c == '_')
 		{
 			encoded.push_back(c);
 		}
