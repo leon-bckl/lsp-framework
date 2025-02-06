@@ -37,7 +37,7 @@ std::string FileURI::encode(std::string_view decoded)
 	std::string encoded;
 	encoded.reserve(decoded.size());
 
-	for(const char c : decoded)
+	for(const unsigned char c : decoded)
 	{
 		if(std::isalnum(c) || c == '/' || c == '_')
 		{
@@ -66,7 +66,7 @@ std::string FileURI::decode(std::string_view encoded)
 			const char* start = &encoded[i + 1];
 			const char* end = &encoded[i + 3];
 
-			char c;
+			unsigned char c;
 			const auto [ptr, ec] = std::from_chars(start, end, c, 16);
 
 			if(ec != std::errc{} || ptr != end)
