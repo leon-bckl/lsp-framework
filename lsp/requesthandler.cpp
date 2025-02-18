@@ -13,7 +13,7 @@ RequestHandler::RequestHandler(Connection& connection) : m_connection{connection
 		while(true)
 		{
 			std::unique_lock lock{m_pendingResponsesMutex};
-			m_pendingResponses.erase(std::find_if(m_pendingResponses.begin(), m_pendingResponses.end(),
+			std::erase_if(m_pendingResponses,
 				[this](const auto& p)
 				{
 					const auto& result = p.second;
@@ -23,8 +23,7 @@ RequestHandler::RequestHandler(Connection& connection) : m_connection{connection
 						m_connection.sendResponse(result->createResponse());
 
 					return ready;
-				}),
-				m_pendingResponses.end());
+				});
 
 			if(!m_running)
 				break;
