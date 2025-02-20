@@ -12,8 +12,12 @@ namespace lsp{
 std::string FileURI::toString() const
 {
 #ifdef _WIN32
-	if(std::filesystem::path{m_path}.is_absolute())
-		return Scheme + '/' + encode(m_path);
+	std::filesystem::path path{m_path};
+	if(path.is_absolute())
+	{
+		std::u8string u8Path = path.u8string();
+		return Scheme + '/' + encode(std::string_view{reinterpret_cast<const char*>(u8Path.data()), u8Path.size()});
+	}
 #endif
 
 	return Scheme + encode(m_path);
