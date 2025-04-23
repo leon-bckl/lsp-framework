@@ -40,10 +40,7 @@ private:
 	std::mutex    m_readMutex;
 	std::mutex    m_writeMutex;
 
-	struct MessageHeader{
-		std::size_t contentLength = 0;
-		std::string contentType   = "application/vscode-jsonrpc; charset=utf-8";
-	};
+	struct MessageHeader;
 
 	MessageHeader readMessageHeader();
 	void readNextMessageHeaderField(MessageHeader& header);

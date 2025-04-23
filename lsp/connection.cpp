@@ -2,7 +2,6 @@
 
 #include <charconv>
 #include <string_view>
-#include <lsp/str.h>
 #include <lsp/json/json.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 
@@ -41,11 +40,39 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 }
 #endif
 
+std::string_view trimStringView(std::string_view str)
+{
+	str.remove_prefix(std::distance(str.begin(), std::find_if(str.begin(), str.end(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); })));
+	str.remove_suffix(std::distance(str.rbegin(), std::find_if(str.rbegin(), str.rend(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); })));
+	return str;
+}
+
+void verifyContentType(std::string_view contentType)
+{
+	if(!contentType.starts_with("application/vscode-jsonrpc"))
+		throw ProtocolError{"Unsupported or invalid content type: " + std::string(contentType)};
+
+	constexpr std::string_view charsetKey{"charset="};
+	if(const auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
+	{
+		auto charset = contentType.substr(idx + charsetKey.size());
+		charset = trimStringView(charset.substr(0, charset.find(';')));
+
+		if(charset != "utf-8" && charset != "utf8")
+			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
+	}
+}
+
 } // namespace
 
 /*
  * Connection
  */
+
+struct Connection::MessageHeader{
+	std::size_t contentLength = 0;
+	std::string contentType   = "application/vscode-jsonrpc; charset=utf-8";
+};
 
 Connection::Connection(std::istream& in, std::ostream& out)
 	: m_in{in},
@@ -67,21 +94,7 @@ void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, Res
 	m_in.read(&content[0], static_cast<std::streamsize>(header.contentLength));
 
 	// Verify only after reading the entire message so no partially unread message is left in the stream
-
-	std::string_view contentType{header.contentType};
-
-	if(!contentType.starts_with("application/vscode-jsonrpc"))
-		throw ProtocolError{"Unsupported or invalid content type: " + header.contentType};
-
-	constexpr std::string_view charsetKey{"charset="};
-	if(const auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
-	{
-		auto charset = contentType.substr(idx + charsetKey.size());
-		charset = str::trimView(charset.substr(0, charset.find(';')));
-
-		if(charset != "utf-8" && charset != "utf8")
-			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
-	}
+	verifyContentType(header.contentType);
 
 	try
 	{
@@ -165,8 +178,8 @@ void Connection::readNextMessageHeaderField(MessageHeader& header)
 
 	if(separatorIdx != std::string_view::npos)
 	{
-		const auto key   = str::trimView(line.substr(0, separatorIdx));
-		const auto value = str::trimView(line.substr(separatorIdx + 1));
+		const auto key   = trimStringView(line.substr(0, separatorIdx));
+		const auto value = trimStringView(line.substr(separatorIdx + 1));
 
 		if(key == "Content-Length")
 			std::from_chars(value.data(), value.data() + value.size(), header.contentLength);

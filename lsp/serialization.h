@@ -7,13 +7,81 @@
 #include <iterator>
 #include <algorithm>
 #include <type_traits>
-#include <lsp/str.h>
-#include <lsp/util.h>
+#include <lsp/strmap.h>
 #include <lsp/fileuri.h>
-#include <lsp/json/json.h>
 #include <lsp/nullable.h>
+#include <lsp/json/json.h>
 
 namespace lsp{
+namespace impl{
+
+// Helpers to treat FileURI as a string which can be used to look up values in a json::Object
+
+template<typename T>
+struct MapKeyType{
+	using Type = T;
+};
+
+template<>
+struct MapKeyType<FileURI>{
+	using Type = std::string;
+};
+
+template<typename T>
+const typename MapKeyType<T>::Type& mapKey(const T& u)
+{
+	return u;
+}
+
+template<>
+inline const std::string& mapKey(const FileURI& uri)
+{
+	return uri.path();
+}
+
+template<typename T, typename F, int idx = std::tuple_size_v<typename std::decay<T>::type> - 1>
+struct TupleVisitor
+{
+	void visitTuple(T&& tuple, F&& f)
+	{
+		TupleVisitor<T, F, idx - 1> visitor;
+		visitor.visitTuple(std::forward<T>(tuple), std::forward<F>(f));
+		f(std::get<idx>(tuple), idx);
+	}
+};
+
+template<typename T, typename F>
+struct TupleVisitor<T, F, -1>
+{
+	void visitTuple(T&&, F&&){}
+};
+
+template<typename T, typename F>
+void visitTuple(T&& tuple, F&& f)
+{
+	TupleVisitor<T, F> visitor;
+	visitor.visitTuple(std::forward<T>(tuple), std::forward<F>(f));
+}
+
+template<typename T>
+struct IsVector : std::false_type{};
+
+template<typename... Args>
+struct IsVector<std::vector<Args...>> : std::true_type{};
+
+template<typename T>
+struct IsVariant : std::false_type{};
+
+template<typename... Args>
+struct IsVariant<std::variant<Args...>> : std::true_type{};
+
+template<typename T>
+struct IsTuple : std::false_type{};
+
+template<typename... Args>
+struct IsTuple<std::tuple<Args...>> : std::true_type{};
+
+} // namespace impl
 
 // toJson
 
@@ -74,7 +142,7 @@ template<typename... Args>
 json::Any toJson(std::tuple<Args...>&& tuple);
 
 template<typename K, typename T>
-json::Any toJson(str::UnorderedMap<K, T>&& map);
+json::Any toJson(StrMap<K, T>&& map);
 
 template<typename T>
 json::Any toJson(std::vector<T>&& vector);
@@ -94,14 +162,12 @@ json::Any toJson(std::unique_ptr<T>&& v);
 template<typename T>
 json::Any toJson(std::optional<T>&& v);
 
-// impl
-
 template<typename... Args>
 json::Any toJson(std::tuple<Args...>&& tuple)
 {
 	json::Array result;
 	result.resize(sizeof...(Args));
-	util::tuple::visit(tuple, [&result](auto&& v, int idx)
+	impl::visitTuple(tuple, [&result](auto&& v, int idx)
 	{
 		result[idx] = toJson(std::forward<std::decay_t<decltype(v)>>(v));
 	});
@@ -109,36 +175,8 @@ json::Any toJson(std::tuple<Args...>&& tuple)
 	return result;
 }
 
-namespace impl{
-
-// Helpers to treat FileURI as a string which can be used to look up values in a json::Object
-
-template<typename T>
-struct MapKeyType{
-	using Type = T;
-};
-
-template<>
-struct MapKeyType<FileURI>{
-	using Type = std::string;
-};
-
-template<typename T>
-const typename MapKeyType<T>::Type& mapKey(const T& u)
-{
-	return u;
-}
-
-template<>
-inline const std::string& mapKey(const FileURI& uri)
-{
-	return uri.path();
-}
-
-}
-
 template<typename K, typename T>
-json::Any toJson(str::UnorderedMap<K, T>&& map)
+json::Any toJson(StrMap<K, T>&& map)
 {
 	json::Object result;
 	for(auto&& [k, v] : map)
@@ -215,7 +253,7 @@ template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value);
 
 template<typename K, typename T>
-void fromJson(json::Any&& json, str::UnorderedMap<K, T>& value);
+void fromJson(json::Any&& json, StrMap<K, T>& value);
 
 template<typename T>
 void fromJson(json::Any&& json, std::vector<T>& value);
@@ -238,7 +276,7 @@ template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value)
 {
 	auto& array = json.array();
-	util::tuple::visit(value, [&array](auto& v, int idx)
+	impl::visitTuple(value, [&array](auto& v, int idx)
 	{
 		if(static_cast<std::size_t>(idx) >= array.size())
 			throw json::TypeError{};
@@ -248,7 +286,7 @@ void fromJson(json::Any&& json, std::tuple<Args...>& value)
 }
 
 template<typename K, typename T>
-void fromJson(json::Any&& json, str::UnorderedMap<K, T>& value)
+void fromJson(json::Any&& json, StrMap<K, T>& value)
 {
 	auto& obj = json.object();
 	for(auto&& [k, v] : obj)
@@ -290,7 +328,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isBoolean())
 		{
-			fromJson(std::move(json), value.template emplace<Index>());
+			fromJson(std::move(json), value. template emplace<Index>());
 			return;
 		}
 	}
@@ -299,7 +337,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isNumber())
 		{
-			fromJson(std::move(json), value.template emplace<Index>());
+			fromJson(std::move(json), value. template emplace<Index>());
 			return;
 		}
 	}
@@ -308,16 +346,16 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isString())
 		{
-			fromJson(std::move(json), value.template emplace<Index>());
+			fromJson(std::move(json), value. template emplace<Index>());
 			return;
 		}
 	}
 
-	if constexpr(util::type::IsVector<T>{} || util::type::IsTuple<T>{})
+	if constexpr(impl::IsVector<T>{} || impl::IsTuple<T>{})
 	{
 		if(json.isArray())
 		{
-			fromJson(std::move(json), value.template emplace<Index>());
+			fromJson(std::move(json), value. template emplace<Index>());
 			return;
 		}
 	}
@@ -345,7 +383,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 
 			if(hasAllRequiredProperties && matchCount >= requiredPropertyCount)
 			{
-				fromJson(std::move(json), value.template emplace<Index>());
+				fromJson(std::move(json), value. template emplace<Index>());
 				requiredPropertyCount = matchCount;
 			}
 		}

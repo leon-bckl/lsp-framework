@@ -6,7 +6,7 @@
 #include <variant>
 #include <stdexcept>
 #include <string_view>
-#include <lsp/str.h>
+#include <lsp/strmap.h>
 
 namespace lsp::json{
 
@@ -34,7 +34,7 @@ private:
 	std::string m_message{"Unexpected json value"};
 };
 
-using ObjectMap = str::UnorderedMap<String, Any>;
+using ObjectMap = StrMap<String, Any>;
 class Object : public ObjectMap{
 public:
 	using ObjectMap::ObjectMap;
@@ -124,7 +124,9 @@ private:
 	 std::size_t m_textPos = 0;
 };
 
-Any parse(std::string_view text);
+Any         parse(std::string_view text);
 std::string stringify(const Any& json, bool format = false);
+std::string toStringLiteral(std::string_view str);
+std::string fromStringLiteral(std::string_view str);
 
 } // namespace lsp::json

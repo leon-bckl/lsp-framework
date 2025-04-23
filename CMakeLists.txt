@@ -24,7 +24,7 @@ else()
 	endif()
 endif()
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/str.cpp)
+add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp)
 target_include_directories(lspgen PRIVATE .)
 
 set(LSP_SRC_DIR lsp/)
@@ -40,8 +40,7 @@ set(LSP_HEADERS
 	nullable.h
 	requesthandler.h
 	serialization.h
-	str.h
-	util.h
+	strmap.h
 	# io
 	io/standardio.h
 	# json
@@ -56,7 +55,6 @@ set(LSP_SOURCES
 	connection.cpp
 	messagedispatcher.cpp
 	requesthandler.cpp
-	str.cpp
 	fileuri.cpp
 	# io
 	io/standardio.cpp

@@ -5,7 +5,6 @@
 #ifdef _WIN32
 #include <filesystem>
 #endif
-#include "str.h"
 
 namespace lsp{
 
@@ -25,8 +24,6 @@ std::string FileURI::toString() const
 
 std::string FileURI::fromString(std::string_view str)
 {
-	str = str::trimView(str);
-
 	if(str.starts_with(Scheme))
 		str.remove_prefix(Scheme.size());
 #ifdef _WIN32
