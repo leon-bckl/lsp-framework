@@ -73,7 +73,8 @@ void RequestHandler::onRequestBatch(jsonrpc::RequestBatch&& batch)
 			responses.push_back(std::move(*response));
 	}
 
-	m_connection.sendResponseBatch(std::move(responses));
+	if(!responses.empty())
+		m_connection.sendResponseBatch(std::move(responses));
 }
 
 RequestHandler::OptionalResponse RequestHandler::processRequest(jsonrpc::Request&& request, bool allowAsync)
