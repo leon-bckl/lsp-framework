@@ -35,10 +35,8 @@ set(LSP_HEADERS
 	error.h
 	fileuri.h
 	messagebase.h
-	messagedispatcher.h
 	messagehandler.h
 	nullable.h
-	requesthandler.h
 	serialization.h
 	strmap.h
 	# io
@@ -53,8 +51,7 @@ list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR})
 set(LSP_SOURCES
 	# lsp
 	connection.cpp
-	messagedispatcher.cpp
-	requesthandler.cpp
+	messagehandler.cpp
 	fileuri.cpp
 	# io
 	io/standardio.cpp
