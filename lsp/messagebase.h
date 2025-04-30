@@ -14,12 +14,14 @@ MessageMethod messageMethodFromString(std::string_view str);
  */
 
 enum class Message{
-	ClientToServerRequest,
-	ServerToClientRequest,
-	BidirectionalRequest,
-	ClientToServerNotification,
-	ServerToClientNotification,
-	BidirectionalNotification,
+	Notification,
+	Request
+};
+
+enum class MessageDirection{
+	ClientToServer,
+	ServerToClient,
+	Bidirectional
 };
 
 /*

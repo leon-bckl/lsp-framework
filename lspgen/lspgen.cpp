@@ -1160,28 +1160,25 @@ private:
 	void generateMessage(const std::string& method, const Message& message, bool isNotification)
 	{
 		auto messageCppName = upperCaseIdentifier(method);
-
-		m_messagesHeaderFileContent += documentationComment(method, message.documentation) +
-		                               "struct " + messageCppName + "{\n"
-		                               "\tstatic constexpr auto Method = MessageMethod::" + messageCppName + ";\n";
-
-		std::string messageType;
+		std::string messageDirection;
 
 		switch(message.direction)
 		{
 		case Message::Direction::ClientToServer:
-			messageType = "ClientToServer";
+			messageDirection = "ClientToServer";
 			break;
 		case Message::Direction::ServerToClient:
-			messageType = "ServerToClient";
+			messageDirection = "ServerToClient";
 			break;
 		case Message::Direction::Both:
-			messageType = "Bidirectional";
+			messageDirection = "Bidirectional";
 		}
 
-		messageType += isNotification ? "Notification" : "Request";
-
-		m_messagesHeaderFileContent += "\tstatic constexpr auto Type = Message::" + messageType + ";\n";
+		m_messagesHeaderFileContent += documentationComment(method, message.documentation) +
+		                               "struct " + messageCppName + "{\n"
+		                               "\tstatic constexpr auto Method = MessageMethod::" + messageCppName + ";\n"
+		                               "\tstatic constexpr auto Direction = MessageDirection::" + messageDirection + ";\n"
+		                               "\tstatic constexpr auto Type = Message::" + (isNotification ? "Notification" : "Request") + ";\n";
 
 		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
 		const bool hasPartialResult = !message.partialResultTypeName.empty();
