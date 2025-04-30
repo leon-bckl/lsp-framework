@@ -109,26 +109,28 @@ void MessageHandler::processIncomingMessages()
 	}
 }
 
-void MessageHandler::remove(MessageMethod method)
+void MessageHandler::remove(std::string_view method)
 {
-	const auto idx = static_cast<std::size_t>(method);
+	std::lock_guard lock{m_requestHandlersMutex};
 
-	if(idx < m_requestHandlers.size())
-		m_requestHandlers[idx] = nullptr;
+	if(const auto it = m_requestHandlersByMethod.find(method); it != m_requestHandlersByMethod.end())
+		m_requestHandlersByMethod.erase(it);
 }
 
 MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request&& request, bool allowAsync)
 {
-	const auto method = messageMethodFromString(request.method);
-	const auto index  = static_cast<std::size_t>(method);
+	std::unique_lock lock{m_requestHandlersMutex};
 	OptionalResponse response;
 
-	if(index < m_requestHandlers.size() && m_requestHandlers[index])
+	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
+	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
 		try
 		{
+			lock.unlock();
+
 			// Call handler for the method type and return optional response
-			response = m_requestHandlers[index](
+			response = handlerIt->second(
 				request.id.has_value() ? *request.id : json::Null{},
 				request.params.has_value() ? std::move(*request.params) : json::Null{},
 				allowAsync);
@@ -158,10 +160,13 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 			}
 		}
 	}
-	else if(!request.isNotification())
+	else
 	{
-		response = jsonrpc::createErrorResponse(
-			*request.id, jsonrpc::Error::MethodNotFound, "Unsupported method: " + request.method);
+		if(!request.isNotification())
+		{
+			response = jsonrpc::createErrorResponse(
+			 *request.id, jsonrpc::Error::MethodNotFound, "Unsupported method: " + request.method);
+		}
 	}
 
 	return response;
@@ -203,15 +208,10 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 	}
 }
 
-void MessageHandler::addHandler(MessageMethod method, HandlerWrapper&& handlerFunc)
+void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handlerFunc)
 {
 	std::lock_guard lock{m_requestHandlersMutex};
-	const auto index = static_cast<std::size_t>(method);
-
-	if(m_requestHandlers.size() <= index)
-		m_requestHandlers.resize(index + 1);
-
-	m_requestHandlers[index] = std::move(handlerFunc);
+	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
 void MessageHandler::addResponseResult(const MessageId& id, ResponseResultPtr result)
@@ -225,20 +225,19 @@ void MessageHandler::addResponseResult(const MessageId& id, ResponseResultPtr re
 	m_pendingResponses.emplace(id, std::move(result));
 }
 
-MessageId MessageHandler::sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params)
+MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, const std::optional<json::Any>& params)
 {
 	std::lock_guard lock{m_pendingRequestsMutex};
-	auto messageId = nextUniqueRequestId();
+	const auto messageId = nextUniqueRequestId();
 	m_pendingRequests[messageId] = std::move(result);
-	auto methodStr = messageMethodToString(method);
-	m_connection.writeMessage(jsonrpc::requestToJson(jsonrpc::createRequest(messageId, methodStr, params)));
+	auto request = jsonrpc::createRequest(messageId, method, params);
+	m_connection.writeMessage(jsonrpc::requestToJson(std::move(request)));
 	return messageId;
 }
 
-void MessageHandler::sendNotification(MessageMethod method, const std::optional<json::Any>& params)
+void MessageHandler::sendNotification(std::string_view method, const std::optional<json::Any>& params)
 {
-	const auto methodStr = messageMethodToString(method);
-	auto notification = jsonrpc::createNotification(methodStr, params);
+	auto notification = jsonrpc::createNotification(method, params);
 	m_connection.writeMessage(jsonrpc::requestToJson(std::move(notification)));
 }
 

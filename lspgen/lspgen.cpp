@@ -1005,37 +1005,6 @@ static constexpr const char* MessagesHeaderEnd =
 R"(} // namespace lsp
 )";
 
-static constexpr const char* MessagesSourceBegin =
-R"(#include "messages.h"
-
-/*#############################################################
- * NOTE: This is a generated file and it shouldn't be modified!
- *#############################################################*/
-
-namespace lsp{
-
-)";
-
-static constexpr const char* MessagesSourceEnd =
-R"(
-std::string_view messageMethodToString(MessageMethod method)
-{
-	return MethodStrings[static_cast<int>(method)];
-}
-
-MessageMethod messageMethodFromString(std::string_view str)
-{
-	auto it = MethodsByString.find(str);
-
-	if(it != MethodsByString.end())
-		return it->second;
-
-	return MessageMethod::INVALID;
-}
-
-} // namespace lsp
-)";
-
 class CppGenerator
 {
 public:
@@ -1052,7 +1021,6 @@ public:
 		writeFile("types.h", replaceString(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version) + m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent + TypesHeaderEnd);
 		writeFile("types.cpp", TypesSourceBegin + m_typesSourceFileContent + m_typesBoilerPlateSourceFileContent + TypesSourceEnd);
 		writeFile("messages.h", MessagesHeaderBegin + m_messagesHeaderFileContent + MessagesHeaderEnd);
-		writeFile("messages.cpp", MessagesSourceBegin + m_messagesSourceFileContent + MessagesSourceEnd);
 	}
 
 private:
@@ -1061,7 +1029,6 @@ private:
 	std::string                                  m_typesBoilerPlateSourceFileContent;
 	std::string                                  m_typesSourceFileContent;
 	std::string                                  m_messagesHeaderFileContent;
-	std::string                                  m_messagesSourceFileContent;
 	const MetaModel&                             m_metaModel;
 	std::unordered_set<std::string_view>         m_processedTypes;
 	std::unordered_set<std::string_view>         m_typesBeingProcessed;
@@ -1093,20 +1060,13 @@ private:
 	{
 		// Message method enum
 
-		m_messagesHeaderFileContent = "enum class MessageMethod{\n"
-		                              "\tINVALID = -1,\n\n"
+		m_messagesHeaderFileContent = "struct MessageMethod{\n"
 		                              "\t// Requests\n\n";
-		m_messagesSourceFileContent = "static constexpr std::string_view MethodStrings[static_cast<int>(MessageMethod::MAX_VALUE)] = {\n";
-
-		std::string messageMethodsByString = "const std::unordered_map<std::string_view, MessageMethod> MethodsByString = {\n"
-		                                     "#define LSP_MS_PAIR(x) {MethodStrings[static_cast<int>(x)], x}\n";
 
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
 		{
 			auto id = upperCaseIdentifier(method);
-			m_messagesHeaderFileContent += '\t' + id + ",\n";
-			m_messagesSourceFileContent += "\t\"" + method + "\",\n";
-			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
+			m_messagesHeaderFileContent += "\tstatic constexpr auto " + id + " = std::string_view(\"" + method + "\");\n";
 		}
 
 		m_messagesHeaderFileContent += "\n\t// Notifications\n\n";
@@ -1114,19 +1074,10 @@ private:
 		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
 		{
 			auto id = upperCaseIdentifier(method);
-			m_messagesHeaderFileContent += '\t' + id + ",\n";
-			m_messagesSourceFileContent += "\t\"" + method + "\",\n";
-			messageMethodsByString += "\tLSP_MS_PAIR(MessageMethod::" + id + "),\n";
+			m_messagesHeaderFileContent += "\tstatic constexpr auto " + id + " = std::string_view(\"" + method + "\");\n";
 		}
 
-		m_messagesHeaderFileContent += "\tMAX_VALUE\n};\n\n";
-		m_messagesSourceFileContent.pop_back();
-		m_messagesSourceFileContent.pop_back();
-		m_messagesSourceFileContent += "\n};\n\n";
-		messageMethodsByString.pop_back();
-		messageMethodsByString.pop_back();
-		messageMethodsByString += "\n#undef LSP_MS_PAIR\n};\n";
-		m_messagesSourceFileContent += messageMethodsByString;
+		m_messagesHeaderFileContent += "};\n\n";
 
 		// Structs
 

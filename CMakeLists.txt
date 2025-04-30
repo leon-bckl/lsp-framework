@@ -72,7 +72,6 @@ set(LSP_GENERATED_HEADERS
 
 set(LSP_GENERATED_SOURCES
 	${LSP_GENERATED_FILES_DIR}/lsp/types.cpp
-	${LSP_GENERATED_FILES_DIR}/lsp/messages.cpp
 )
 
 set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/lspmetamodel.json)

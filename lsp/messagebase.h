@@ -1,13 +1,6 @@
 #pragma once
 
-#include <string_view>
-
 namespace lsp{
-
-// Generated
-enum class MessageMethod;
-std::string_view messageMethodToString(MessageMethod method);
-MessageMethod messageMethodFromString(std::string_view str);
 
 /*
  * Message
