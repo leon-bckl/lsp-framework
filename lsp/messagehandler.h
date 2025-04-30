@@ -31,24 +31,56 @@ using AsyncRequestResult = std::future<typename MessageType::Result>;
  */
 
 template<typename MessageType, typename F>
+concept IsRequestCallbackResult =
+	std::same_as<
+		std::invoke_result_t<F, MessageId, typename MessageType::Params>,
+		typename MessageType::Result> ||
+	std::same_as<
+		std::invoke_result_t<F, MessageId, typename MessageType::Params>,
+		AsyncRequestResult<MessageType>>;
+
+template<typename MessageType, typename F>
+concept IsNoParamsRequestCallbackResult =
+	std::same_as<
+		std::invoke_result_t<F, MessageId>,
+		typename MessageType::Result> ||
+	std::same_as<
+		std::invoke_result_t<F, MessageId>,
+		AsyncRequestResult<MessageType>>;
+
+template<typename MessageType, typename F>
+concept IsNotificationCallbackResult =
+	std::same_as<
+		std::invoke_result_t<F, typename MessageType::Params>, void>;
+
+template<typename MessageType, typename F>
+concept IsNoParamsNotificationCallbackResult =
+	std::same_as<
+		std::invoke_result_t<F>, void>;
+
+template<typename MessageType, typename F>
 concept IsRequestCallback = message::HasParams<MessageType> &&
                             message::HasResult<MessageType> &&
-                            std::invocable<F, const MessageId&, typename MessageType::Params&&>;
+                            std::invocable<F, const MessageId&, typename MessageType::Params&&> &&
+                            IsRequestCallbackResult<MessageType, F>;
 
 template<typename MessageType, typename F>
 concept IsNoParamsRequestCallback = !message::HasParams<MessageType> &&
                                     message::HasResult<MessageType> &&
-                                    std::invocable<F, const MessageId&>;
+                                    std::invocable<F, const MessageId&> &&
+                                    IsNoParamsRequestCallbackResult<MessageType, F>;
 
 template<typename MessageType, typename F>
 concept IsNotificationCallback = message::HasParams<MessageType> &&
-							  						     !message::HasResult<MessageType> &&
-							  						     std::invocable<F, typename MessageType::Params&&>;
+                                 !message::HasResult<MessageType> &&
+                                 std::invocable<F, typename MessageType::Params&&> &&
+                                 IsNotificationCallbackResult<MessageType, F>;
 
 template<typename MessageType, typename F>
 concept IsNoParamsNotificationCallback = !message::HasParams<MessageType> &&
                                          !message::HasResult<MessageType> &&
-                                         std::invocable<F>;
+                                         std::invocable<F> &&
+                                         IsNoParamsNotificationCallbackResult<MessageType, F>;
 
 /*
  * The return type of MessageHandler::sendRequest.
