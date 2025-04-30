@@ -1,10 +1,9 @@
-#include "fileuri.h"
-
 #include <cctype>
 #include <charconv>
 #ifdef _WIN32
 #include <filesystem>
 #endif
+#include <lsp/fileuri.h>
 
 namespace lsp{
 

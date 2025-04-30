@@ -1,5 +1,3 @@
-#include "standardio.h"
-
 #include <iostream>
 
 #ifdef _WIN32
@@ -7,6 +5,8 @@
 #include <cstdio>
 #include <fcntl.h>
 #endif
+
+#include <lsp/io/standardio.h>
 
 namespace lsp::io{
 

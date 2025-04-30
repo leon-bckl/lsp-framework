@@ -2,29 +2,17 @@
 
 #include <optional>
 #include <stdexcept>
+#include <lsp/json/json.h>
+
+#ifndef LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
 #include <lsp/types.h>
-#include <lsp/serialization.h>
+#endif
 
 namespace lsp{
 
-class ErrorCode{
-public:
-	ErrorCode(ErrorCodes code)
-		: m_code{code.value()}
-	{
-	}
-
-	ErrorCode(LSPErrorCodes code)
-		: m_code{code.value()}
-	{
-	}
-
-	auto value() const -> json::Integer{ return m_code; }
-	operator json::Integer() const{ return value(); }
-
-private:
-	json::Integer m_code;
-};
+// Generated tyeps
+class ErrorCodes;
+class LSPErrorCodes;
 
 /*
  * Generic base for request or response errors
@@ -35,7 +23,7 @@ public:
 	const std::optional<json::Any>& data() const{ return m_data; }
 
 protected:
-	Error(json::Integer code, const std::string& message, std::optional<json::Any> data = std::nullopt)
+	Error(json::Integer code, const std::string& message, std::optional<json::Any> data = {})
 		: std::runtime_error{message},
 		  m_code{code},
 		  m_data{std::move(data)}
@@ -52,20 +40,22 @@ private:
  */
 class RequestError : public Error{
 public:
-	RequestError(ErrorCodes code, const std::string& message)
-		: Error{code, message}
-	{
-	}
-	RequestError(LSPErrorCodes code, const std::string& message)
-		: Error{code, message}
+	RequestError(json::Integer code, const std::string& message, std::optional<json::Any> data = {})
+		: Error{code, message, std::move(data)}
 	{
 	}
 
-	template<typename ErrorCodeType, typename ErrorData>
-	RequestError(ErrorCodeType code, const std::string& message, ErrorData&& data)
-		: Error{ErrorCode{code}, message, toJson(std::forward<ErrorData>(data))}
+#ifndef LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
+	RequestError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
+		: Error{code, message, std::move(data)}
 	{
 	}
+
+	RequestError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
+		: Error{code, message, std::move(data)}
+	{
+	}
+#endif
 };
 
 /*
@@ -73,15 +63,22 @@ public:
  */
 class ResponseError : public Error{
 public:
-	ResponseError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt)
+	ResponseError(json::Integer code, const std::string& message, std::optional<json::Any> data = {})
 		: Error{code, message, std::move(data)}
 	{
 	}
 
-	ResponseError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = std::nullopt)
+#ifndef LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
+	ResponseError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
 		: Error{code, message, std::move(data)}
 	{
 	}
+
+	ResponseError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
+		: Error{code, message, std::move(data)}
+	{
+	}
+#endif
 };
 
 } // namespace lsp

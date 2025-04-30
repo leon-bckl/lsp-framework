@@ -1,11 +1,10 @@
-#include "json.h"
-
 #include <limits>
 #include <vector>
 #include <cassert>
 #include <string>
 #include <charconv>
 #include <algorithm>
+#include <lsp/json/json.h>
 
 namespace lsp::json{
 namespace{

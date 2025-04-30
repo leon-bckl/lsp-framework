@@ -18,6 +18,8 @@ namespace lsp{
 class ErrorCodes;
 class Connection;
 
+using MessageId = jsonrpc::MessageId;
+
 /*
  * The result returned from a request handler callback that does processing asynchronously
  */
@@ -31,12 +33,12 @@ using AsyncRequestResult = std::future<typename MessageType::Result>;
 template<typename MessageType, typename F>
 concept IsRequestCallback = message::HasParams<MessageType> &&
                             message::HasResult<MessageType> &&
-                            std::invocable<F, const jsonrpc::MessageId&, typename MessageType::Params&&>;
+                            std::invocable<F, const MessageId&, typename MessageType::Params&&>;
 
 template<typename MessageType, typename F>
 concept IsNoParamsRequestCallback = !message::HasParams<MessageType> &&
                                     message::HasResult<MessageType> &&
-                                    std::invocable<F, const jsonrpc::MessageId&>;
+                                    std::invocable<F, const MessageId&>;
 
 template<typename MessageType, typename F>
 concept IsNotificationCallback = message::HasParams<MessageType> &&
@@ -58,13 +60,13 @@ template<typename MessageType>
 struct FutureResponse{
 	using ResultFuture = std::future<typename MessageType::Result>;
 
-	FutureResponse(jsonrpc::MessageId _messageId, ResultFuture _result)
+	FutureResponse(MessageId _messageId, ResultFuture _result)
 		: messageId{std::move(_messageId)},
 		  result(std::move(_result))
 	{
 	}
 
-	jsonrpc::MessageId messageId;
+	MessageId messageId;
 	ResultFuture       result;
 };
 
@@ -75,10 +77,10 @@ struct FutureResponse{
  * Callbacks for the different message types can be registered using the 'add' method.
  * To avoid copying too much data, request parameters are passed as an rvalue reference.
  * A callback is any callable object that matches the return and parameter types of the message.
- * The first parameter of all request callbacks should be the id 'const jsonrpc::MessageId&'. Notification callbacks don't have an id parameter and don't return a value.
+ * The first parameter of all request callbacks should be the id 'const MessageId&'. Notification callbacks don't have an id parameter and don't return a value.
  * Here's a callback for the Initialize request:
  *
- * messageHandler.add<lsp::requests::Initialize>([](const jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
+ * messageHandler.add<lsp::requests::Initialize>([](const MessageId& id, lsp::requests::Initialize::Params&& params)
  * {
  *    lsp::requests::Initialize::Result result;
  *    // Initialize the result and return it or throw an lsp::RequestError if there was a problem
@@ -88,7 +90,7 @@ struct FutureResponse{
  */
 class MessageHandler : public RequestHandlerInterface, ResponseHandlerInterface{
 public:
-	MessageHandler(Connection& connection);
+	explicit MessageHandler(Connection& connection);
 	~MessageHandler();
 
 	void processIncomingMessages();
@@ -131,13 +133,13 @@ public:
 	requires message::HasParams<MessageType> && message::HasResult<MessageType> &&
 	         std::invocable<F, typename MessageType::Result&&> &&
 	         std::invocable<E, const Error&>
-	jsonrpc::MessageId sendRequest(typename MessageType::Params&& params, F&& then, E&& error = [](const Error&){});
+	MessageId sendRequest(typename MessageType::Params&& params, F&& then, E&& error = [](const Error&){});
 
 	template<typename MessageType, typename F, typename E = void(*)(const Error&)>
 	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) &&
 	         std::invocable<F, typename MessageType::Result&&> &&
 	         std::invocable<E, const Error&>
-	jsonrpc::MessageId sendRequest(F&& then, E&& error = [](const Error&){});
+	MessageId sendRequest(F&& then, E&& error = [](const Error&){});
 
 	/*
 	 * sendNotification
@@ -163,7 +165,7 @@ private:
 	using RequestResultPtr = std::unique_ptr<RequestResultBase>;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
 	using OptionalResponse = std::optional<jsonrpc::Response>;
-	using HandlerWrapper = std::function<OptionalResponse(const jsonrpc::MessageId&, json::Any&&, bool)>;
+	using HandlerWrapper = std::function<OptionalResponse(const MessageId&, json::Any&&, bool)>;
 
 	// General
 	Connection&                                               m_connection;
@@ -173,20 +175,20 @@ private:
 	bool                                                      m_running = true;
 	std::thread                                               m_asyncResponseThread;
 	std::mutex                                                m_pendingResponsesMutex;
-	std::unordered_map<jsonrpc::MessageId, ResponseResultPtr> m_pendingResponses;
+	std::unordered_map<MessageId, ResponseResultPtr> m_pendingResponses;
 	// Outgoing requests
 	std::mutex                                                m_pendingRequestsMutex;
-	std::unordered_map<jsonrpc::MessageId, RequestResultPtr>  m_pendingRequests;
+	std::unordered_map<MessageId, RequestResultPtr>  m_pendingRequests;
 
 	void onRequest(jsonrpc::Request&& request) override;
 	void onRequestBatch(jsonrpc::RequestBatch&& batch) override;
 
 	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
 	void addHandler(MessageMethod method, HandlerWrapper&& handlerFunc);
-	void addResponseResult(const jsonrpc::MessageId& id, ResponseResultPtr result);
+	void addResponseResult(const MessageId& id, ResponseResultPtr result);
 
 	template<typename T>
-	static jsonrpc::Response createResponse(const jsonrpc::MessageId& id, T&& result)
+	static jsonrpc::Response createResponse(const MessageId& id, T&& result)
 	{
 		return jsonrpc::createResponse(id, toJson(std::forward<T>(result)));
 	}
@@ -205,20 +207,20 @@ private:
 	template<typename T>
 	class ResponseResult : public ResponseResultBase{
 	public:
-		ResponseResult(jsonrpc::MessageId id, std::future<T> future);
+		ResponseResult(MessageId id, std::future<T> future);
 
 		bool isReady() const override;
 		jsonrpc::Response createResponse() override;
 
 	private:
-		jsonrpc::MessageId m_id;
+		MessageId m_id;
 		std::future<T>     m_future;
 	};
 
 	void onResponse(jsonrpc::Response&& response) override;
 	void onResponseBatch(jsonrpc::ResponseBatch&& batch) override;
 
-	jsonrpc::MessageId sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params = std::nullopt);
+	MessageId sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params = std::nullopt);
 	void sendNotification(MessageMethod method, const std::optional<json::Any>& params = std::nullopt);
 
 	/*
@@ -292,12 +294,12 @@ private:
  */
 
 template<typename T>
-MessageHandler::ResponseResult<T>::ResponseResult(jsonrpc::MessageId id, std::future<T> future)
+MessageHandler::ResponseResult<T>::ResponseResult(MessageId id, std::future<T> future)
 	: m_id{std::move(id)}
 	, m_future{std::move(future)}
 {
 	if(!m_future.valid())
-		throw RequestError{ErrorCodes::InternalError, "Request handler returned invalid result"};
+		throw RequestError{jsonrpc::Error::InternalError, "Request handler returned invalid result"};
 }
 
 template<typename T>
@@ -328,7 +330,7 @@ jsonrpc::Response MessageHandler::ResponseResult<T>::createResponse()
 	}
 	catch(std::exception& e)
 	{
-		return jsonrpc::createErrorResponse(m_id, ErrorCodes{ErrorCodes::InternalError}, e.what());
+		return jsonrpc::createErrorResponse(m_id, jsonrpc::Error::InternalError, e.what());
 	}
 }
 
@@ -340,13 +342,13 @@ template<typename MessageType, typename F>
 requires IsRequestCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
-	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, json::Any&& json, bool allowAsync) -> OptionalResponse
+	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const MessageId& id, json::Any&& json, bool allowAsync) -> OptionalResponse
 	{
 		typename MessageType::Params params;
 		fromJson(std::move(json), params);
 
 		if constexpr(std::same_as<
-			             std::invoke_result_t<F, jsonrpc::MessageId, typename MessageType::Params>,
+			             std::invoke_result_t<F, MessageId, typename MessageType::Params>,
 			             AsyncRequestResult<MessageType>
 		             >)
 		{
@@ -375,10 +377,10 @@ template<typename MessageType, typename F>
 requires IsNoParamsRequestCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
-	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId& id, json::Any&&, bool allowAsync) -> OptionalResponse
+	addHandler(MessageType::Method, [this, f = std::forward<F>(handlerFunc)](const MessageId& id, json::Any&&, bool allowAsync) -> OptionalResponse
 	{
 		if constexpr(std::same_as<
-			             std::invoke_result_t<F, jsonrpc::MessageId>,
+			             std::invoke_result_t<F, MessageId>,
 			             AsyncRequestResult<MessageType>
 		             >)
 		{
@@ -407,7 +409,7 @@ template<typename MessageType, typename F>
 requires IsNotificationCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
-	addHandler(MessageType::Method, [f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId&, json::Any&& json, bool) -> OptionalResponse
+	addHandler(MessageType::Method, [f = std::forward<F>(handlerFunc)](const MessageId&, json::Any&& json, bool) -> OptionalResponse
 	{
 		typename MessageType::Params params;
 		fromJson(std::move(json), params);
@@ -422,7 +424,7 @@ template<typename MessageType, typename F>
 requires IsNoParamsNotificationCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
-	addHandler(MessageType::Method, [f = std::forward<F>(handlerFunc)](const jsonrpc::MessageId&, json::Any&&, bool) -> OptionalResponse
+	addHandler(MessageType::Method, [f = std::forward<F>(handlerFunc)](const MessageId&, json::Any&&, bool) -> OptionalResponse
 	{
 		f();
 		return std::nullopt;
@@ -455,7 +457,7 @@ template<typename MessageType, typename F, typename E>
 requires message::HasParams<MessageType> && message::HasResult<MessageType> &&
          std::invocable<F, typename MessageType::Result&&> &&
          std::invocable<E, const Error&>
-jsonrpc::MessageId MessageHandler::sendRequest(typename MessageType::Params&& params, F&& then, E&& error)
+MessageId MessageHandler::sendRequest(typename MessageType::Params&& params, F&& then, E&& error)
 {
 	auto result = std::make_unique<CallbackRequestResult<typename MessageType::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
 	return sendRequest(MessageType::Method, std::move(result), toJson(std::move(params)));
@@ -465,7 +467,7 @@ template<typename MessageType, typename F, typename E>
 requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) &&
          std::invocable<F, typename MessageType::Result&&> &&
          std::invocable<E, const Error&>
-jsonrpc::MessageId MessageHandler::sendRequest(F&& then, E&& error)
+MessageId MessageHandler::sendRequest(F&& then, E&& error)
 {
 	auto result = std::make_unique<CallbackRequestResult<typename MessageType::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
 	return sendRequest(MessageType::Method, std::move(result));

@@ -4,6 +4,7 @@
 
 namespace lsp{
 
+// Generated
 enum class MessageMethod;
 std::string_view messageMethodToString(MessageMethod method);
 MessageMethod messageMethodFromString(std::string_view str);
@@ -12,30 +13,14 @@ MessageMethod messageMethodFromString(std::string_view str);
  * Message
  */
 
-struct Message{
-	Message() = delete;
-	virtual ~Message() = default;
+enum class Message{
+	ClientToServerRequest,
+	ServerToClientRequest,
+	BidirectionalRequest,
+	ClientToServerNotification,
+	ServerToClientNotification,
+	BidirectionalNotification,
 };
-
-struct ClientToServerMessage : virtual Message{};
-struct ServerToClientMessage : virtual Message{};
-struct BidirectionalMessage : ClientToServerMessage, ServerToClientMessage{};
-
-/*
- * Request
- */
-
-struct ClientToServerRequest : ClientToServerMessage{};
-struct ServerToClientRequest : ServerToClientMessage{};
-struct BidirectionalRequest : ClientToServerRequest, ServerToClientRequest{};
-
-/*
- * Notification
- */
-
-struct ClientToServerNotification : ClientToServerMessage{};
-struct ServerToClientNotification : ServerToClientMessage{};
-struct BidirectionalNotification : ClientToServerNotification, ServerToClientNotification{};
 
 /*
  * Concepts

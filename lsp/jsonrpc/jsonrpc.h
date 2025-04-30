@@ -15,9 +15,9 @@ using MessageId = std::variant<json::String, json::Integer, json::Null>;
  */
 
 struct Request{
-	std::optional<MessageId> id;
+	std::optional<MessageId> id     = {};
 	std::string              method;
-	std::optional<json::Any> params;
+	std::optional<json::Any> params = {};
 
 	bool isNotification() const{ return !id.has_value(); }
 };
@@ -38,7 +38,7 @@ struct Error{
 
 	json::Integer            code;
 	json::String             message;
-	std::optional<json::Any> data;
+	std::optional<json::Any> data = {};
 };
 
 /*
@@ -46,9 +46,9 @@ struct Error{
  */
 
 struct Response{
-	MessageId                id = json::Null{};
-	std::optional<json::Any> result;
-	std::optional<Error>     error;
+	MessageId                id;
+	std::optional<json::Any> result = {};
+	std::optional<Error>     error  = {};
 };
 
 using ResponseBatch = std::vector<Response>;

@@ -1,8 +1,7 @@
-#include "jsonrpc.h"
-
 #include <cassert>
 #include <iterator>
 #include <algorithm>
+#include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp::jsonrpc{
 namespace{

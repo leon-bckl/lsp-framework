@@ -1,7 +1,6 @@
-#include "connection.h"
-
 #include <charconv>
 #include <string_view>
+#include <lsp/connection.h>
 #include <lsp/json/json.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 

@@ -41,7 +41,7 @@ int main()
    // 3: Register callbacks for incoming messages
  // Request callbacks always have the message id as the first parameter followed by the params if there are any.
    messageHandler.add<lsp::requests::Initialize>(
-      [](const lsp::jsonrpc::MessageId& id, lsp::requests::Initialize::Params&& params)
+      [](const lsp::MessageId& id, lsp::requests::Initialize::Params&& params)
       {
          // Initialize the result and return it or throw an lsp::RequestError if there was a problem
          auto result = lsp::requests::Initialize::Result{

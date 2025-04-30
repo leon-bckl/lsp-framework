@@ -1162,22 +1162,26 @@ private:
 		auto messageCppName = upperCaseIdentifier(method);
 
 		m_messagesHeaderFileContent += documentationComment(method, message.documentation) +
-		                               "struct " + messageCppName + " : ";
+		                               "struct " + messageCppName + "{\n"
+		                               "\tstatic constexpr auto Method = MessageMethod::" + messageCppName + ";\n";
+
+		std::string messageType;
 
 		switch(message.direction)
 		{
 		case Message::Direction::ClientToServer:
-			m_messagesHeaderFileContent += "ClientToServer";
+			messageType = "ClientToServer";
 			break;
 		case Message::Direction::ServerToClient:
-			m_messagesHeaderFileContent += "ServerToClient";
+			messageType = "ServerToClient";
 			break;
 		case Message::Direction::Both:
-			m_messagesHeaderFileContent += "Bidirectional";
+			messageType = "Bidirectional";
 		}
 
-		m_messagesHeaderFileContent += std::string{isNotification ? "Notification" : "Request"} + "{\n"
-		                               "\tstatic constexpr auto Method = MessageMethod::" + messageCppName + ";\n";
+		messageType += isNotification ? "Notification" : "Request";
+
+		m_messagesHeaderFileContent += "\tstatic constexpr auto Type = Message::" + messageType + ";\n";
 
 		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
 		const bool hasPartialResult = !message.partialResultTypeName.empty();
