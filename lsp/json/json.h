@@ -23,6 +23,10 @@ using Integer = std::int32_t;
 using String  = std::string;
 using Array   = std::vector<Any>;
 
+/*
+ * Errors
+ */
+
 class TypeError : public std::bad_variant_access{
 public:
 	TypeError() = default;
@@ -34,6 +38,21 @@ private:
 	std::string m_message{"Unexpected json value"};
 };
 
+class ParseError : public std::runtime_error{
+public:
+	ParseError(const std::string& message, std::size_t textPos) : std::runtime_error{message},
+	                                                              m_textPos{textPos}{}
+
+	std::size_t textPos() const noexcept{ return m_textPos; }
+
+private:
+	 std::size_t m_textPos = 0;
+};
+
+/*
+ * Object
+ */
+
 using ObjectMap = StrMap<String, Any>;
 class Object : public ObjectMap{
 public:
@@ -42,6 +61,10 @@ public:
 	Any& get(std::string_view key);
 	const Any& get(std::string_view key) const;
 };
+
+/*
+ * Any
+ */
 
 using AnyVariant = std::variant<Null, Boolean, Integer, Decimal, String, Object, Array>;
 class Any : private AnyVariant{
@@ -112,17 +135,6 @@ private:
 /*
  * parse/stringify
  */
-
-class ParseError : public std::runtime_error{
-public:
-	ParseError(const std::string& message, std::size_t textPos) : std::runtime_error{message},
-	                                                              m_textPos{textPos}{}
-
-	std::size_t textPos() const noexcept{ return m_textPos; }
-
-private:
-	 std::size_t m_textPos = 0;
-};
 
 Any         parse(std::string_view text);
 std::string stringify(const Any& json, bool format = false);

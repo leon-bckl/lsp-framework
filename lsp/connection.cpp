@@ -2,7 +2,6 @@
 #include <string_view>
 #include <lsp/connection.h>
 #include <lsp/json/json.h>
-#include <lsp/jsonrpc/jsonrpc.h>
 
 #ifndef LSP_MESSAGE_DEBUG_LOG
 	#ifdef NDEBUG
@@ -79,72 +78,82 @@ Connection::Connection(std::istream& in, std::ostream& out)
 {
 }
 
-void Connection::receiveNextMessage(RequestHandlerInterface& requestHandler, ResponseHandlerInterface& responseHandler)
+json::Any Connection::readMessage()
 {
-	std::lock_guard lock{m_readMutex};
-
-	if(m_in.peek() == std::char_traits<char>::eof())
-		throw ConnectionError{"Connection lost"};
-
-	const auto header = readMessageHeader();
-
-	std::string content;
-	content.resize(header.contentLength);
-	m_in.read(&content[0], static_cast<std::streamsize>(header.contentLength));
-
-	// Verify only after reading the entire message so no partially unread message is left in the stream
-	verifyContentType(header.contentType);
-
 	try
 	{
+		std::lock_guard lock{m_readMutex};
+
+		if(m_in.peek() == std::char_traits<char>::eof())
+			throw ConnectionError{"Connection lost"};
+
+		const auto header = readMessageHeader();
+
+		std::string content;
+		content.resize(header.contentLength);
+		m_in.read(&content[0], static_cast<std::streamsize>(header.contentLength));
+
+		// Verify only after reading the entire message so no partially unread message is left in the stream
+		verifyContentType(header.contentType);
+
 		auto json = json::parse(content);
 #if LSP_MESSAGE_DEBUG_LOG
 		debugLogMessageJson("incoming", json);
 #endif
 
-		if(json.isObject())
-		{
-			auto message = jsonrpc::messageFromJson(std::move(json.object()));
-
-			if(std::holds_alternative<jsonrpc::Request>(message))
-				requestHandler.onRequest(std::move(std::get<jsonrpc::Request>(message)));
-			else
-				responseHandler.onResponse(std::move(std::get<jsonrpc::Response>(message)));
-		}
-		else if(json.isArray())
-		{
-			auto batch = jsonrpc::messageBatchFromJson(std::move(json.array()));
-
-			if(std::holds_alternative<jsonrpc::RequestBatch>(batch))
-				requestHandler.onRequestBatch(std::move(std::get<jsonrpc::RequestBatch>(batch)));
-			else
-				responseHandler.onResponseBatch(std::move(std::get<jsonrpc::ResponseBatch>(batch)));
-		}
+		return json;
+	}
+	catch(const ConnectionError& e)
+	{
+		throw;
+	}
+	catch(const ProtocolError& e)
+	{
+		throw;
+	}
+	catch(const json::ParseError& e)
+	{
+		throw;
 	}
 	catch(const std::exception& e)
 	{
 		throw ConnectionError{e.what()};
 	}
+	catch(...)
+	{
+		throw ConnectionError{"Unknown error"};
+	}
 }
 
-void Connection::sendRequest(jsonrpc::Request&& request)
+void Connection::writeMessage(const json::Any& content)
 {
-	writeJsonMessage(jsonrpc::requestToJson(std::move(request)));
-}
-
-void Connection::sendResponse(jsonrpc::Response&& response)
-{
-	writeJsonMessage(jsonrpc::responseToJson(std::move(response)));
-}
-
-void Connection::sendRequestBatch(jsonrpc::RequestBatch&& batch)
-{
-	writeJsonMessage(jsonrpc::requestBatchToJson(std::move(batch)));
-}
-
-void Connection::sendResponseBatch(jsonrpc::ResponseBatch&& batch)
-{
-	writeJsonMessage(jsonrpc::responseBatchToJson(std::move(batch)));
+	try
+	{
+#if LSP_MESSAGE_DEBUG_LOG
+		debugLogMessageJson("outgoing", content);
+#endif
+		writeMessageData(json::stringify(content));
+	}
+	catch(const ConnectionError& e)
+	{
+		throw;
+	}
+	catch(const ProtocolError& e)
+	{
+		throw;
+	}
+	catch(const json::ParseError& e)
+	{
+		throw;
+	}
+	catch(const std::exception& e)
+	{
+		throw ConnectionError{e.what()};
+	}
+	catch(...)
+	{
+		throw ConnectionError{"Unknown error"};
+	}
 }
 
 Connection::MessageHeader Connection::readMessageHeader()
@@ -187,15 +196,7 @@ void Connection::readNextMessageHeaderField(MessageHeader& header)
 	}
 }
 
-void Connection::writeJsonMessage(const json::Any& content)
-{
-#if LSP_MESSAGE_DEBUG_LOG
-	debugLogMessageJson("outgoing", content);
-#endif
-	writeMessage(json::stringify(content));
-}
-
-void Connection::writeMessage(const std::string& content)
+void Connection::writeMessageData(const std::string& content)
 {
 	std::lock_guard lock{m_writeMutex};
 	MessageHeader header{content.size()};

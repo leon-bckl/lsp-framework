@@ -30,7 +30,7 @@ MessageHandler::MessageHandler(Connection& connection)
 					const auto  ready  = result->isReady();
 
 					if(ready)
-						m_connection.sendResponse(result->createResponse());
+						m_connection.writeMessage(jsonrpc::responseToJson(result->createResponse()));
 
 					return ready;
 				});
@@ -56,7 +56,57 @@ MessageHandler::~MessageHandler()
 
 void MessageHandler::processIncomingMessages()
 {
-	m_connection.receiveNextMessage(*this, *this);
+	auto messageJson = m_connection.readMessage();
+
+	if(messageJson.isObject())
+	{
+		auto message = jsonrpc::messageFromJson(std::move(messageJson.object()));
+
+		if(auto* request = std::get_if<jsonrpc::Request>(&message); request)
+		{
+			auto response = processRequest(std::move(*request), true);
+
+			if(response.has_value())
+				m_connection.writeMessage(jsonrpc::responseToJson(std::move(*response)));
+		}
+		else
+		{
+			auto response = std::get<jsonrpc::Response>(message);
+			processResponse(std::move(response));
+		}
+	}
+	else if(messageJson.isArray())
+	{
+		auto messageBatch = jsonrpc::messageBatchFromJson(std::move(messageJson.array()));
+
+		if(auto* requests = std::get_if<jsonrpc::RequestBatch>(&messageBatch))
+		{
+			jsonrpc::ResponseBatch responses;
+			responses.reserve(requests->size());
+
+			for(auto&& r : *requests)
+			{
+				auto response = processRequest(std::move(r), false);
+
+				if(response.has_value())
+					responses.push_back(std::move(*response));
+			}
+
+			if(!responses.empty())
+				m_connection.writeMessage(jsonrpc::responseBatchToJson(std::move(responses)));
+		}
+		else
+		{
+			auto& responses = std::get<jsonrpc::ResponseBatch>(messageBatch);
+			// This should never be called as no batches are ever sent
+			for(auto&& r : responses)
+				processResponse(std::move(r));
+		}
+	}
+	else
+	{
+		throw jsonrpc::ProtocolError{"Expected message to be a json object or array"};
+	}
 }
 
 void MessageHandler::remove(MessageMethod method)
@@ -65,31 +115,6 @@ void MessageHandler::remove(MessageMethod method)
 
 	if(idx < m_requestHandlers.size())
 		m_requestHandlers[idx] = nullptr;
-}
-
-void MessageHandler::onRequest(jsonrpc::Request&& request)
-{
-	auto response = processRequest(std::move(request), true);
-
-	if(response.has_value())
-		m_connection.sendResponse(std::move(*response));
-}
-
-void MessageHandler::onRequestBatch(jsonrpc::RequestBatch&& batch)
-{
-	jsonrpc::ResponseBatch responses;
-	responses.reserve(batch.size());
-
-	for(auto&& r : batch)
-	{
-		auto response = processRequest(std::move(r), false);
-
-		if(response.has_value())
-			responses.push_back(std::move(*response));
-	}
-
-	if(!responses.empty())
-		m_connection.sendResponseBatch(std::move(responses));
 }
 
 MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request&& request, bool allowAsync)
@@ -142,29 +167,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	return response;
 }
 
-void MessageHandler::addHandler(MessageMethod method, HandlerWrapper&& handlerFunc)
-{
-	std::lock_guard lock{m_requestHandlersMutex};
-	const auto index = static_cast<std::size_t>(method);
-
-	if(m_requestHandlers.size() <= index)
-		m_requestHandlers.resize(index + 1);
-
-	m_requestHandlers[index] = std::move(handlerFunc);
-}
-
-void MessageHandler::addResponseResult(const MessageId& id, ResponseResultPtr result)
-{
-	std::lock_guard lock{m_pendingResponsesMutex};
-	const auto it = m_pendingResponses.find(id);
-
-	if(it != m_pendingResponses.end())
-		throw RequestError{jsonrpc::Error::InvalidRequest, "Request id is not unique"};
-
-	m_pendingResponses.emplace(id, std::move(result));
-}
-
-void MessageHandler::onResponse(jsonrpc::Response&& response)
+void MessageHandler::processResponse(jsonrpc::Response&& response)
 {
 	RequestResultPtr result;
 
@@ -200,11 +203,26 @@ void MessageHandler::onResponse(jsonrpc::Response&& response)
 	}
 }
 
-void MessageHandler::onResponseBatch(jsonrpc::ResponseBatch&& batch)
+void MessageHandler::addHandler(MessageMethod method, HandlerWrapper&& handlerFunc)
 {
-	// This should never be called as no batches are ever sent
-	for(auto&& r : batch)
-		onResponse(std::move(r));
+	std::lock_guard lock{m_requestHandlersMutex};
+	const auto index = static_cast<std::size_t>(method);
+
+	if(m_requestHandlers.size() <= index)
+		m_requestHandlers.resize(index + 1);
+
+	m_requestHandlers[index] = std::move(handlerFunc);
+}
+
+void MessageHandler::addResponseResult(const MessageId& id, ResponseResultPtr result)
+{
+	std::lock_guard lock{m_pendingResponsesMutex};
+	const auto it = m_pendingResponses.find(id);
+
+	if(it != m_pendingResponses.end())
+		throw RequestError{jsonrpc::Error::InvalidRequest, "Request id is not unique"};
+
+	m_pendingResponses.emplace(id, std::move(result));
 }
 
 MessageId MessageHandler::sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params)
@@ -213,7 +231,7 @@ MessageId MessageHandler::sendRequest(MessageMethod method, RequestResultPtr res
 	auto messageId = nextUniqueRequestId();
 	m_pendingRequests[messageId] = std::move(result);
 	auto methodStr = messageMethodToString(method);
-	m_connection.sendRequest(jsonrpc::createRequest(messageId, methodStr, params));
+	m_connection.writeMessage(jsonrpc::requestToJson(jsonrpc::createRequest(messageId, methodStr, params)));
 	return messageId;
 }
 
@@ -221,7 +239,7 @@ void MessageHandler::sendNotification(MessageMethod method, const std::optional<
 {
 	const auto methodStr = messageMethodToString(method);
 	auto notification = jsonrpc::createNotification(methodStr, params);
-	m_connection.sendRequest(std::move(notification));
+	m_connection.writeMessage(jsonrpc::requestToJson(std::move(notification)));
 }
 
 } // namespace lsp

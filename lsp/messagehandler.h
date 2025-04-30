@@ -88,7 +88,7 @@ struct FutureResponse{
  *    return result;
  * });
  */
-class MessageHandler : public RequestHandlerInterface, ResponseHandlerInterface{
+class MessageHandler{
 public:
 	explicit MessageHandler(Connection& connection);
 	~MessageHandler();
@@ -180,9 +180,6 @@ private:
 	std::mutex                                                m_pendingRequestsMutex;
 	std::unordered_map<MessageId, RequestResultPtr>  m_pendingRequests;
 
-	void onRequest(jsonrpc::Request&& request) override;
-	void onRequestBatch(jsonrpc::RequestBatch&& batch) override;
-
 	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
 	void addHandler(MessageMethod method, HandlerWrapper&& handlerFunc);
 	void addResponseResult(const MessageId& id, ResponseResultPtr result);
@@ -217,9 +214,7 @@ private:
 		std::future<T>     m_future;
 	};
 
-	void onResponse(jsonrpc::Response&& response) override;
-	void onResponseBatch(jsonrpc::ResponseBatch&& batch) override;
-
+	void processResponse(jsonrpc::Response&& response);
 	MessageId sendRequest(MessageMethod method, RequestResultPtr result, const std::optional<json::Any>& params = std::nullopt);
 	void sendNotification(MessageMethod method, const std::optional<json::Any>& params = std::nullopt);
 

@@ -4,21 +4,11 @@
 #include <string>
 #include <istream>
 #include <ostream>
-#include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
-
-class RequestHandlerInterface{
-public:
-	virtual void onRequest(jsonrpc::Request&& request) = 0;
-	virtual void onRequestBatch(jsonrpc::RequestBatch&& batch) = 0;
-};
-
-class ResponseHandlerInterface{
-public:
-	virtual void onResponse(jsonrpc::Response&& response) = 0;
-	virtual void onResponseBatch(jsonrpc::ResponseBatch&& response) = 0;
-};
+namespace json{
+class Any;
+}
 
 /*
  * Connection between the server and a client.
@@ -28,11 +18,8 @@ class Connection{
 public:
 	Connection(std::istream& in, std::ostream& out);
 
-	void receiveNextMessage(RequestHandlerInterface& requestHandler, ResponseHandlerInterface& responseHandler);
-	void sendRequest(jsonrpc::Request&& request);
-	void sendResponse(jsonrpc::Response&& response);
-	void sendRequestBatch(jsonrpc::RequestBatch&& batch);
-	void sendResponseBatch(jsonrpc::ResponseBatch&& batch);
+	json::Any readMessage();
+	void writeMessage(const json::Any& content);
 
 private:
 	std::istream& m_in;
@@ -44,8 +31,7 @@ private:
 
 	MessageHeader readMessageHeader();
 	void readNextMessageHeaderField(MessageHeader& header);
-	void writeJsonMessage(const json::Any& content);
-	void writeMessage(const std::string& content);
+	void writeMessageData(const std::string& content);
 	void writeMessageHeader(const MessageHeader& header);
 };
 
