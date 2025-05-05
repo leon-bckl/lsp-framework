@@ -1,4 +1,5 @@
 #include <charconv>
+#include <algorithm>
 #include <string_view>
 #include <lsp/connection.h>
 #include <lsp/json/json.h>
