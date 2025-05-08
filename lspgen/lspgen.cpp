@@ -994,8 +994,8 @@ R"(#pragma once
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
-#include "types.h"
 #include <lsp/messagebase.h>
+#include "types.h"
 
 namespace lsp{
 
@@ -1058,32 +1058,9 @@ private:
 
 	void generateMessages()
 	{
-		// Message method enum
-
-		m_messagesHeaderFileContent = "struct MessageMethod{\n"
-		                              "\t// Requests\n\n";
-
-		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
-		{
-			auto id = upperCaseIdentifier(method);
-			m_messagesHeaderFileContent += "\tstatic constexpr auto " + id + " = std::string_view(\"" + method + "\");\n";
-		}
-
-		m_messagesHeaderFileContent += "\n\t// Notifications\n\n";
-
-		for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
-		{
-			auto id = upperCaseIdentifier(method);
-			m_messagesHeaderFileContent += "\tstatic constexpr auto " + id + " = std::string_view(\"" + method + "\");\n";
-		}
-
-		m_messagesHeaderFileContent += "};\n\n";
-
-		// Structs
-
 		const char* namespaceStr = "/*\n"
 		                           " * Request messages\n"
-		                           " */\n\n"
+		                           " */\n"
 		                           "namespace requests{\n\n";
 
 		m_messagesHeaderFileContent += namespaceStr;
@@ -1094,7 +1071,7 @@ private:
 		namespaceStr = "} // namespace requests\n\n"
 		               "/*\n"
 		               " * Notification messages\n"
-		               " */\n\n"
+		               " */\n"
 		               "namespace notifications{\n\n";
 
 
@@ -1127,8 +1104,7 @@ private:
 
 		m_messagesHeaderFileContent += documentationComment(method, message.documentation) +
 		                               "struct " + messageCppName + "{\n"
-		                               "\tstatic constexpr auto Method = MessageMethod::" + messageCppName + ";\n"
-		                               "\tstatic constexpr auto Direction = MessageDirection::" + messageDirection + ";\n"
+		                               "\tstatic constexpr auto Method = std::string_view(\"" + method + "\");\n"		                               "\tstatic constexpr auto Direction = MessageDirection::" + messageDirection + ";\n"
 		                               "\tstatic constexpr auto Type = Message::" + (isNotification ? "Notification" : "Request") + ";\n";
 
 		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
