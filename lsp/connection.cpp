@@ -3,6 +3,7 @@
 #include <string_view>
 #include <lsp/connection.h>
 #include <lsp/json/json.h>
+#include <lsp/io/stream.h>
 
 #ifndef LSP_MESSAGE_DEBUG_LOG
 	#ifdef NDEBUG
@@ -65,6 +66,61 @@ void verifyContentType(std::string_view contentType)
 } // namespace
 
 /*
+ * Connection::InputReader
+ * Wrapper around io::Stream that allows for peeking and reading single chars
+ */
+
+class Connection::InputReader{
+public:
+	InputReader(io::Stream& stream)
+		: m_stream{stream}
+	{
+	}
+
+	char peek()
+	{
+		if(!m_peek.has_value())
+			m_peek = get();
+
+		return m_peek.value();
+	}
+
+	char get()
+	{
+		if(m_peek.has_value())
+		{
+			const char c = m_peek.value();
+			m_peek.reset();
+			return c;
+		}
+
+		char c = io::Stream::Eof;
+		read(&c, 1);
+		return c;
+	}
+
+	void read(char* buffer, std::size_t size)
+	{
+		if(size > 0)
+		{
+			if(m_peek.has_value())
+			{
+				*buffer = m_peek.value();
+				m_peek.reset();
+				++buffer;
+				--size;
+			}
+
+			m_stream.read(buffer, size);
+		}
+	}
+
+private:
+	io::Stream&         m_stream;
+	std::optional<char> m_peek;
+};
+
+/*
  * Connection
  */
 
@@ -73,9 +129,8 @@ struct Connection::MessageHeader{
 	std::string contentType   = "application/vscode-jsonrpc; charset=utf-8";
 };
 
-Connection::Connection(std::istream& in, std::ostream& out)
-	: m_in{in},
-	  m_out{out}
+Connection::Connection(io::Stream& stream)
+	: m_stream{stream}
 {
 }
 
@@ -84,15 +139,16 @@ json::Any Connection::readMessage()
 	try
 	{
 		std::lock_guard lock{m_readMutex};
+		InputReader reader{m_stream};
 
-		if(m_in.peek() == std::char_traits<char>::eof())
+		if(reader.peek() == io::Stream::Eof)
 			throw ConnectionError{"Connection lost"};
 
-		const auto header = readMessageHeader();
+		const auto header = readMessageHeader(reader);
 
 		std::string content;
 		content.resize(header.contentLength);
-		m_in.read(&content[0], static_cast<std::streamsize>(header.contentLength));
+		reader.read(&content[0], static_cast<std::streamsize>(header.contentLength));
 
 		// Verify only after reading the entire message so no partially unread message is left in the stream
 		verifyContentType(header.contentType);
@@ -157,30 +213,31 @@ void Connection::writeMessage(const json::Any& content)
 	}
 }
 
-Connection::MessageHeader Connection::readMessageHeader()
+Connection::MessageHeader Connection::readMessageHeader(InputReader& reader)
 {
 	MessageHeader header;
 
-	while(m_in.peek() != '\r')
-		readNextMessageHeaderField(header);
+	while(reader.peek() != '\r')
+		readNextMessageHeaderField(header, reader);
 
-	m_in.get(); // \r
+	char newlines[4];
+	reader.read(newlines, 4);
 
-	if(m_in.peek() != '\n')
+	if(std::strncmp(newlines, "\r\n\r\n", 4) != 0)
 		throw ProtocolError{"Invalid message header format"};
-
-	m_in.get(); // \n
 
 	return header;
 }
 
-void Connection::readNextMessageHeaderField(MessageHeader& header)
+void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& reader)
 {
-	if(m_in.peek() == std::char_traits<char>::eof())
+	if(reader.peek() == std::char_traits<char>::eof())
 		throw ConnectionError{"Connection lost"};
 
 	std::string lineData;
-	std::getline(m_in, lineData); // This also consumes the newline so it's only necessary to check for one \r\n before the content
+
+	while(reader.peek() != '\r')
+		lineData.push_back(reader.get());
 
 	std::string_view line{lineData};
 	const auto separatorIdx = line.find(':');
@@ -201,15 +258,13 @@ void Connection::writeMessageData(const std::string& content)
 {
 	std::lock_guard lock{m_writeMutex};
 	MessageHeader header{content.size()};
-	writeMessageHeader(header);
-	m_out.write(content.data(), static_cast<std::streamsize>(content.size()));
-	m_out.flush();
+	const auto messageStr = messageHeaderString(header) + content;
+	m_stream.write(messageStr.data(), static_cast<std::streamsize>(messageStr.size()));
 }
 
-void Connection::writeMessageHeader(const MessageHeader& header)
+std::string Connection::messageHeaderString(const MessageHeader& header)
 {
-	const auto headerStr = "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
-	m_out.write(headerStr.data(), static_cast<std::streamsize>(headerStr.length()));
+	return "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
 }
 
 } // namespace lsp

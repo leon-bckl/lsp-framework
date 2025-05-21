@@ -41,6 +41,7 @@ set(LSP_HEADERS
 	strmap.h
 	# io
 	io/standardio.h
+	io/stream.h
 	# json
 	json/json.h
 	# jsonrpc

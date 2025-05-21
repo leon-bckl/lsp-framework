@@ -1,11 +1,9 @@
 #pragma once
 
-#include <istream>
-#include <ostream>
+#include <lsp/io/stream.h>
 
 namespace lsp::io{
 
-std::istream& standardInput();
-std::ostream& standardOutput();
+Stream& standardIO();
 
 } //namespace lsp::io

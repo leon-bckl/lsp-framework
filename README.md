@@ -15,7 +15,7 @@ All messages can be found in the generated `<lsp/messages.h>` header with reques
 
 ### Basic Setup
 
-1. **Establish a Connection**: Use the `Connection` class to handle communication via `std::istream` and `std::ostream`. You can pass in `std::cin`/`std::cout` or a custom implementation (e.g. sockets).
+1. **Establish a Connection**: Use the `Connection` class to handle communication via `io::Stream`. You can pass in `io::standardIO()` or a custom implementation (e.g. sockets).
 2. **Create a MessageHandler**: The `MessageHandler` class combines message receiving and sending and provides a method to listen for new messages.
 3. **Register Callbacks**: Use `MessageHandler::add` to register callbacks for incoming requests and notifications. Request callbacks return a result which is sent back as a response.
 4. **Send Requests and Notifications**: Use `MessageHandler::sendRequest` and `MessageHandler::sendNotification` to send outgoing requests and notifications.
@@ -31,7 +31,7 @@ All messages can be found in the generated `<lsp/messages.h>` header with reques
 int main()
 {
    // 1: Establish a connection using standard input/output
-   lsp::Connection connection{lsp::io::standardInput(), lsp::io::standardOutput()};
+   lsp::Connection connection{lsp::io::standardIO()};
    
    // 2: Create a MessageHandler with the connection
    lsp::MessageHandler messageHandler{connection};

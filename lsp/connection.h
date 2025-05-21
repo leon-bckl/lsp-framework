@@ -2,37 +2,39 @@
 
 #include <mutex>
 #include <string>
-#include <istream>
-#include <ostream>
 
 namespace lsp{
 namespace json{
 class Any;
 }
 
+namespace io{
+class Stream;
+}
+
 /*
  * Connection between the server and a client.
- * I/O happens via std::istream and std::ostream so the underlying implementation can be anything from stdio to sockets
+ * I/O happens via lsp::io::Stream so the underlying implementation can be anything from stdio to sockets
  */
 class Connection{
 public:
-	Connection(std::istream& in, std::ostream& out);
+	Connection(io::Stream& stream);
 
 	json::Any readMessage();
 	void writeMessage(const json::Any& content);
 
 private:
-	std::istream& m_in;
-	std::ostream& m_out;
-	std::mutex    m_readMutex;
-	std::mutex    m_writeMutex;
+	io::Stream& m_stream;
+	std::mutex  m_readMutex;
+	std::mutex  m_writeMutex;
 
 	struct MessageHeader;
+	class InputReader;
 
-	MessageHeader readMessageHeader();
-	void readNextMessageHeaderField(MessageHeader& header);
+	MessageHeader readMessageHeader(InputReader& reader);
+	void readNextMessageHeaderField(MessageHeader& header, InputReader& reader);
 	void writeMessageData(const std::string& content);
-	void writeMessageHeader(const MessageHeader& header);
+	std::string messageHeaderString(const MessageHeader& header);
 };
 
 /*
