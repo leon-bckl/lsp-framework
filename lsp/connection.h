@@ -2,6 +2,7 @@
 
 #include <mutex>
 #include <string>
+#include <stdexcept>
 
 namespace lsp{
 namespace json{

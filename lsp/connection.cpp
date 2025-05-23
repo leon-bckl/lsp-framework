@@ -1,5 +1,6 @@
+#include <cstring>
 #include <charconv>
-#include <algorithm>
+#include <optional>
 #include <string_view>
 #include <lsp/connection.h>
 #include <lsp/json/json.h>
@@ -42,8 +43,12 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 
 std::string_view trimStringView(std::string_view str)
 {
-	str.remove_prefix(std::distance(str.begin(), std::find_if(str.begin(), str.end(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); })));
-	str.remove_suffix(std::distance(str.rbegin(), std::find_if(str.rbegin(), str.rend(), [](char c){ return !std::isspace(static_cast<unsigned char>(c)); })));
+	while(!str.empty() && std::isspace(static_cast<unsigned char>(str.front())))
+		str.remove_prefix(1);
+
+	while(!str.empty() && std::isspace(static_cast<unsigned char>(str.back())))
+		str.remove_suffix(1);
+
 	return str;
 }
 
@@ -196,10 +201,6 @@ void Connection::writeMessage(const json::Any& content)
 		throw;
 	}
 	catch(const ProtocolError& e)
-	{
-		throw;
-	}
-	catch(const json::ParseError& e)
 	{
 		throw;
 	}
