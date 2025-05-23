@@ -38,6 +38,7 @@ set(LSP_HEADERS
 	messagebase.h
 	messagehandler.h
 	nullable.h
+	process.h
 	serialization.h
 	strmap.h
 	# io
@@ -55,6 +56,7 @@ set(LSP_SOURCES
 	connection.cpp
 	messagehandler.cpp
 	fileuri.cpp
+	process.cpp
 	# io
 	io/standardio.cpp
 	# json

@@ -94,6 +94,16 @@ auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnost
 	});
 ```
 
+### Starting a Server Process
+
+When implementing a lsp client it usually is responsible for creating the server process. This can be done with the `lsp::Process` class. It has a member `stdIO` which can be used to initialize a connection via the standard input and output of the process.
+
+```cpp
+auto process    = lsp::Process("/usr/bin/clangd", {/*args*/});
+auto connection = lsp::Connection(process.stdIO());
+...
+```
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
