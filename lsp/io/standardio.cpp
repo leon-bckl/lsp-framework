@@ -2,7 +2,9 @@
 #include <io.h>
 #include <fcntl.h>
 #endif
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <lsp/io/standardio.h>
 
 namespace lsp::io{
@@ -21,13 +23,13 @@ public:
 	void read(char* buffer, std::size_t size) override
 	{
 		if(std::fread(buffer, size, 1, stdin) < 1 && std::ferror(stdin) != 0)
-			throw Error(strerror(errno));
+			throw Error(std::strerror(errno));
 	}
 
 	void write(const char* buffer, std::size_t size) override
 	{
 		if(std::fwrite(buffer, size, 1, stdout) < 1)
-			throw Error(strerror(errno));
+			throw Error(std::strerror(errno));
 
 		std::fflush(stdout);
 	}

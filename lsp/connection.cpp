@@ -165,15 +165,15 @@ json::Any Connection::readMessage()
 
 		return json;
 	}
-	catch(const ConnectionError& e)
+	catch(const ConnectionError&)
 	{
 		throw;
 	}
-	catch(const ProtocolError& e)
+	catch(const ProtocolError&)
 	{
 		throw;
 	}
-	catch(const json::ParseError& e)
+	catch(const json::ParseError&)
 	{
 		throw;
 	}
@@ -196,11 +196,11 @@ void Connection::writeMessage(const json::Any& content)
 #endif
 		writeMessageData(json::stringify(content));
 	}
-	catch(const ConnectionError& e)
+	catch(const ConnectionError&)
 	{
 		throw;
 	}
-	catch(const ProtocolError& e)
+	catch(const ProtocolError&)
 	{
 		throw;
 	}

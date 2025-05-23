@@ -6,3 +6,4 @@
 -I.
 -I./build/generated
 -I../build/lsp-framework/generated
+-D_CRT_SECURE_NO_WARNINGS

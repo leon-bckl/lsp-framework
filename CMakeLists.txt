@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 else()
 	add_compile_options(-Wall -Wextra -pedantic)
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string>
 #include <cstddef>
 #include <stdexcept>
 
@@ -23,7 +22,7 @@ class Stream{
 public:
 	Stream& operator=(const Stream&) = delete;
 
-	static constexpr char Eof = std::char_traits<char>::eof();
+	static constexpr auto Eof = static_cast<char>(0xff);
 
 	virtual void read(char* buffer, std::size_t size) = 0;
 	virtual void write(const char* buffer, std::size_t size) = 0;
