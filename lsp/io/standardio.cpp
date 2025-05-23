@@ -20,12 +20,15 @@ public:
 
 	void read(char* buffer, std::size_t size) override
 	{
-		std::fread(buffer, size, 1, stdin);
+		if(std::fread(buffer, size, 1, stdin) < 1 && std::ferror(stdin) != 0)
+			throw Error(strerror(errno));
 	}
 
 	void write(const char* buffer, std::size_t size) override
 	{
-		std::fwrite(buffer, size, 1, stdout);
+		if(std::fwrite(buffer, size, 1, stdout) < 1)
+			throw Error(strerror(errno));
+
 		std::fflush(stdout);
 	}
 };

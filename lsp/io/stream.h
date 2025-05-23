@@ -2,8 +2,22 @@
 
 #include <string>
 #include <cstddef>
+#include <stdexcept>
 
 namespace lsp::io{
+
+/*
+ * Error
+ */
+
+class Error : public std::runtime_error{
+public:
+	using std::runtime_error::runtime_error;
+};
+
+/*
+ * Stream
+ */
 
 class Stream{
 public:
