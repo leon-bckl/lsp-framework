@@ -2,13 +2,13 @@
 
 #include <mutex>
 #include <future>
-#include <thread>
 #include <utility>
 #include <concepts>
 #include <functional>
 #include <lsp/error.h>
 #include <lsp/strmap.h>
 #include <lsp/connection.h>
+#include <lsp/threadpool.h>
 #include <lsp/messagebase.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 
@@ -121,8 +121,8 @@ struct FutureResponse{
  */
 class MessageHandler{
 public:
-	explicit MessageHandler(Connection& connection);
-	~MessageHandler();
+	explicit MessageHandler(Connection& connection, unsigned int maxResponseThreads = std::thread::hardware_concurrency() / 2);
+	~MessageHandler() = default;
 
 	void processIncomingMessages();
 
@@ -203,17 +203,10 @@ private:
 	// Incoming requests
 	StrMap<std::string, HandlerWrapper>              m_requestHandlersByMethod;
 	std::mutex                                       m_requestHandlersMutex;
-	bool                                             m_running = true;
-	std::thread                                      m_asyncResponseThread;
-	std::mutex                                       m_pendingResponsesMutex;
-	std::unordered_map<MessageId, ResponseResultPtr> m_pendingResponses;
+	ThreadPool                                       m_threadPool;
 	// Outgoing requests
 	std::mutex                                       m_pendingRequestsMutex;
 	std::unordered_map<MessageId, RequestResultPtr>  m_pendingRequests;
-
-	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
-	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
-	void addResponseResult(const MessageId& id, ResponseResultPtr result);
 
 	template<typename T>
 	static jsonrpc::Response createResponse(const MessageId& id, T&& result)
@@ -221,30 +214,26 @@ private:
 		return jsonrpc::createResponse(id, toJson(std::forward<T>(result)));
 	}
 
-	/*
-	 * Response result wrapper
-	 */
+	template<typename MessageType>
+	jsonrpc::Response createResponseFromAsyncResult(MessageId&& id, AsyncRequestResult<MessageType>& result)
+	{
+		try
+		{
+			return MessageHandler::createResponse(std::move(id), result.get());
+		}
+		catch(const RequestError& e)
+		{
+			return jsonrpc::createErrorResponse(std::move(id), e.code(), e.what());
+		}
+		catch(std::exception& e)
+		{
+			return jsonrpc::createErrorResponse(std::move(id), jsonrpc::Error::InternalError, e.what());
+		}
+	}
 
-	class ResponseResultBase{
-	public:
-		virtual ~ResponseResultBase() = default;
-		virtual bool isReady() const = 0;
-		virtual jsonrpc::Response createResponse() = 0;
-	};
-
-	template<typename T>
-	class ResponseResult : public ResponseResultBase{
-	public:
-		ResponseResult(MessageId id, std::future<T> future);
-
-		bool isReady() const override;
-		jsonrpc::Response createResponse() override;
-
-	private:
-		MessageId      m_id;
-		std::future<T> m_future;
-	};
-
+	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
+	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
+	void sendResponse(jsonrpc::Response&& response);
 	void processResponse(jsonrpc::Response&& response);
 	MessageId sendRequest(std::string_view method, RequestResultPtr result, const std::optional<json::Any>& params = std::nullopt);
 	void sendNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);

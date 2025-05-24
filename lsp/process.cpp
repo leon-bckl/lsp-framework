@@ -313,6 +313,7 @@ struct Process::Impl final : public io::Stream{
 		m_stdoutHandle = nullptr;
 	}
 
+	[[nodiscard]]
 	bool checkRunning()
 	{
 		if(!m_processInfo.hProcess)

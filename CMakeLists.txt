@@ -41,6 +41,7 @@ set(LSP_HEADERS
 	process.h
 	serialization.h
 	strmap.h
+	threadpool.h
 	# io
 	io/standardio.h
 	io/stream.h
@@ -57,6 +58,7 @@ set(LSP_SOURCES
 	messagehandler.cpp
 	fileuri.cpp
 	process.cpp
+	threadpool.cpp
 	# io
 	io/standardio.cpp
 	# json

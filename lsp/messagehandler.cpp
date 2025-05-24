@@ -1,9 +1,7 @@
 #include <cassert>
 #define LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
 #include <lsp/error.h>
-#include <lsp/connection.h>
 #include <lsp/messagehandler.h>
-#include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
 namespace{
@@ -16,42 +14,10 @@ json::Integer nextUniqueRequestId()
 
 }
 
-MessageHandler::MessageHandler(Connection& connection)
+MessageHandler::MessageHandler(Connection& connection, unsigned int maxResponseThreads)
 	: m_connection{connection}
+	, m_threadPool(0, maxResponseThreads)
 {
-	m_asyncResponseThread = std::thread{[this](){
-		while(true)
-		{
-			std::unique_lock lock{m_pendingResponsesMutex};
-			std::erase_if(m_pendingResponses,
-				[this](const auto& p)
-				{
-					const auto& result = p.second;
-					const auto  ready  = result->isReady();
-
-					if(ready)
-						m_connection.writeMessage(jsonrpc::responseToJson(result->createResponse()));
-
-					return ready;
-				});
-
-			if(!m_running)
-				break;
-
-			lock.unlock();
-			std::this_thread::sleep_for(std::chrono::milliseconds{100}); // TODO: Do this in a better way
-		}
-	}};
-}
-
-MessageHandler::~MessageHandler()
-{
-	{
-		std::lock_guard lock{m_pendingResponsesMutex};
-		m_running = false;
-	}
-
-	m_asyncResponseThread.join();
 }
 
 void MessageHandler::processIncomingMessages()
@@ -71,7 +37,7 @@ void MessageHandler::processIncomingMessages()
 		}
 		else
 		{
-			auto response = std::get<jsonrpc::Response>(message);
+			auto& response = std::get<jsonrpc::Response>(message);
 			processResponse(std::move(response));
 		}
 	}
@@ -214,15 +180,9 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
-void MessageHandler::addResponseResult(const MessageId& id, ResponseResultPtr result)
+void MessageHandler::sendResponse(jsonrpc::Response&& response)
 {
-	std::lock_guard lock{m_pendingResponsesMutex};
-	const auto it = m_pendingResponses.find(id);
-
-	if(it != m_pendingResponses.end())
-		throw RequestError{jsonrpc::Error::InvalidRequest, "Request id is not unique"};
-
-	m_pendingResponses.emplace(id, std::move(result));
+	m_connection.writeMessage(jsonrpc::responseToJson(std::move(response)));
 }
 
 MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, const std::optional<json::Any>& params)

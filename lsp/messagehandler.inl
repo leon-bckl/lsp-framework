@@ -5,51 +5,6 @@
 namespace lsp{
 
 /*
- * RequestHandler::ResponseResult
- */
-
-template<typename T>
-MessageHandler::ResponseResult<T>::ResponseResult(MessageId id, std::future<T> future)
-	: m_id{std::move(id)}
-	, m_future{std::move(future)}
-{
-	if(!m_future.valid())
-		throw RequestError{jsonrpc::Error::InternalError, "Request handler returned invalid result"};
-}
-
-template<typename T>
-bool MessageHandler::ResponseResult<T>::isReady() const
-{
-	const auto status = m_future.wait_for(std::chrono::seconds{0});
-
-	if(status == std::future_status::deferred)
-	{
-		m_future.wait();
-		return true;
-	}
-
-	return status == std::future_status::ready;
-}
-
-template<typename T>
-jsonrpc::Response MessageHandler::ResponseResult<T>::createResponse()
-{
-	assert(isReady());
-	try
-	{
-		return MessageHandler::createResponse(m_id, m_future.get());
-	}
-	catch(const RequestError& e)
-	{
-		return jsonrpc::createErrorResponse(m_id, e.code(), e.what());
-	}
-	catch(std::exception& e)
-	{
-		return jsonrpc::createErrorResponse(m_id, jsonrpc::Error::InternalError, e.what());
-	}
-}
-
-/*
  * RequestHandler::add
  */
 
@@ -68,15 +23,20 @@ MessageHandler& MessageHandler::add(F&& handlerFunc)
 			             AsyncRequestResult<MessageType>
 		             >)
 		{
-			auto result = f(id, std::move(params));
+			auto future = f(id, std::move(params));
 
 			if(allowAsync)
 			{
-				addResponseResult(id, std::make_unique<ResponseResult<typename MessageType::Result>>(id, std::move(result)));
+				m_threadPool.addTask([this, id = id](AsyncRequestResult<MessageType>&& result) mutable
+				{
+					auto response = createResponseFromAsyncResult<MessageType>(std::move(id), result);
+					sendResponse(std::move(response));
+				}, std::move(future));
+
 				return std::nullopt;
 			}
 
-			return createResponse(id, result.get());
+			return createResponse(id, future.get());
 		}
 		else
 		{
@@ -101,15 +61,20 @@ MessageHandler& MessageHandler::add(F&& handlerFunc)
 			             AsyncRequestResult<MessageType>
 		             >)
 		{
-			auto result = f(id);
+			auto future = f(id);
 
 			if(allowAsync)
 			{
-				addResponseResult(id, std::make_unique<ResponseResult<typename MessageType::Result>>(std::move(result)));
+				m_threadPool.addTask([this, id = id, result = std::move(future)]() mutable
+				{
+					auto response = createResponseFromAsyncResult<MessageType>(std::move(id), result);
+					sendResponse(std::move(response));
+				});
+
 				return std::nullopt;
 			}
 
-			return createResponse(id, result.get());
+			return createResponse(id, future.get());
 		}
 		else
 		{
