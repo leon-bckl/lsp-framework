@@ -53,8 +53,19 @@ int main()
                 .positionEncoding = lsp::PositionEncodingKind::UTF16
             }
          };
-         // Alternatively do processing asynchronously and return a std::future here
          return result;
+      })
+      .add<lsp::requests::TextDocument_Hover>([](const lsp::MessageId& id, lsp::requests::TextDocument_Hover::Params&& params)
+      {
+          // ASync example
+          // Simply return a std::future<MessageType::Result> instead of a plain MessageType::Result to have the response processed asynchronously.
+          // The future can be deferred as shown below and is executed by a worker thread in the message handler.
+          return std::async(std::launch::deferred, [](lsp::requests::TextDocument_Hover::Params&& params)
+          {
+              auto result = lsp::TextDocument_HoverResult{};
+              // init hover result here
+              return result;
+          }, std::move(params));
       })
       // Notifications don't have an id parameter because no response is sent back for them.
       .add<lsp::notifications::Exit>([&running]()

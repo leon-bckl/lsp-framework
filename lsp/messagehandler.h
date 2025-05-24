@@ -97,8 +97,8 @@ struct FutureResponse{
 	{
 	}
 
-	MessageId messageId;
-	ResultFuture       result;
+	MessageId    messageId;
+	ResultFuture result;
 };
 
 /**
