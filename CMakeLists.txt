@@ -80,7 +80,7 @@ set(LSP_GENERATED_SOURCES
 	${LSP_GENERATED_FILES_DIR}/lsp/types.cpp
 )
 
-set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/lspmetamodel.json)
+set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel.json)
 
 add_custom_command(
 	COMMAND lspgen ${LSP_METAMODEL_JSON}
