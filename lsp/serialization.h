@@ -132,6 +132,7 @@ inline json::Any toJson(unsigned long long i)
 inline json::Any toJson(float i){ return i; }
 inline json::Any toJson(double i){ return i; }
 inline json::Any toJson(std::string&& v){ return std::move(v); }
+inline json::Any toJson(const std::string& v){ return json::String{v}; }
 inline json::Any toJson(std::string_view v){ return json::String{v}; }
 inline json::Any toJson(const FileURI& uri){ return uri.toString(); }
 inline json::Any toJson(json::Any&& v){ return std::move(v); }

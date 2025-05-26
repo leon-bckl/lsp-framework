@@ -1311,7 +1311,7 @@ private:
 			                            "}\n\n";
 			m_typesBoilerPlateSourceFileContent += toJson + "\n"
 			                                       "{\n" +
-																	           "\treturn toJson(" + baseType.data + "{value.value()});\n}\n\n" +
+																	           "\treturn toJson(value.value());\n}\n\n" +
 																	           fromJson + "\n"
 																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
@@ -1323,7 +1323,7 @@ private:
 		{
 			m_typesBoilerPlateSourceFileContent += toJson + "\n"
 			                                       "{\n"
-																	           "\treturn toJson(" + baseType.data + "{" + enumValuesVarName + "[static_cast<int>(value)]});\n}\n\n" +
+																	           "\treturn toJson(" + enumValuesVarName + "[static_cast<int>(value)]);\n}\n\n" +
 																	           fromJson + "\n"
 																	           "{\n"
 																	           "\t" + baseType.data + " jsonVal;\n"
