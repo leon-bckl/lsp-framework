@@ -124,7 +124,8 @@ public:
 	~MessageHandler() = default;
 
 	void processIncomingMessages();
-	// Only valid when called from within a request handler. Will throw a std::logic_error otherwise.
+	// Only valid when called from within a request or response callback.
+	// Throws std::logic_error if not called in that context.
 	[[nodiscard]] static const MessageId& currentRequestId();
 
 	/*

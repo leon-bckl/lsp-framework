@@ -6,7 +6,7 @@
 namespace lsp{
 namespace{
 
-thread_local MessageId* g_currentRequestId = nullptr;
+thread_local MessageId* g_currentRequestId  = nullptr;
 
 json::Integer nextUniqueRequestId()
 {
@@ -81,7 +81,7 @@ const MessageId& MessageHandler::currentRequestId()
 {
 	assert(g_currentRequestId);
 	if(!g_currentRequestId)
-		throw std::logic_error("MessageHandler::currentRequestId called outside of a request handler");
+		throw std::logic_error("MessageHandler::currentRequestId called outside of a request context");
 
 	return *g_currentRequestId;
 }
@@ -102,6 +102,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
+		assert(!g_currentRequestId);
 		if(request.id.has_value())
 			g_currentRequestId = &request.id.value();
 
@@ -175,16 +176,29 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 	if(!result) // If there's no result it means a response was received without a request which makes no sense but just ignore it...
 		return;
 
-	if(response.result.has_value())
+	try
 	{
-		result->setValueFromJson(std::move(*response.result));
+		assert(!g_currentRequestId);
+		g_currentRequestId = &response.id;
+
+		if(response.result.has_value())
+		{
+			result->setValueFromJson(std::move(*response.result));
+		}
+		else // Error response received. Create an exception.
+		{
+			assert(response.error.has_value());
+			const auto& error = *response.error;
+			result->setException(std::make_exception_ptr(ResponseError{error.code, error.message, error.data}));
+		}
 	}
-	else // Error response received. Create an exception.
+	catch(...)
 	{
-		assert(response.error.has_value());
-		const auto& error = *response.error;
-		result->setException(std::make_exception_ptr(ResponseError{error.code, error.message, error.data}));
+		g_currentRequestId = nullptr;
+		throw;
 	}
+
+	g_currentRequestId = nullptr;
 }
 
 void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handlerFunc)

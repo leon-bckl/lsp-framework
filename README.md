@@ -125,8 +125,7 @@ auto [id, result] = messageHandler.sendRequest
     <lsp::requests::TextDocument_Diagnostic>(std::move(params));
 ```
 
-The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callbacks an `lsp::ResponseError` containing the error code and message from the response. Uncaught exceptions inside of the callbacks will abort the connection.
-
+The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callbacks an `lsp::ResponseError` containing the error code and message from the response.
 
 ```cpp
 auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
@@ -139,6 +138,8 @@ auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnost
         // Called in the error case
     });
 ```
+
+`lsp::MessageHandler::currentRequestId` can be called from inside such a callback to obtain the id of the request.
 
 ### Sending Notifications
 
