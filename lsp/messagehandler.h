@@ -125,7 +125,7 @@ public:
 
 	void processIncomingMessages();
 	// Only valid when called from within a request handler. Will throw a std::logic_error otherwise.
-	[[nodiscard]] const MessageId& currentRequestId() const;
+	[[nodiscard]] static const MessageId& currentRequestId();
 
 	/*
 	 * Callback registration
@@ -203,7 +203,6 @@ private:
 	Connection&                                      m_connection;
 	ThreadPool                                       m_threadPool;
 	// Incoming requests
-	MessageId*                                       m_currentRequestId = nullptr;
 	StrMap<std::string, HandlerWrapper>              m_requestHandlersByMethod;
 	std::mutex                                       m_requestHandlersMutex;
 	// Outgoing requests

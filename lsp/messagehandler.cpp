@@ -6,6 +6,8 @@
 namespace lsp{
 namespace{
 
+thread_local MessageId* g_currentRequestId = nullptr;
+
 json::Integer nextUniqueRequestId()
 {
 	static std::atomic<json::Integer> g_uniqueRequestId = 0;
@@ -75,13 +77,13 @@ void MessageHandler::processIncomingMessages()
 	}
 }
 
-const MessageId& MessageHandler::currentRequestId() const
+const MessageId& MessageHandler::currentRequestId()
 {
-	assert(m_currentRequestId);
-	if(!m_currentRequestId)
+	assert(g_currentRequestId);
+	if(!g_currentRequestId)
 		throw std::logic_error("MessageHandler::currentRequestId called outside of a request handler");
 
-	return *m_currentRequestId;
+	return *g_currentRequestId;
 }
 
 void MessageHandler::remove(std::string_view method)
@@ -101,7 +103,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
 		if(request.id.has_value())
-			m_currentRequestId = &request.id.value();
+			g_currentRequestId = &request.id.value();
 
 		try
 		{
@@ -138,11 +140,11 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 		}
 		catch(...)
 		{
-			m_currentRequestId = nullptr;
+			g_currentRequestId = nullptr;
 			throw;
 		}
 
-		m_currentRequestId = nullptr;
+		g_currentRequestId = nullptr;
 	}
 	else
 	{
