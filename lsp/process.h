@@ -14,21 +14,20 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <lsp/exception.h>
 
 namespace lsp{
 namespace io{
-
 class Stream;
-
 } // namespace io
 
 /*
- * Error
+ * Exception thrown when a process failed to start
  */
 
-class ProcessError : public std::runtime_error{
+class ProcessError : public Exception{
 public:
-	using std::runtime_error::runtime_error;
+	using Exception::Exception;
 };
 
 /*

@@ -221,7 +221,7 @@ private:
 	{
 		try
 		{
-			return MessageHandler::createResponse(id, result.get());
+			return createResponse(id, result.get());
 		}
 		catch(const RequestError& e)
 		{

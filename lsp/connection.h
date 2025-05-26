@@ -2,16 +2,16 @@
 
 #include <mutex>
 #include <string>
-#include <stdexcept>
+#include <lsp/exception.h>
 
 namespace lsp{
 namespace json{
 class Any;
-}
+} // namespace json
 
 namespace io{
 class Stream;
-}
+} // namespace io
 
 /*
  * Connection between the server and a client.
@@ -41,17 +41,9 @@ private:
 /*
  * Error thrown when then connection to a client is unexpectedly lost
  */
-class ConnectionError : public std::runtime_error{
+class ConnectionError : public Exception{
 public:
-	using std::runtime_error::runtime_error;
-};
-
-/*
- * Error thrown when there was a problem parsing the incoming message
- */
-class ProtocolError : public std::runtime_error{
-public:
-	using std::runtime_error::runtime_error;
+	using Exception::Exception;
 };
 
 } // namespace lsp

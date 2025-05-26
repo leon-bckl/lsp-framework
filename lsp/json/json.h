@@ -4,9 +4,9 @@
 #include <vector>
 #include <cstdint>
 #include <variant>
-#include <stdexcept>
 #include <string_view>
 #include <lsp/strmap.h>
+#include <lsp/exception.h>
 
 namespace lsp::json{
 
@@ -27,21 +27,16 @@ using Array   = std::vector<Any>;
  * Errors
  */
 
-class TypeError : public std::bad_variant_access{
+class TypeError : public Exception{
 public:
-	TypeError() = default;
-	TypeError(std::string message) : m_message{std::move(message)}{}
-
-	const char* what() const noexcept override{ return m_message.c_str(); }
-
-private:
-	std::string m_message{"Unexpected json value"};
+	TypeError(const std::string& message = "Unexpected json value") : Exception{message}{}
 };
 
-class ParseError : public std::runtime_error{
+class ParseError : public Exception{
 public:
-	ParseError(const std::string& message, std::size_t textPos) : std::runtime_error{message},
-	                                                              m_textPos{textPos}{}
+	ParseError(const std::string& message, std::size_t textPos)
+		: Exception{message}
+	  , m_textPos{textPos}{}
 
 	std::size_t textPos() const noexcept{ return m_textPos; }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstddef>
-#include <stdexcept>
+#include <lsp/exception.h>
 
 namespace lsp::io{
 
@@ -9,9 +9,9 @@ namespace lsp::io{
  * Error
  */
 
-class Error : public std::runtime_error{
+class Error : public lsp::Exception{
 public:
-	using std::runtime_error::runtime_error;
+	using lsp::Exception::Exception;
 };
 
 /*

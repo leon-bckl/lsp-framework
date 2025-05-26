@@ -4,6 +4,7 @@
 #include <vector>
 #include <variant>
 #include <optional>
+#include <lsp/exception.h>
 #include <lsp/json/json.h>
 
 namespace lsp::jsonrpc{
@@ -58,9 +59,9 @@ using SingleResponseOrBatch = std::variant<Response, ResponseBatch>;
  * Error thrown when a message has an invalid structure
  */
 
-class ProtocolError : public std::runtime_error{
+class ProtocolError : public Exception{
 public:
-	using std::runtime_error::runtime_error;
+	using Exception::Exception;
 };
 
 /*

@@ -246,7 +246,7 @@ struct Process::Impl final : public io::Stream{
 		const auto len = MultiByteToWideChar(CP_UTF8, 0, cmdLine.data(), static_cast<int>(cmdLine.size()), wCmdLine.data(), static_cast<int>(wCmdLine.size()));
 
 		if(len < 0)
-			throw ProcessError("Unable to convert process command line");
+			throw ProcessError("Failed to convert process command line");
 
 		wCmdLine.resize(static_cast<std::size_t>(len));
 

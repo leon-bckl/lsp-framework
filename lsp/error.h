@@ -1,7 +1,7 @@
 #pragma once
 
 #include <optional>
-#include <stdexcept>
+#include <lsp/exception.h>
 #include <lsp/json/json.h>
 
 #ifndef LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
@@ -17,14 +17,14 @@ class LSPErrorCodes;
 /*
  * Generic base for request or response errors
  */
-class Error : public std::runtime_error{
+class Error : public Exception{
 public:
 	json::Integer code() const{ return m_code; }
 	const std::optional<json::Any>& data() const{ return m_data; }
 
 protected:
 	Error(json::Integer code, const std::string& message, std::optional<json::Any> data = {})
-		: std::runtime_error{message},
+		: Exception{message},
 		  m_code{code},
 		  m_data{std::move(data)}
 	{

@@ -55,7 +55,7 @@ std::string_view trimStringView(std::string_view str)
 void verifyContentType(std::string_view contentType)
 {
 	if(!contentType.starts_with("application/vscode-jsonrpc"))
-		throw ProtocolError{"Unsupported or invalid content type: " + std::string(contentType)};
+		throw ConnectionError{"Protocol: Unsupported or invalid content type: " + std::string(contentType)};
 
 	constexpr std::string_view charsetKey{"charset="};
 	if(const auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
@@ -64,7 +64,7 @@ void verifyContentType(std::string_view contentType)
 		charset = trimStringView(charset.substr(0, charset.find(';')));
 
 		if(charset != "utf-8" && charset != "utf8")
-			throw ProtocolError{"Unsupported or invalid character encoding: " + std::string{charset}};
+			throw ConnectionError{"Protocol: Unsupported or invalid character encoding: " + std::string{charset}};
 	}
 }
 
@@ -169,10 +169,6 @@ json::Any Connection::readMessage()
 	{
 		throw;
 	}
-	catch(const ProtocolError&)
-	{
-		throw;
-	}
 	catch(const json::ParseError&)
 	{
 		throw;
@@ -200,10 +196,6 @@ void Connection::writeMessage(const json::Any& content)
 	{
 		throw;
 	}
-	catch(const ProtocolError&)
-	{
-		throw;
-	}
 	catch(const std::exception& e)
 	{
 		throw ConnectionError{e.what()};
@@ -225,7 +217,7 @@ Connection::MessageHeader Connection::readMessageHeader(InputReader& reader)
 	reader.read(newlines, 4);
 
 	if(std::strncmp(newlines, "\r\n\r\n", 4) != 0)
-		throw ProtocolError{"Invalid message header format"};
+		throw ConnectionError{"Protocol: Invalid message header format"};
 
 	return header;
 }
