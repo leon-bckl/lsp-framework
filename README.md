@@ -83,7 +83,7 @@ messageHandler.add<lsp::notifications::Exit>([](){ ... });
 
 ### Asynchronous Request Callbacks
 
-Some requests might take a longer time to process than others. In order to not stall the handling of other incoming messages, it is possible to the processing asynchronously.
+Some requests might take a longer time to process than others. In order to not stall the handling of other incoming messages, it is possible to do the processing asynchronously.
 
 Asynchronous callbacks work exactly the same as regular request callbacks with the only difference being that they return a `std::future<MessageType::Result>`. Processing happens in a worker thread inside of the message handler. Worker threads are only created if there are asynchronous request handlers. Otherwise the handler will not create any extra threads. 
 
@@ -116,16 +116,17 @@ There are two versions of this method:
 One returns a `std::future<MessageType::Result>` in addition to the message id. The future will become ready once a response was received. Don't call `std::future::wait` on the same thread that calls `processIncomingMessages` since it would block. If an error response was returned, the future will rethrow it so make sure to handle that case.
 
 ```cpp
-auto [id, result] = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(
-                        lsp::requests::TextDocument_Diagnostic::Params{ /* parameters */ });
+auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
+auto [id, result] = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(std::move(params));
 ```
 
 The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callbacks an `lsp::Error` containing the error code and message from the response. Uncaught exceptions inside of the callbacks will abort the connection.
 
 
 ```cpp
+auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
 auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(
-	lsp::requests::TextDocument_Diagnostic::Params{ /* parameters */ },
+	std::move(params),
 	[](lsp::requests::TextDocument_Diagnostic::Result&& result){
 		// Called on success with the payload of the response
 	},
@@ -136,12 +137,12 @@ auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnost
 
 ### Sending Notifications
 
-Notifications are sent using `lsp::MessageHandler::sendNotifications`. They don't have a message id and don't receive a response which means all you need are the parameters if the notifications has any:
+Notifications are sent using `lsp::MessageHandler::sendNotification`. They don't have a message id and don't receive a response which means all you need are the parameters if the notifications has any:
 
 ```cpp
 // With params
-messageHandler.sendNotification<lsp::notifications::TextDocument_PublishDiagnostics>(
-lsp::notifications::TextDocument_PublishDiagnostics::Params{...});
+auto params = lsp::notifications::TextDocument_PublishDiagnostics::Params{...};
+messageHandler.sendNotification<lsp::notifications::TextDocument_PublishDiagnostics>(std::move(params));
 
 // Without params
 messageHandler.sendNotification<lsp::notifications::Exit>();
