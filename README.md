@@ -48,7 +48,7 @@ Request handlers are registered using the `lsp::MessageHandler::add` method. The
 
 ```cpp
 messageHandler.add<lsp::requests::Initialize>(
-      [](const lsp::MessageId& id, lsp::requests::Initialize::Params&& params)
+      [](lsp::requests::Initialize::Params&& params)
       {
          return lsp::requests::Initialize::Result{
             .serverInfo = lsp::InitializeResultServerInfo{
@@ -62,9 +62,11 @@ messageHandler.add<lsp::requests::Initialize>(
       });
 ```
 
-The template parameter is the type of the message the callback is for and determines its signature. All request callbacks always have an `lsp::MessageId` as the first parameter. The second parameter are the `MessageType::Params` (only if the message has parameters). They are passed as an rvalue reference so the callback can safely move data out to avoid expensive copies like for example the entire text of a document from the `textDocument/didOpen` notification.
+The template parameter is the type of the message the callback is for and determines its signature. The callback must have a parameter of type `MessageType::Params` but only if the message has parameters. It is passed as an rvalue reference to avoid potentially expensive copies like the entire text of a document from the `textDocument/didOpen` notification.
 
 The callback returns the result of the request (`MessageType::Result`) if it has one.
+
+The id of the current request can be obtained using `lsp::MessageHandler::currentRequestId`. However, this function can only be called from inside of a request callback. Otherwise a `std::logic_error` is thrown.
 
 `MessageHandler::add` returns a reference to the handler itself in order to easily chain multiple callback registrations without repeating the handler instance over and over:
 
@@ -88,15 +90,17 @@ Some requests might take a longer time to process than others. In order to not s
 Asynchronous callbacks work exactly the same as regular request callbacks with the only difference being that they return a `std::future<MessageType::Result>`. Processing happens in a worker thread inside of the message handler. Worker threads are only created if there are asynchronous request handlers. Otherwise the handler will not create any extra threads. 
 
 ```cpp
-messageHandler.add<lsp::requests::TextDocument_Hover>([](const lsp::MessageId& id, lsp::requests::TextDocument_Hover::Params&& params)
-      {
-          return std::async(std::launch::deferred, [](lsp::requests::TextDocument_Hover::Params&& params)
-          {
-              auto result = lsp::TextDocument_HoverResult{};
-              // init hover result here
-              return result;
-          }, std::move(params));
-      }
+messageHandler.add<lsp::requests::TextDocument_Hover>(
+    [](lsp::requests::TextDocument_Hover::Params&& params)
+    {
+        return std::async(std::launch::deferred,
+            [](lsp::requests::TextDocument_Hover::Params&& params)
+            {
+                auto result = lsp::TextDocument_HoverResult{};
+                // init hover result here
+                return result;
+            }, std::move(params));
+    }
 ```
 
 ### Returning Error Responses
@@ -117,22 +121,23 @@ One returns a `std::future<MessageType::Result>` in addition to the message id. 
 
 ```cpp
 auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
-auto [id, result] = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(std::move(params));
+auto [id, result] = messageHandler.sendRequest
+    <lsp::requests::TextDocument_Diagnostic>(std::move(params));
 ```
 
-The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callbacks an `lsp::Error` containing the error code and message from the response. Uncaught exceptions inside of the callbacks will abort the connection.
+The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callbacks an `lsp::ResponseError` containing the error code and message from the response. Uncaught exceptions inside of the callbacks will abort the connection.
 
 
 ```cpp
 auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
 auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(
-	std::move(params),
-	[](lsp::requests::TextDocument_Diagnostic::Result&& result){
-		// Called on success with the payload of the response
-	},
-	[](const lsp::Error& error){
-		// Called in the error case
-	});
+    std::move(params),
+    [](lsp::requests::TextDocument_Diagnostic::Result&& result){
+        // Called on success with the payload of the response
+    },
+    [](const lsp::ResponseError& error){
+        // Called in the error case
+    });
 ```
 
 ### Sending Notifications
@@ -142,7 +147,8 @@ Notifications are sent using `lsp::MessageHandler::sendNotification`. They don't
 ```cpp
 // With params
 auto params = lsp::notifications::TextDocument_PublishDiagnostics::Params{...};
-messageHandler.sendNotification<lsp::notifications::TextDocument_PublishDiagnostics>(std::move(params));
+messageHandler.sendNotification
+    <lsp::notifications::TextDocument_PublishDiagnostics>(std::move(params));
 
 // Without params
 messageHandler.sendNotification<lsp::notifications::Exit>();
