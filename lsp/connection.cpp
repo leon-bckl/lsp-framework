@@ -213,11 +213,8 @@ Connection::MessageHeader Connection::readMessageHeader(InputReader& reader)
 	while(reader.peek() != '\r')
 		readNextMessageHeaderField(header, reader);
 
-	char newlines[4];
-	reader.read(newlines, 4);
-
-	if(std::strncmp(newlines, "\r\n\r\n", 4) != 0)
-		throw ConnectionError{"Protocol: Invalid message header format"};
+	if(reader.get() != '\r' || reader.get() != '\n')
+		throw ConnectionError("Protocol: Expected header to be terminated by '\\r\\n'");
 
 	return header;
 }
@@ -230,7 +227,14 @@ void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& 
 	std::string lineData;
 
 	while(reader.peek() != '\r')
-		lineData.push_back(reader.get());
+	{
+		const auto c = reader.get();
+
+		if(c == '\n')
+			throw ConnectionError("Protocol: Unexpected '\\n' in header field, expected '\\r\\n'");
+
+		lineData.push_back(c);
+	}
 
 	std::string_view line{lineData};
 	const auto separatorIdx = line.find(':');
@@ -245,6 +249,9 @@ void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& 
 		else if(key == "Content-Type")
 			header.contentType = std::string{value.data(), value.size()};
 	}
+
+	if(reader.get() != '\r' || reader.get() != '\n')
+		throw ConnectionError("Protocol: Expected header field to be terminated by '\\r\\n'");
 }
 
 void Connection::writeMessageData(const std::string& content)
@@ -257,7 +264,8 @@ void Connection::writeMessageData(const std::string& content)
 
 std::string Connection::messageHeaderString(const MessageHeader& header)
 {
-	return "Content-Length: " + std::to_string(header.contentLength) + "\r\n\r\n";
+	return "Content-Length: " + std::to_string(header.contentLength) + "\r\n" +
+	       "Content-Type: " + header.contentType + "\r\n\r\n";
 }
 
 } // namespace lsp
