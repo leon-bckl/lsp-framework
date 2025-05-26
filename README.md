@@ -137,7 +137,7 @@ auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnost
 
 ### Sending Notifications
 
-Notifications are sent using `lsp::MessageHandler::sendNotification`. They don't have a message id and don't receive a response which means all you need are the parameters if the notifications has any:
+Notifications are sent using `lsp::MessageHandler::sendNotification`. They don't have a message id and don't receive a response which means all you need are the parameters if the notification has any:
 
 ```cpp
 // With params
