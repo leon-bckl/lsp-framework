@@ -76,7 +76,7 @@ messageHandler.add<>().add<>().add<>();
 
 ### Notification Callbacks
 
-Notfication callbacks are registered in exactly the same way as request callbacks. The only difference is that they do not have a message id as the first parameter and never return a result:
+Notfication callbacks are registered in exactly the same way as request callbacks. The only difference is that they never return a result:
 
 ```cpp
 messageHandler.add<lsp::notifications::Exit>([](){ ... });
