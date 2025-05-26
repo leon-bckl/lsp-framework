@@ -20,9 +20,9 @@ namespace lsp{
 
 struct Process::Impl final : public io::Stream{
 #ifdef LSP_PROCESS_POSIX
-	int   m_stdinHandle  = -1;
-	int   m_stdoutHandle = -1;
-	pid_t m_pid          = -1;
+	int   m_stdinWrite = -1;
+	int   m_stdoutRead = -1;
+	pid_t m_pid        = -1;
 
 	Impl(const std::string& executable, const ArgList& args)
 	{
@@ -73,8 +73,8 @@ struct Process::Impl final : public io::Stream{
 		{
 			close(inPipe[0]);
 			close(outPipe[1]);
-			m_stdinHandle = inPipe[1];
-			m_stdoutHandle = outPipe[0];
+			m_stdinWrite = inPipe[1];
+			m_stdoutRead = outPipe[0];
 		}
 	}
 
@@ -91,16 +91,16 @@ struct Process::Impl final : public io::Stream{
 
 	void closeStdHandles()
 	{
-		if(m_stdinHandle != -1)
+		if(m_stdinWrite != -1)
 		{
-			close(m_stdinHandle);
-			m_stdinHandle  = -1;
+			close(m_stdinWrite);
+			m_stdinWrite  = -1;
 		}
 
-		if(m_stdoutHandle != -1)
+		if(m_stdoutRead != -1)
 		{
-			close(m_stdoutHandle);
-			m_stdoutHandle = -1;
+			close(m_stdoutRead);
+			m_stdoutRead = -1;
 		}
 	}
 
@@ -148,7 +148,7 @@ struct Process::Impl final : public io::Stream{
 
 		while(totalBytesRead < size)
 		{
-			const auto bytesRead = ::read(m_stdoutHandle, buffer + totalBytesRead, size - totalBytesRead);
+			const auto bytesRead = ::read(m_stdoutRead, buffer + totalBytesRead, size - totalBytesRead);
 
 			if(bytesRead < 0)
 			{
@@ -168,7 +168,7 @@ struct Process::Impl final : public io::Stream{
 
 		while(totalBytesWritten < size)
 		{
-			const auto bytesWritten = ::write(m_stdinHandle, buffer + totalBytesWritten, size - totalBytesWritten);
+			const auto bytesWritten = ::write(m_stdinWrite, buffer + totalBytesWritten, size - totalBytesWritten);
 
 			if(bytesWritten < 0)
 			{
@@ -182,63 +182,58 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 #elif defined(LSP_PROCESS_WIN32)
-	HANDLE              m_stdinHandle  = INVALID_HANDLE_VALUE;
-	HANDLE              m_stdoutHandle = INVALID_HANDLE_VALUE;
+	HANDLE              m_stdinRead    = nullptr;
+	HANDLE              m_stdinWrite   = nullptr;
+	HANDLE              m_stdoutRead   = nullptr;
+	HANDLE              m_stdoutWrite  = nullptr;
 	PROCESS_INFORMATION m_processInfo  = {};
 
-	static void appendCmdLineArg(std::string& cmdLine, const std::string& arg)
+	static std::string escapeArg(const std::string& arg)
 	{
 		if(arg.find_first_of(" \t\n\v\\\",") == std::string::npos)
-		{
-			if(!cmdLine.empty())
-				cmdLine += ' ';
+			return arg;
 
-			cmdLine += arg;
-		}
-		else
-		{
-			cmdLine += '\"';
+		std::string escaped;
+		escaped.reserve(arg.size());
+		escaped += '\"';
 
-			for(auto it = arg.cbegin();; ++it)
+		for(auto it = arg.cbegin();; ++it)
+		{
+			unsigned int numBackslashes = 0;
+
+			while(it != arg.cend() && *it == '\\')
 			{
-				unsigned int numBackslashes = 0;
-
-				while(it != arg.cend() && *it == '\\')
-				{
-					++numBackslashes;
-					++it;
-				}
-
-				if(it == arg.cend())
-				{
-					cmdLine.append(numBackslashes * 2, '\\');
-					break;
-				}
-
-				if(*it == '\"')
-				{
-					cmdLine.append(numBackslashes * 2 + 1, '\\');
-					cmdLine += '\"';
-				}
-				else
-				{
-					cmdLine.append(numBackslashes, '\\');
-					cmdLine += *it;
-				}
+				++numBackslashes;
+				++it;
 			}
 
-			cmdLine += '\"';
+			if(it == arg.cend())
+			{
+				escaped.append(numBackslashes * 2, '\\');
+				break;
+			}
+
+			if(*it == '\"')
+			{
+				escaped.append(numBackslashes * 2 + 1, '\\');
+				escaped += '\"';
+			}
+			else
+			{
+				escaped.append(numBackslashes, '\\');
+				escaped += *it;
+			}
 		}
+
+		escaped += '\"';
 	}
 
 	static std::wstring buildCmdLine(const std::string& executable, const ArgList& args)
 	{
-		std::string cmdLine;
-
-		appendCmdLineArg(cmdLine, executable);
+		std::string cmdLine = escapeArg(executable);
 
 		for(const auto& arg : args)
-			appendCmdLineArg(cmdLine, arg);
+			cmdLine += ' ' + escapeArg(arg);
 
 		std::wstring wCmdLine;
 		wCmdLine.resize(cmdLine.size() * 4);
@@ -259,21 +254,15 @@ struct Process::Impl final : public io::Stream{
 		securityAttributes.nLength = sizeof(securityAttributes);
 		securityAttributes.bInheritHandle = TRUE;
 
-		HANDLE stdinRead = nullptr;
-		HANDLE stdinWrite = nullptr;
-
-		if(!CreatePipe(&stdinRead, &stdinWrite, &securityAttributes, 0))
+		if(!CreatePipe(&m_stdinRead, &m_stdinWrite, &securityAttributes, 0))
 			throw ProcessError("Failed to create stdin pipe");
 
 		SetHandleInformation(stdinWrite, HANDLE_FLAG_INHERIT, 0);
 
-		HANDLE stdoutRead = nullptr;
-		HANDLE stdoutWrite = nullptr;
-
-		if(!CreatePipe(&stdoutRead, &stdoutWrite, &securityAttributes, 0))
+		if(!CreatePipe(&m_stdoutRead, &m_stdoutWrite, &securityAttributes, 0))
 		{
-			CloseHandle(stdinRead);
-			CloseHandle(stdinWrite);
+			CloseHandle(m_stdinRead);
+			CloseHandle(m_stdinWrite);
 
 			throw ProcessError("Failed to create stdin pipe");
 		}
@@ -288,16 +277,13 @@ struct Process::Impl final : public io::Stream{
 
 		if(!CreateProcessW(nullptr, cmdLine.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &m_processInfo))
 		{
-			CloseHandle(stdinRead);
-			CloseHandle(stdinWrite);
-			CloseHandle(stdoutRead);
-			CloseHandle(stdoutWrite);
+			CloseHandle(m_stdinRead);
+			CloseHandle(m_stdinWrite);
+			CloseHandle(m_stdoutRead);
+			CloseHandle(m_stdoutWrite);
 
 			throw ProcessError("Failed to start process");
 		}
-
-		m_stdinHandle = stdinWrite;
-		m_stdoutHandle = stdoutRead;
 	}
 
 	~Impl()
@@ -307,10 +293,14 @@ struct Process::Impl final : public io::Stream{
 
 	void closeStdHandles()
 	{
-		CloseHandle(m_stdinHandle);
-		m_stdinHandle = nullptr;
-		CloseHandle(m_stdoutHandle);
-		m_stdoutHandle = nullptr;
+		CloseHandle(m_stdinRead);
+		CloseHandle(m_stdinWrite);
+		CloseHandle(m_stdoutRead);
+		CloseHandle(m_stdoutWrite);
+		m_stdinRead   = nullptr;
+		m_stdinWrite  = nullptr;
+		m_stdoutRead  = nullptr;
+		m_stdoutWrite = nullptr;
 	}
 
 	[[nodiscard]]
@@ -352,7 +342,7 @@ struct Process::Impl final : public io::Stream{
 		while(totalBytesRead < size)
 		{
 			DWORD bytesRead;
-			if(!ReadFile(m_stdoutHandle, buffer + totalBytesRead, static_cast<DWORD>(size - totalBytesRead), &bytesRead, nullptr))
+			if(!ReadFile(m_stdoutRead, buffer + totalBytesRead, static_cast<DWORD>(size - totalBytesRead), &bytesRead, nullptr))
 				throw io::Error(std::string("Failed to read from process stdout"));
 
 			totalBytesRead += bytesRead;
@@ -366,7 +356,7 @@ struct Process::Impl final : public io::Stream{
 		while(totalBytesWritten < size)
 		{
 			DWORD bytesWritten;
-			if(!WriteFile(m_stdinHandle, buffer + totalBytesWritten, static_cast<DWORD>(size - totalBytesWritten), &bytesWritten, nullptr))
+			if(!WriteFile(m_stdinWrite, buffer + totalBytesWritten, static_cast<DWORD>(size - totalBytesWritten), &bytesWritten, nullptr))
 				throw io::Error(std::string("Failed to write to process stdin"));
 
 			totalBytesWritten += bytesWritten;
