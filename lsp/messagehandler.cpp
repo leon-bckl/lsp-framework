@@ -75,6 +75,15 @@ void MessageHandler::processIncomingMessages()
 	}
 }
 
+const MessageId& MessageHandler::currentRequestId() const
+{
+	assert(m_currentRequestId);
+	if(!m_currentRequestId)
+		throw std::logic_error("MessageHandler::currentRequestId called outside of a request handler");
+
+	return *m_currentRequestId;
+}
+
 void MessageHandler::remove(std::string_view method)
 {
 	std::lock_guard lock{m_requestHandlersMutex};
@@ -91,13 +100,15 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
+		if(request.id.has_value())
+			m_currentRequestId = &request.id.value();
+
 		try
 		{
 			lock.unlock();
 
 			// Call handler for the method type and return optional response
 			response = handlerIt->second(
-				request.id.has_value() ? *request.id : json::Null{},
 				request.params.has_value() ? std::move(*request.params) : json::Null{},
 				allowAsync);
 		}
@@ -125,6 +136,13 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 					*request.id, jsonrpc::Error::InternalError, e.what());
 			}
 		}
+		catch(...)
+		{
+			m_currentRequestId = nullptr;
+			throw;
+		}
+
+		m_currentRequestId = nullptr;
 	}
 	else
 	{
@@ -157,14 +175,7 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 
 	if(response.result.has_value())
 	{
-		try
-		{
-			result->setValueFromJson(std::move(*response.result));
-		}
-		catch(const json::TypeError& e)
-		{
-			result->setException(std::make_exception_ptr(e));
-		}
+		result->setValueFromJson(std::move(*response.result));
 	}
 	else // Error response received. Create an exception.
 	{

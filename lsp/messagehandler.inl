@@ -13,23 +13,24 @@ requires IsRequestCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
 	addHandler(MessageType::Method,
-	[this, f = std::forward<F>(handlerFunc)](const MessageId& id, json::Any&& json, bool allowAsync) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Any&& json, bool allowAsync) -> OptionalResponse
 	{
 		typename MessageType::Params params;
 		fromJson(std::move(json), params);
+		const auto& id = currentRequestId();
 
 		if constexpr(std::same_as<
-			             std::invoke_result_t<F, MessageId, typename MessageType::Params>,
+			             std::invoke_result_t<F, typename MessageType::Params>,
 			             AsyncRequestResult<MessageType>
 		             >)
 		{
-			auto future = f(id, std::move(params));
+			auto future = f(std::move(params));
 
 			if(allowAsync)
 			{
 				m_threadPool.addTask([this, id = id](AsyncRequestResult<MessageType>&& result) mutable
 				{
-					auto response = createResponseFromAsyncResult<MessageType>(std::move(id), result);
+					auto response = createResponseFromAsyncResult<MessageType>(id, result);
 					sendResponse(std::move(response));
 				}, std::move(future));
 
@@ -42,7 +43,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc)
 		{
 			(void)this;
 			(void)allowAsync;
-			return createResponse(id, f(id, std::move(params)));
+			return createResponse(id, f(std::move(params)));
 		}
 	});
 
@@ -54,10 +55,12 @@ requires IsNoParamsRequestCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
 	addHandler(MessageType::Method,
-	[this, f = std::forward<F>(handlerFunc)](const MessageId& id, json::Any&&, bool allowAsync) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Any&&, bool allowAsync) -> OptionalResponse
 	{
+		const auto& id = currentRequestId();
+
 		if constexpr(std::same_as<
-			             std::invoke_result_t<F, MessageId>,
+			             std::invoke_result_t<F>,
 			             AsyncRequestResult<MessageType>
 		             >)
 		{
@@ -67,7 +70,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc)
 			{
 				m_threadPool.addTask([this, id = id, result = std::move(future)]() mutable
 				{
-					auto response = createResponseFromAsyncResult<MessageType>(std::move(id), result);
+					auto response = createResponseFromAsyncResult<MessageType>(id, result);
 					sendResponse(std::move(response));
 				});
 
@@ -80,7 +83,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc)
 		{
 			(void)this;
 			(void)allowAsync;
-			return createResponse(id, f(id));
+			return createResponse(id, f());
 		}
 	});
 
@@ -92,7 +95,7 @@ requires IsNotificationCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
 	addHandler(MessageType::Method,
-	[f = std::forward<F>(handlerFunc)](const MessageId&, json::Any&& json, bool) -> OptionalResponse
+	[f = std::forward<F>(handlerFunc)](json::Any&& json, bool) -> OptionalResponse
 	{
 		typename MessageType::Params params;
 		fromJson(std::move(json), params);
@@ -108,7 +111,7 @@ requires IsNoParamsNotificationCallback<MessageType, F>
 MessageHandler& MessageHandler::add(F&& handlerFunc)
 {
 	addHandler(MessageType::Method,
-	[f = std::forward<F>(handlerFunc)](const MessageId&, json::Any&&, bool) -> OptionalResponse
+	[f = std::forward<F>(handlerFunc)](json::Any&&, bool) -> OptionalResponse
 	{
 		f();
 		return std::nullopt;
@@ -140,7 +143,7 @@ FutureResponse<MessageType> MessageHandler::sendRequest()
 template<typename MessageType, typename F, typename E>
 requires message::HasParams<MessageType> && message::HasResult<MessageType> &&
          std::invocable<F, typename MessageType::Result&&> &&
-         std::invocable<E, const Error&>
+         std::invocable<E, const ResponseError&>
 MessageId MessageHandler::sendRequest(typename MessageType::Params&& params, F&& then, E&& error)
 {
 	auto result = std::make_unique<CallbackRequestResult<typename MessageType::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
@@ -150,7 +153,7 @@ MessageId MessageHandler::sendRequest(typename MessageType::Params&& params, F&&
 template<typename MessageType, typename F, typename E>
 requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) &&
          std::invocable<F, typename MessageType::Result&&> &&
-         std::invocable<E, const Error&>
+         std::invocable<E, const ResponseError&>
 MessageId MessageHandler::sendRequest(F&& then, E&& error)
 {
 	auto result = std::make_unique<CallbackRequestResult<typename MessageType::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));

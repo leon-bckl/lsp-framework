@@ -32,19 +32,19 @@ using AsyncRequestResult = std::future<typename MessageType::Result>;
 template<typename MessageType, typename F>
 concept IsRequestCallbackResult =
 	std::same_as<
-		std::invoke_result_t<F, MessageId, typename MessageType::Params>,
+		std::invoke_result_t<F, typename MessageType::Params>,
 		typename MessageType::Result> ||
 	std::same_as<
-		std::invoke_result_t<F, MessageId, typename MessageType::Params>,
+		std::invoke_result_t<F, typename MessageType::Params>,
 		AsyncRequestResult<MessageType>>;
 
 template<typename MessageType, typename F>
 concept IsNoParamsRequestCallbackResult =
 	std::same_as<
-		std::invoke_result_t<F, MessageId>,
+		std::invoke_result_t<F>,
 		typename MessageType::Result> ||
 	std::same_as<
-		std::invoke_result_t<F, MessageId>,
+		std::invoke_result_t<F>,
 		AsyncRequestResult<MessageType>>;
 
 template<typename MessageType, typename F>
@@ -60,13 +60,13 @@ concept IsNoParamsNotificationCallbackResult =
 template<typename MessageType, typename F>
 concept IsRequestCallback = message::HasParams<MessageType> &&
                             message::HasResult<MessageType> &&
-                            std::invocable<F, const MessageId&, typename MessageType::Params&&> &&
+                            std::invocable<F, typename MessageType::Params&&> &&
                             IsRequestCallbackResult<MessageType, F>;
 
 template<typename MessageType, typename F>
 concept IsNoParamsRequestCallback = !message::HasParams<MessageType> &&
                                     message::HasResult<MessageType> &&
-                                    std::invocable<F, const MessageId&> &&
+                                    std::invocable<F> &&
                                     IsNoParamsRequestCallbackResult<MessageType, F>;
 
 template<typename MessageType, typename F>
@@ -108,10 +108,9 @@ struct FutureResponse{
  * Callbacks for the different message types can be registered using the 'add' method.
  * To avoid copying too much data, request parameters are passed as an rvalue reference.
  * A callback is any callable object that matches the return and parameter types of the message.
- * The first parameter of all request callbacks should be the id 'const MessageId&'. Notification callbacks don't have an id parameter and don't return a value.
  * Here's a callback for the Initialize request:
  *
- * messageHandler.add<lsp::requests::Initialize>([](const MessageId& id, lsp::requests::Initialize::Params&& params)
+ * messageHandler.add<lsp::requests::Initialize>([](lsp::requests::Initialize::Params&& params)
  * {
  *    lsp::requests::Initialize::Result result;
  *    // Initialize the result and return it or throw an lsp::RequestError if there was a problem
@@ -125,6 +124,8 @@ public:
 	~MessageHandler() = default;
 
 	void processIncomingMessages();
+	// Only valid when called from within a request handler. Will throw a std::logic_error otherwise.
+	[[nodiscard]] const MessageId& currentRequestId() const;
 
 	/*
 	 * Callback registration
@@ -160,17 +161,17 @@ public:
 	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>)
 	[[nodiscard]] FutureResponse<MessageType> sendRequest();
 
-	template<typename MessageType, typename F, typename E = void(*)(const Error&)>
+	template<typename MessageType, typename F, typename E = void(*)(const ResponseError&)>
 	requires message::HasParams<MessageType> && message::HasResult<MessageType> &&
 	         std::invocable<F, typename MessageType::Result&&> &&
-	         std::invocable<E, const Error&>
-	MessageId sendRequest(typename MessageType::Params&& params, F&& then, E&& error = [](const Error&){});
+	         std::invocable<E, const ResponseError&>
+	MessageId sendRequest(typename MessageType::Params&& params, F&& then, E&& error = [](const ResponseError&){});
 
-	template<typename MessageType, typename F, typename E = void(*)(const Error&)>
+	template<typename MessageType, typename F, typename E = void(*)(const ResponseError&)>
 	requires message::HasResult<MessageType> && (!message::HasParams<MessageType>) &&
 	         std::invocable<F, typename MessageType::Result&&> &&
-	         std::invocable<E, const Error&>
-	MessageId sendRequest(F&& then, E&& error = [](const Error&){});
+	         std::invocable<E, const ResponseError&>
+	MessageId sendRequest(F&& then, E&& error = [](const ResponseError&){});
 
 	/*
 	 * sendNotification
@@ -193,17 +194,18 @@ public:
 private:
 	class ResponseResultBase;
 	class RequestResultBase;
-	using RequestResultPtr = std::unique_ptr<RequestResultBase>;
+	using RequestResultPtr  = std::unique_ptr<RequestResultBase>;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
-	using OptionalResponse = std::optional<jsonrpc::Response>;
-	using HandlerWrapper = std::function<OptionalResponse(const MessageId&, json::Any&&, bool)>;
+	using OptionalResponse  = std::optional<jsonrpc::Response>;
+	using HandlerWrapper    = std::function<OptionalResponse(json::Any&&, bool)>;
 
 	// General
 	Connection&                                      m_connection;
+	ThreadPool                                       m_threadPool;
 	// Incoming requests
+	MessageId*                                       m_currentRequestId = nullptr;
 	StrMap<std::string, HandlerWrapper>              m_requestHandlersByMethod;
 	std::mutex                                       m_requestHandlersMutex;
-	ThreadPool                                       m_threadPool;
 	// Outgoing requests
 	std::mutex                                       m_pendingRequestsMutex;
 	std::unordered_map<MessageId, RequestResultPtr>  m_pendingRequests;
@@ -215,19 +217,19 @@ private:
 	}
 
 	template<typename MessageType>
-	jsonrpc::Response createResponseFromAsyncResult(MessageId&& id, AsyncRequestResult<MessageType>& result)
+	jsonrpc::Response createResponseFromAsyncResult(const MessageId& id, AsyncRequestResult<MessageType>& result)
 	{
 		try
 		{
-			return MessageHandler::createResponse(std::move(id), result.get());
+			return MessageHandler::createResponse(id, result.get());
 		}
 		catch(const RequestError& e)
 		{
-			return jsonrpc::createErrorResponse(std::move(id), e.code(), e.what());
+			return jsonrpc::createErrorResponse(id, e.code(), e.what());
 		}
 		catch(std::exception& e)
 		{
-			return jsonrpc::createErrorResponse(std::move(id), jsonrpc::Error::InternalError, e.what());
+			return jsonrpc::createErrorResponse(id, jsonrpc::Error::InternalError, e.what());
 		}
 	}
 
@@ -292,7 +294,7 @@ private:
 			{
 				std::rethrow_exception(e);
 			}
-			catch(Error& error)
+			catch(ResponseError& error)
 			{
 				m_error(error);
 			}
