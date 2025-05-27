@@ -226,6 +226,8 @@ struct Process::Impl final : public io::Stream{
 		}
 
 		escaped += '\"';
+
+		return escaped;
 	}
 
 	static std::wstring buildCmdLine(const std::string& executable, const ArgList& args)
@@ -257,7 +259,7 @@ struct Process::Impl final : public io::Stream{
 		if(!CreatePipe(&m_stdinRead, &m_stdinWrite, &securityAttributes, 0))
 			throw ProcessError("Failed to create stdin pipe");
 
-		SetHandleInformation(stdinWrite, HANDLE_FLAG_INHERIT, 0);
+		SetHandleInformation(m_stdinWrite, HANDLE_FLAG_INHERIT, 0);
 
 		if(!CreatePipe(&m_stdoutRead, &m_stdoutWrite, &securityAttributes, 0))
 		{
@@ -267,13 +269,13 @@ struct Process::Impl final : public io::Stream{
 			throw ProcessError("Failed to create stdin pipe");
 		}
 
-		SetHandleInformation(stdoutRead, HANDLE_FLAG_INHERIT, 0);
+		SetHandleInformation(m_stdoutRead, HANDLE_FLAG_INHERIT, 0);
 
 		auto cmdLine = buildCmdLine(executable, args);
 		auto startupInfo = STARTUPINFOW{};
 		startupInfo.dwFlags    = STARTF_USESTDHANDLES;
-		startupInfo.hStdInput  = stdinRead;
-		startupInfo.hStdOutput = stdoutWrite;
+		startupInfo.hStdInput  = m_stdinRead;
+		startupInfo.hStdOutput = m_stdoutWrite;
 
 		if(!CreateProcessW(nullptr, cmdLine.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &m_processInfo))
 		{
