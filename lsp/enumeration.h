@@ -50,12 +50,17 @@ public:
 	bool hasCustomValue() const{ return m_index == EnumType::MAX_VALUE; }
 	EnumType index() const{ return m_index; }
 
+	static ConstInitType value(EnumType index)
+	{
+		return s_values[static_cast<unsigned int>(index)];
+	}
+
 	ConstInitType value() const
 	{
 		if(hasCustomValue())
 			return m_customValue;
 
-		return s_values[static_cast<unsigned int>(m_index)];
+		return value(m_index);
 	}
 
 private:
