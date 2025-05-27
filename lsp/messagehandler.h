@@ -14,9 +14,6 @@
 
 namespace lsp{
 
-class ErrorCodes;
-class Connection;
-
 using MessageId = jsonrpc::MessageId;
 
 /*

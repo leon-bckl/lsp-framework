@@ -34,6 +34,7 @@ set(LSP_HEADERS
 	# lsp
 	connection.h
 	error.h
+	enumeration.h
 	fileuri.h
 	messagebase.h
 	messagehandler.h

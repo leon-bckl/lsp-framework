@@ -1,18 +1,11 @@
 #pragma once
 
 #include <optional>
+#include <lsp/types.h>
 #include <lsp/exception.h>
 #include <lsp/json/json.h>
 
-#ifndef LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
-#include <lsp/types.h>
-#endif
-
 namespace lsp{
-
-// Generated tyeps
-class ErrorCodes;
-class LSPErrorCodes;
 
 /*
  * Generic base for request or response errors
@@ -46,12 +39,12 @@ public:
 	}
 
 #ifndef LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
-	RequestError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
+	RequestError(ErrorCodesEnum code, const std::string& message, std::optional<json::Any> data = {})
 		: Error{code, message, std::move(data)}
 	{
 	}
 
-	RequestError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
+	RequestError(LSPErrorCodesEnum code, const std::string& message, std::optional<json::Any> data = {})
 		: Error{code, message, std::move(data)}
 	{
 	}
@@ -69,12 +62,12 @@ public:
 	}
 
 #ifndef LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
-	ResponseError(ErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
+	ResponseError(ErrorCodesEnum code, const std::string& message, std::optional<json::Any> data = {})
 		: Error{code, message, std::move(data)}
 	{
 	}
 
-	ResponseError(LSPErrorCodes code, const std::string& message, std::optional<json::Any> data = {})
+	ResponseError(LSPErrorCodesEnum code, const std::string& message, std::optional<json::Any> data = {})
 		: Error{code, message, std::move(data)}
 	{
 	}

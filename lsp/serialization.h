@@ -11,6 +11,7 @@
 #include <lsp/fileuri.h>
 #include <lsp/nullable.h>
 #include <lsp/json/json.h>
+#include <lsp/enumeration.h>
 
 namespace lsp{
 namespace impl{
@@ -80,6 +81,12 @@ struct IsTuple : std::false_type{};
 
 template<typename... Args>
 struct IsTuple<std::tuple<Args...>> : std::true_type{};
+
+template<typename T>
+struct IsEnumeration : std::false_type{};
+
+template<typename... Args>
+struct IsEnumeration<Enumeration<Args...>> : std::true_type{};
 
 } // namespace impl
 
@@ -151,6 +158,9 @@ json::Any toJson(std::vector<T>&& vector);
 template<typename... Args>
 json::Any toJson(std::variant<Args...>&& variant);
 
+template<typename EnumType, typename ValueType>
+json::Any toJson(Enumeration<EnumType, ValueType>&& enumeration);
+
 template<typename T>
 json::Any toJson(Nullable<T>&& nullable);
 
@@ -199,6 +209,12 @@ template<typename... Args>
 json::Any toJson(std::variant<Args...>&& variant)
 {
 	return std::visit([](auto&& v){ return toJson(std::forward<std::decay_t<decltype(v)>>(v)); }, variant);
+}
+
+template<typename EnumType, typename ValueType>
+json::Any toJson(Enumeration<EnumType, ValueType>&& enumeration)
+{
+	return toJson(enumeration.value());
 }
 
 template<typename T>
@@ -262,6 +278,12 @@ void fromJson(json::Any&& json, std::vector<T>& value);
 template<typename... Args>
 void fromJson(json::Any&& json, std::variant<Args...>& value);
 
+template<typename EnumType, typename ValueType>
+void fromJson(json::Any&& json, Enumeration<EnumType, ValueType>& enumeration);
+
+template<typename T>
+void fromJson(json::Any&& json, Nullable<T>& nullable);
+
 template<typename... Args>
 void fromJson(json::Any&& json, NullableVariant<Args...>& nullable);
 
@@ -324,8 +346,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 			return;
 		}
 	}
-
-	if constexpr(std::is_same_v<T, bool>)
+	else if constexpr(std::is_same_v<T, bool>)
 	{
 		if(json.isBoolean())
 		{
@@ -333,8 +354,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 			return;
 		}
 	}
-
-	if constexpr(std::is_integral_v<T> || std::is_floating_point_v<T>)
+	else if constexpr(std::is_integral_v<T> || std::is_floating_point_v<T>)
 	{
 		if(json.isNumber())
 		{
@@ -342,8 +362,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 			return;
 		}
 	}
-
-	if constexpr(std::is_same_v<T, std::string>)
+	else if constexpr(std::is_same_v<T, std::string>)
 	{
 		if(json.isString())
 		{
@@ -351,8 +370,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 			return;
 		}
 	}
-
-	if constexpr(impl::IsVector<T>{} || impl::IsTuple<T>{})
+	else if constexpr(impl::IsVector<T>{} || impl::IsTuple<T>{})
 	{
 		if(json.isArray())
 		{
@@ -360,11 +378,18 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 			return;
 		}
 	}
-
-	// The object with the most required properties that match the json is constructed.
-	// To achieve this, all alternatives are checked but only constructed if the number of matching properties is higher than it has been so far.
-	if constexpr(std::is_class_v<T>)
+	else if constexpr(impl::IsEnumeration<T>{})
 	{
+		if(json.isNumber() || json.isString())
+		{
+			fromJson(std::move(json), value);
+			return;
+		}
+	}
+	else if constexpr(std::is_class_v<T>)
+	{
+		// The object with the most required properties that match the json is constructed.
+		// To achieve this, all alternatives are checked but only constructed if the number of matching properties is higher than it has been so far.
 		if(json.isObject())
 		{
 			const auto& obj = json.object();
@@ -389,8 +414,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 			}
 		}
 	}
-
-	if constexpr(Index + 1 < sizeof...(Args))
+	else if constexpr(Index + 1 < sizeof...(Args))
 	{
 		variantFromJson<Index + 1, Args...>(std::move(json), value, requiredPropertyCount);
 	}
@@ -404,6 +428,14 @@ template<typename... Args>
 void fromJson(json::Any&& json, std::variant<Args...>& value)
 {
 	variantFromJson<0, Args...>(std::move(json), value);
+}
+
+template<typename EnumType, typename ValueType>
+void fromJson(json::Any&& json, Enumeration<EnumType, ValueType>& enumeration)
+{
+	ValueType value{};
+	fromJson(std::move(json), value);
+	enumeration = std::move(value);
 }
 
 template<typename T>

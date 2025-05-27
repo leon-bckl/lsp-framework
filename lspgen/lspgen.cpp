@@ -921,6 +921,7 @@ R"(#pragma once
 #include <lsp/fileuri.h>
 #include <lsp/nullable.h>
 #include <lsp/json/json.h>
+#include <lsp/enumeration.h>
 #include <lsp/serialization.h>
 
 namespace lsp{
@@ -949,10 +950,6 @@ R"(#include "types.h"
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
-#include <cassert>
-#include <iterator>
-#include <algorithm>
-
 namespace lsp{
 
 #if defined(__clang__) || defined(__GNUC__)
@@ -962,19 +959,6 @@ namespace lsp{
 #pragma warning(push)
 #pragma warning(disable: 4100) // unreferenced formal parameter
 #endif
-
-template<typename E, typename D, typename T>
-static E findEnumValue(const D* values, const T& value)
-{
-	const auto begin = values;
-	const auto end = values + static_cast<int>(E::MAX_VALUE);
-	const auto it = std::lower_bound(begin, end, value);
-
-	if(it == end || *it != value)
-		return E::MAX_VALUE;
-
-	return static_cast<E>(std::distance(begin, it));
-}
 
 )";
 
@@ -1221,118 +1205,39 @@ private:
 		if(!enumeration.type->isA<BaseType>())
 			throw std::runtime_error{"Enumeration value type for '" + enumeration.name + "' must be a base type"};
 
-		auto enumerationCppName = upperCaseIdentifier(enumeration.name);
+		const auto enumTypeCppName = upperCaseIdentifier(enumeration.name);
+		const auto enumerationCppName = enumTypeCppName + "Enum";
 
 		const auto& baseType = s_baseTypeMapping[enumeration.type->as<BaseType>().kind];
-		std::string enumValuesVarName = enumerationCppName + "Values";
 
 		m_typesHeaderFileContent += documentationComment(enumerationCppName, enumeration.documentation);
-		std::string valueIndent;
 
-		if(enumeration.supportsCustomValues)
-		{
-			m_typesHeaderFileContent += "class " + enumerationCppName + "{\n"
-			                            "public:\n"
-			                            "\tenum class ValueIndex{\n";
-			valueIndent = "\t\t";
-		}
-		else
-		{
-			m_typesHeaderFileContent += "enum class " + enumerationCppName + "{\n";
-			valueIndent = "\t";
-		}
+		m_typesHeaderFileContent += "enum class " + enumTypeCppName + "{\n";
 
-		m_typesSourceFileContent += "static constexpr " + baseType.constData + ' ' +
-		                            enumValuesVarName + "[static_cast<int>(" + enumerationCppName + "::MAX_VALUE)] = {\n";
+		m_typesSourceFileContent += "template<>\n"
+		                            "const " + baseType.constData + ' ' +
+		                            enumerationCppName + "::s_values[] = {\n";
 
 		if(auto it = enumeration.values.begin(); it != enumeration.values.end())
 		{
-			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) +
-			                            valueIndent + capitalizeString(it->name);
+			m_typesHeaderFileContent += documentationComment({}, it->documentation, 1) +
+			                            '\t' + capitalizeString(it->name);
 			m_typesSourceFileContent += '\t' + json::stringify(it->value);
 			++it;
 
 			while(it != enumeration.values.end())
 			{
-				m_typesHeaderFileContent += ",\n" + documentationComment({}, it->documentation, 1 + enumeration.supportsCustomValues) + valueIndent + capitalizeString(it->name);
+				m_typesHeaderFileContent += ",\n" + documentationComment({}, it->documentation, 1) + '\t' + capitalizeString(it->name);
 				m_typesSourceFileContent += ",\n\t" + json::stringify(it->value);
 				++it;
 			}
 		}
 
-		m_typesHeaderFileContent += ",\n" + valueIndent + "MAX_VALUE\n";
-
-		if(enumeration.supportsCustomValues)
-		{
-			m_typesHeaderFileContent += "\t};\n"
-			                            "\tusing enum ValueIndex;\n\n"
-			                            "\t" + enumerationCppName + "() = default;\n" +
-			                            "\t" + enumerationCppName + "(ValueIndex index){ *this = index; }\n" +
-			                            "\texplicit " + enumerationCppName + '(' + baseType.param + " value){ *this = value; }\n"
-			                            "\t" + enumerationCppName + "& operator=(ValueIndex index);\n"
-			                            "\t" + enumerationCppName + "& operator=(" + baseType.param + " newValue);\n"
-																	"\tbool operator==(ValueIndex index) const{ return m_index == index; }\n"
-																	"\tbool operator==(" + baseType.constData + " value) const{ return m_value == value; }\n"
-			                            "\toperator const " + baseType.data + "&() const{ return m_value; }\n"
-			                            "\tbool hasCustomValue() const{ return m_index == MAX_VALUE; }\n"
-			                            "\t" + baseType.getResult + " value() const{ return m_value; }\n\n"
-			                            "private:\n"
-			                            "\tValueIndex m_index = MAX_VALUE;\n"
-			                            "\t" + baseType.data + " m_value{};\n"
-			                            "};\n\n";
-		}
-		else
-		{
-			m_typesHeaderFileContent += "};\n\n";
-		}
+		m_typesHeaderFileContent += ",\n\tMAX_VALUE\n"
+		                            "};\n"
+		                            "using " + enumerationCppName + " = Enumeration<" + enumTypeCppName + ", " + baseType.data + ">;\n\n";
 
 		m_typesSourceFileContent += "\n};\n\n";
-
-		auto toJson = toJsonSig(enumerationCppName);
-		auto fromJson = fromJsonSig(enumerationCppName);
-
-		m_typesBoilerPlateHeaderFileContent += toJson + ";\n" +
-		                                       fromJson + ";\n";
-
-		if(enumeration.supportsCustomValues)
-		{
-			m_typesSourceFileContent += enumerationCppName + "& " + enumerationCppName + "::operator=(ValueIndex index)\n"
-			                            "{\n"
-			                            "\tassert(index < MAX_VALUE);\n"
-			                            "\tm_index = index;\n"
-			                            "\tm_value = " + enumValuesVarName + "[static_cast<int>(index)];\n"
-			                            "\treturn *this;\n"
-			                            "}\n\n" +
-			                            enumerationCppName + "& " + enumerationCppName + "::operator=(" + baseType.param + " value)\n"
-			                            "{\n"
-			                            "\tm_index = findEnumValue<" + enumerationCppName + "::ValueIndex>(" + enumValuesVarName + ", value);\n"
-			                            "\tm_value = value;\n"
-			                            "\treturn *this;\n"
-			                            "}\n\n";
-			m_typesBoilerPlateSourceFileContent += toJson + "\n"
-			                                       "{\n" +
-																	           "\treturn toJson(value.value());\n}\n\n" +
-																	           fromJson + "\n"
-																	           "{\n"
-																	           "\t" + baseType.data + " jsonVal;\n"
-																	           "\tfromJson(std::move(json), jsonVal);\n"
-			                                       "\tvalue = jsonVal;\n"
-																	           "}\n\n";
-		}
-		else
-		{
-			m_typesBoilerPlateSourceFileContent += toJson + "\n"
-			                                       "{\n"
-																	           "\treturn toJson(" + enumValuesVarName + "[static_cast<int>(value)]);\n}\n\n" +
-																	           fromJson + "\n"
-																	           "{\n"
-																	           "\t" + baseType.data + " jsonVal;\n"
-																	           "\tfromJson(std::move(json), jsonVal);\n"
-			                                       "\tvalue = findEnumValue<" + enumerationCppName + ">(" + enumValuesVarName + ", jsonVal);\n"
-			                                       "\tif(value == " + enumerationCppName + "::MAX_VALUE)\n"
-																	           "\t\tthrow json::TypeError{\"Invalid value for '" + enumerationCppName + "'\"};\n"
-																	           "}\n\n";
-		}
 	}
 
 	bool isStringType(const TypePtr& type)
@@ -1373,8 +1278,16 @@ private:
 			typeName += s_baseTypeMapping[static_cast<int>(type.as<BaseType>().kind)].data;
 			break;
 		case Type::Reference:
-			typeName += upperCaseIdentifier(type.as<ReferenceType>().name);
-			break;
+			{
+				const auto& ref = type.as<ReferenceType>();
+				typeName += upperCaseIdentifier(ref.name);
+
+				const auto typeVariant = m_metaModel.typeForName(ref.name);
+				if(std::holds_alternative<const Enumeration*>(typeVariant))
+					typeName += "Enum";
+
+				break;
+			}
 		case Type::Array:
 			{
 				const auto& arrayType = type.as<ArrayType>();
@@ -1617,7 +1530,7 @@ private:
 				}
 			}
 
-			std::string typeName = cppTypeName(*p.type, p.isOptional);
+			const auto typeName = cppTypeName(*p.type, p.isOptional);
 
 			m_typesHeaderFileContent += documentationComment({}, p.documentation, 1) +
 			                            '\t' + typeName + ' ' + p.name;

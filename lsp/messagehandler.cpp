@@ -1,6 +1,4 @@
 #include <cassert>
-#define LSP_ERROR_DONT_INCLUDE_GENERATED_TYPES
-#include <lsp/error.h>
 #include <lsp/messagehandler.h>
 
 namespace lsp{
