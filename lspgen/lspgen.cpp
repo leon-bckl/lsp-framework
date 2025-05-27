@@ -565,27 +565,6 @@ struct Enumeration{
 
 		if(json.contains(strings::supportsCustomValues))
 			supportsCustomValues = json.get(strings::supportsCustomValues).boolean();
-
-		// Sort values so they can be more efficiently searched
-		std::sort(values.begin(), values.end(), [this](const Value& lhs, const Value& rhs)
-		{
-			if(lhs.value.isString())
-			{
-				if(!rhs.value.isString())
-					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
-
-				return lhs.value.string() < rhs.value.string();
-			}
-			else if(lhs.value.isNumber())
-			{
-				if(!rhs.value.isNumber())
-					throw std::runtime_error{"Value type mismatch in enumeration '" + name + "'"};
-
-				return lhs.value.number() < rhs.value.number();
-			}
-
-			throw std::runtime_error{"Invalid value type in enumeration" + name + "' - Must be string or number"};
-		});
 	}
 };
 
