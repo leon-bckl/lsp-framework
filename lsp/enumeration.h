@@ -48,6 +48,7 @@ public:
 	bool operator==(ConstInitType other) const{ return value() == other; }
 	operator ValueType() const{ return value(); }
 	bool hasCustomValue() const{ return m_index == EnumType::MAX_VALUE; }
+	EnumType index() const{ return m_index; }
 
 	ConstInitType value() const
 	{
