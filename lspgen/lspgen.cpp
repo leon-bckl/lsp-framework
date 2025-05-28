@@ -1063,9 +1063,9 @@ private:
 
 		m_messagesHeaderFileContent += documentationComment(method, message.documentation) +
 		                               "struct " + messageCppName + "{\n"
-		                               "\tstatic constexpr auto Method = std::string_view(\"" + method + "\");\n"
+		                               "\tstatic constexpr auto Method    = std::string_view(\"" + method + "\");\n"
 		                               "\tstatic constexpr auto Direction = MessageDirection::" + messageDirection + ";\n"
-		                               "\tstatic constexpr auto Type = Message::" + (isNotification ? "Notification" : "Request") + ";\n";
+		                               "\tstatic constexpr auto Type      = Message::" + (isNotification ? "Notification" : "Request") + ";\n";
 
 		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
 		const bool hasPartialResult = !message.partialResultTypeName.empty();
