@@ -999,14 +999,10 @@ private:
 
 	struct CppBaseType
 	{
-		std::string data;
-		std::string constData;
-		std::string param;
-		std::string getResult;
+		std::string name;
 	};
 
 	static const CppBaseType s_baseTypeMapping[BaseType::MAX];
-	static const CppBaseType s_stringBaseType;
 
 	void generateTypes()
 	{
@@ -1067,7 +1063,8 @@ private:
 
 		m_messagesHeaderFileContent += documentationComment(method, message.documentation) +
 		                               "struct " + messageCppName + "{\n"
-		                               "\tstatic constexpr auto Method = std::string_view(\"" + method + "\");\n"		                               "\tstatic constexpr auto Direction = MessageDirection::" + messageDirection + ";\n"
+		                               "\tstatic constexpr auto Method = std::string_view(\"" + method + "\");\n"
+		                               "\tstatic constexpr auto Direction = MessageDirection::" + messageDirection + ";\n"
 		                               "\tstatic constexpr auto Type = Message::" + (isNotification ? "Notification" : "Request") + ";\n";
 
 		const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
@@ -1194,7 +1191,7 @@ private:
 		m_typesHeaderFileContent += "enum class " + enumTypeCppName + "{\n";
 
 		m_typesSourceFileContent += "template<>\n"
-		                            "const " + baseType.constData + ' ' +
+		                            "const " + enumerationCppName + "::ConstInitType " +
 		                            enumerationCppName + "::s_values[] = {\n";
 
 		if(auto it = enumeration.values.begin(); it != enumeration.values.end())
@@ -1212,13 +1209,13 @@ private:
 			}
 		}
 
-		const auto enumCppTemplateType = "Enumeration<" + enumTypeCppName + ", " + baseType.data + '>';
+		const auto enumCppTemplateType = "Enumeration<" + enumTypeCppName + ", " + baseType.name + '>';
 
 		m_typesHeaderFileContent += ",\n\tMAX_VALUE\n"
 		                            "};\n"
+																"using " + enumTypeCppName + "Enum = " + enumCppTemplateType + ";\n"
 		                            "template<>\n"
-																"const " + baseType.constData + ' ' + enumCppTemplateType + "::s_values[];\n"
-		                            "using " + enumTypeCppName + "Enum = " + enumCppTemplateType + ";\n\n";
+		                            "const " + enumerationCppName + "::ConstInitType " + enumerationCppName + "::s_values[];\n\n";
 
 		m_typesSourceFileContent += "\n};\n\n";
 	}
@@ -1258,7 +1255,7 @@ private:
 		switch(type.category())
 		{
 		case Type::Base:
-			typeName += s_baseTypeMapping[static_cast<int>(type.as<BaseType>().kind)].data;
+			typeName += s_baseTypeMapping[static_cast<int>(type.as<BaseType>().kind)].name;
 			break;
 		case Type::Reference:
 			{
@@ -1694,15 +1691,15 @@ private:
 
 const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] =
 {
-	{"bool", "bool", "bool", "bool"},
-	{"std::string", "std::string_view", "const std::string&", "const std::string&"},
-	{"int", "int", "int", "int"},
-	{"uint", "uint", "uint", "uint"},
-	{"double", "double", "double", "double"},
-	{"FileURI", "FileURI", "const FileURI&", "const FileURI&"},
-	{"FileURI", "FileURI", "const FileURI&", "const FileURI&"},
-	{"std::string", "std::string_view", "const std::string&", "const std::string&"},
-	{"std::nullptr_t", "std::nullptr_t", "std::nullptr_t", "std::nullptr_t"}
+	{"bool"},
+	{"std::string"},
+	{"int"},
+	{"uint"},
+	{"double"},
+	{"FileURI"},
+	{"FileURI"},
+	{"std::string"},
+	{"std::nullptr_t"}
 };
 
 int main(int argc, char** argv)
