@@ -32,6 +32,7 @@ set(LSP_SRC_DIR lsp/)
 
 set(LSP_HEADERS
 	# lsp
+	concepts.h
 	connection.h
 	enumeration.h
 	error.h
@@ -41,6 +42,7 @@ set(LSP_HEADERS
 	messagehandler.h
 	nullable.h
 	process.h
+	requestresult.h
 	serialization.h
 	strmap.h
 	threadpool.h

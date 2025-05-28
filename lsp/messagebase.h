@@ -41,6 +41,12 @@ concept HasPartialResult = requires
 	typename T::PartialResult;
 };
 
+template<typename T>
+concept IsRequest = T::Type == Message::Request;
+
+template<typename T>
+concept IsNotification = T::Type == Message::Notification;
+
 } // namespace message
 
 } // namespace lsp
