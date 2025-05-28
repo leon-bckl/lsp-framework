@@ -4,12 +4,12 @@
 namespace lsp{
 namespace{
 
-thread_local MessageId* g_currentRequestId  = nullptr;
+thread_local MessageId* t_currentRequestId  = nullptr;
 
 json::Integer nextUniqueRequestId()
 {
-	static std::atomic<json::Integer> g_uniqueRequestId = 0;
-	return ++g_uniqueRequestId;
+	static std::atomic<json::Integer> s_uniqueRequestId = 0;
+	return ++s_uniqueRequestId;
 }
 
 }
@@ -77,11 +77,11 @@ void MessageHandler::processIncomingMessages()
 
 const MessageId& MessageHandler::currentRequestId()
 {
-	assert(g_currentRequestId);
-	if(!g_currentRequestId)
+	assert(t_currentRequestId);
+	if(!t_currentRequestId)
 		throw std::logic_error("MessageHandler::currentRequestId called outside of a request context");
 
-	return *g_currentRequestId;
+	return *t_currentRequestId;
 }
 
 void MessageHandler::remove(std::string_view method)
@@ -100,9 +100,9 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
-		assert(!g_currentRequestId);
+		assert(!t_currentRequestId);
 		if(request.id.has_value())
-			g_currentRequestId = &request.id.value();
+			t_currentRequestId = &request.id.value();
 
 		try
 		{
@@ -139,11 +139,11 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 		}
 		catch(...)
 		{
-			g_currentRequestId = nullptr;
+			t_currentRequestId = nullptr;
 			throw;
 		}
 
-		g_currentRequestId = nullptr;
+		t_currentRequestId = nullptr;
 	}
 	else
 	{
@@ -176,8 +176,8 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 
 	try
 	{
-		assert(!g_currentRequestId);
-		g_currentRequestId = &response.id;
+		assert(!t_currentRequestId);
+		t_currentRequestId = &response.id;
 
 		if(response.result.has_value())
 		{
@@ -192,11 +192,11 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 	}
 	catch(...)
 	{
-		g_currentRequestId = nullptr;
+		t_currentRequestId = nullptr;
 		throw;
 	}
 
-	g_currentRequestId = nullptr;
+	t_currentRequestId = nullptr;
 }
 
 void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handlerFunc)
