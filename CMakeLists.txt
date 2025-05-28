@@ -33,8 +33,9 @@ set(LSP_SRC_DIR lsp/)
 set(LSP_HEADERS
 	# lsp
 	connection.h
-	error.h
 	enumeration.h
+	error.h
+	exception.h
 	fileuri.h
 	messagebase.h
 	messagehandler.h
