@@ -148,10 +148,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	else
 	{
 		if(!request.isNotification())
-		{
-			response = jsonrpc::createErrorResponse(
-			 *request.id, Error::MethodNotFound, "Unsupported method: " + request.method);
-		}
+			response = jsonrpc::createErrorResponse(*request.id, Error::MethodNotFound, "Method not found");
 	}
 
 	return response;
