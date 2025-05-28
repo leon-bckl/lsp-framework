@@ -1189,7 +1189,7 @@ private:
 
 		const auto& baseType = s_baseTypeMapping[enumeration.type->as<BaseType>().kind];
 
-		m_typesHeaderFileContent += documentationComment(enumerationCppName, enumeration.documentation);
+		m_typesHeaderFileContent += documentationComment(enumTypeCppName, enumeration.documentation);
 
 		m_typesHeaderFileContent += "enum class " + enumTypeCppName + "{\n";
 
