@@ -108,7 +108,7 @@ messageHandler.add<lsp::requests::TextDocument_Hover>(
 If an error occurs while processing the request and no proper result can be provided an error response should be sent back. In order to do that simply throw an `lsp::RequestError` from inside of the callback (`#include <lsp/error.h>`):
 
 ```cpp
-throw lsp::RequestError(lsp::ErrorCodes::InvalidParams, "Invalid parameters received");
+throw lsp::RequestError(lsp::Error::InvalidParams, "Invalid parameters received");
 ```
 
 ### Sending Requests

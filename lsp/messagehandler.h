@@ -226,7 +226,7 @@ private:
 		}
 		catch(std::exception& e)
 		{
-			return jsonrpc::createErrorResponse(id, jsonrpc::Error::InternalError, e.what());
+			return jsonrpc::createErrorResponse(id, Error::InternalError, e.what());
 		}
 	}
 

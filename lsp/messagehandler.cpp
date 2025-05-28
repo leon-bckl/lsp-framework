@@ -126,7 +126,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 			if(!request.isNotification())
 			{
 				response = jsonrpc::createErrorResponse(
-					*request.id, jsonrpc::Error::InvalidParams, e.what());
+					*request.id, Error::InvalidParams, e.what());
 			}
 		}
 		catch(const std::exception& e)
@@ -134,7 +134,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 			if(!request.isNotification())
 			{
 				response = jsonrpc::createErrorResponse(
-					*request.id, jsonrpc::Error::InternalError, e.what());
+					*request.id, Error::InternalError, e.what());
 			}
 		}
 		catch(...)
@@ -150,7 +150,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 		if(!request.isNotification())
 		{
 			response = jsonrpc::createErrorResponse(
-			 *request.id, jsonrpc::Error::MethodNotFound, "Unsupported method: " + request.method);
+			 *request.id, Error::MethodNotFound, "Unsupported method: " + request.method);
 		}
 	}
 
