@@ -38,19 +38,24 @@ class Process{
 public:
 	using ArgList = std::vector<std::string>;
 
-	Process() = default;
+	Process();
 	Process(const std::string& executable, const ArgList& args = {});
+	Process(Process&&);
+	Process& operator=(Process&&);
 	~Process();
 
-	void start(const std::string& executable, const ArgList& args = {});
+	[[nodiscard]] static Process start(const std::string& executable, const ArgList& args = {});
+
 	[[nodiscard]] bool isRunning() const;
+	[[nodiscard]] io::Stream& stdIO();
 	void wait();
 	void terminate();
-	[[nodiscard]] io::Stream& stdIO();
 
 private:
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
+
+	Process(std::unique_ptr<Impl> impl);
 };
 
 } // namespace lsp

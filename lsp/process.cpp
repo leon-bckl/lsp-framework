@@ -369,9 +369,18 @@ struct Process::Impl final : public io::Stream{
 #endif
 };
 
+Process::Process() = default;
+Process::Process(Process&&) = default;
+Process& Process::operator=(Process&&) = default;
+
 Process::Process(const std::string& executable, const ArgList& args)
 {
-	start(executable, args);
+	*this = start(executable, args);
+}
+
+Process::Process(std::unique_ptr<Impl> impl)
+	: m_impl(std::move(impl))
+{
 }
 
 Process::~Process()
@@ -379,17 +388,22 @@ Process::~Process()
 	wait();
 }
 
-void Process::start(const std::string& executable, const ArgList& args)
+Process Process::start(const std::string& executable, const ArgList& args)
 {
-	if(isRunning())
-		terminate();
-
-	m_impl = std::make_unique<Process::Impl>(executable, args);
+	return Process(std::make_unique<Process::Impl>(executable, args));
 }
 
 bool Process::isRunning() const
 {
 	return m_impl && m_impl->checkRunning();
+}
+
+io::Stream& Process::stdIO()
+{
+	if(!isRunning())
+		throw ProcessError("Process is not running - Cannot get stdio");
+
+	return *m_impl;
 }
 
 void Process::wait()
@@ -408,14 +422,6 @@ void Process::terminate()
 		m_impl->terminate();
 		m_impl.reset();
 	}
-}
-
-io::Stream& Process::stdIO()
-{
-	if(!isRunning())
-		throw ProcessError("Process is not running - Cannot get stdio");
-
-	return *m_impl;
 }
 
 } // namespace lsp
