@@ -19,7 +19,7 @@ All messages can be found in the generated `<lsp/messages.h>` header with reques
 
 ## Usage
 
-First you need to establish a connection to the client or server you want to communicate with. The library provides communication via `stdio` only right now. If you need another way of communicating with the other process (e.g. sockets or named pipes) you need to extend `lsp::io::Stream` and implement the `read` and `write` methods.
+First you need to establish a connection to the client or server you want to communicate with. The library provides communication via `stdio` and sockets. If you need another way of communicating with the other process (e.g. named pipes) you can extend `lsp::io::Stream` and implement the `read` and `write` methods.
 
 Create an `lsp::Connection` using a stream and then an `lsp::MessageHandler` with the connection:
 
@@ -125,7 +125,7 @@ auto [id, result] = messageHandler.sendRequest
     <lsp::requests::TextDocument_Diagnostic>(std::move(params));
 ```
 
-The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callbacks an `lsp::ResponseError` containing the error code and message from the response.
+The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callback an `lsp::ResponseError` containing the error code and message from the response.
 
 ```cpp
 auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
@@ -166,6 +166,36 @@ When implementing an LSP client it usually is responsible for creating the serve
 
 auto process    = lsp::Process("/usr/bin/clangd", {/*args*/});
 auto connection = lsp::Connection(process.stdIO());
+```
+
+## Using Sockets
+
+Sockets are a typical method of communication between language servers and clients. The framework supports connecting to an existing address and port as well as creating a server and listening for incoming connections. `lsp/io/socket.h` needs to be included in order to be able to use the socket functions.
+
+Clients can use `lsp::io::Socket::connect` to create a new socket for a given address/port combination and use it to initialize a connection:
+
+```cpp
+auto port       = 12345;
+auto socket     = lsp::io::Socket::connect(lsp::io::Socket::Localhost, port);
+auto connection = lsp::Connection(socket);
+```
+
+Servers need to listen for incoming socket connections. This is done by creating an `lsp::io::SocketServer` and calling its `listen` method in a loop. It waits until a new socket connection is made and returns an `lsp::io::Socket`. Since multiple connections can be accepted at once, it is possible for a single server executable to communicate with multiple clients as shown in the following example:
+
+```cpp
+auto port         = 12345;
+auto socketServer = lsp::io::SocketServer(port);
+
+while(socketServer.isReady())
+{
+    auto socket = socketServer.listen();
+
+    std::thread([socket = std::move(socket)]() mutable
+    {
+        auto connection = lsp::Connection(socket);
+        launchServerInstanceUsingConnection(connection);
+    }).detach();
+}
 ```
 
 ## License

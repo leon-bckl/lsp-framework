@@ -47,6 +47,7 @@ set(LSP_HEADERS
 	strmap.h
 	threadpool.h
 	# io
+	io/socket.h
 	io/standardio.h
 	io/stream.h
 	# json
@@ -64,6 +65,7 @@ set(LSP_SOURCES
 	process.cpp
 	threadpool.cpp
 	# io
+	io/socket.cpp
 	io/standardio.cpp
 	# json
 	json/json.cpp
