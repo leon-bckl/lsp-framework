@@ -2,8 +2,8 @@
 
 #if defined(__APPLE__) || defined(__linux__)
 	#define LSP_SOCKET_POSIX
-/* #elif defined(_WIN32) */
-/* 	#define LSP_SOCKET_WIN32 */
+#elif defined(_WIN32)
+	#define LSP_SOCKET_WIN32
 #else
 	#define LSP_SOCKET_UNSUPPORTED
 #endif

@@ -8,7 +8,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 else()
 	add_compile_options(-Wall -Wextra -pedantic)
 
@@ -23,6 +22,10 @@ else()
 	if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 		add_compile_options(-Wa,-mbig-obj)
 	endif()
+endif()
+
+if(WIN32)
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp)
@@ -99,3 +102,7 @@ add_custom_command(
 add_library(lsp STATIC)
 target_include_directories(lsp PUBLIC . ${LSP_GENERATED_FILES_DIR})
 target_sources(lsp PRIVATE ${LSP_HEADERS} ${LSP_SOURCES} ${LSP_GENERATED_HEADERS} ${LSP_GENERATED_SOURCES})
+
+if(WIN32)
+	target_link_libraries(lsp PUBLIC Ws2_32)
+endif()
