@@ -907,10 +907,30 @@ namespace lsp{
 
 inline constexpr std::string_view VersionStr{"${LSP_VERSION}"};
 
+using Null      = std::nullptr_t;
 using uint      = unsigned int;
+using String    = std::string;
 using LSPArray  = json::Array;
 using LSPObject = json::Object;
 using LSPAny    = json::Any;
+
+template<typename T>
+using Opt = std::optional<T>;
+
+template<typename... Args>
+using Tuple = std::tuple<Args...>;
+
+template<typename... Args>
+using OneOf = std::variant<Args...>;
+
+template<typename T>
+using NullOr = Nullable<T>;
+
+template<typename... Args>
+using NullOrOneOf = NullableVariant<Args...>;
+
+template<typename T>
+using Array = std::vector<T>;
 
 template<typename K, typename T>
 using Map = StrMap<K, T>;
@@ -1247,7 +1267,7 @@ private:
 		if(optional)
 		{
 			if(!type.isA<ReferenceType>() || !m_typesBeingProcessed.contains(type.as<ReferenceType>().name))
-				typeName = "std::optional<";
+				typeName = "Opt<";
 			else
 				typeName = "std::unique_ptr<";
 		}
@@ -1274,7 +1294,7 @@ private:
 				if(arrayType.elementType->isA<ReferenceType>() && arrayType.elementType->as<ReferenceType>().name == "LSPAny")
 					typeName += "LSPArray";
 				else
-					typeName += "std::vector<" + cppTypeName(*arrayType.elementType) + '>';
+					typeName += "Array<" + cppTypeName(*arrayType.elementType) + '>';
 
 				break;
 			}
@@ -1308,11 +1328,11 @@ private:
 					std::string cppOrType;
 
 					if(nullType == orType.typeList.end())
-						cppOrType = "std::variant<";
+						cppOrType = "OneOf<";
 					else if(orType.typeList.size() > 2)
-						cppOrType = "NullableVariant<";
+						cppOrType = "NullOrOneOf<";
 					else
-						cppOrType = "Nullable<";
+						cppOrType = "NullOr<";
 
 					if(auto it = orType.typeList.begin(); it != orType.typeList.end())
 					{
@@ -1346,7 +1366,7 @@ private:
 			}
 		case Type::Tuple:
 			{
-				std::string cppTupleType = "std::tuple<";
+				std::string cppTupleType = "Tuple<";
 				const auto& tupleType = type.as<TupleType>();
 
 				if(auto it = tupleType.typeList.begin(); it != tupleType.typeList.end())
@@ -1370,7 +1390,7 @@ private:
 			typeName += m_generatedTypeNames[&type];
 			break;
 		case Type::StringLiteral:
-			typeName += "std::string";
+			typeName += "String";
 			break;
 		case Type::IntegerLiteral:
 			typeName += "int";
@@ -1692,14 +1712,14 @@ private:
 const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] =
 {
 	{"bool"},
-	{"std::string"},
+	{"String"},
 	{"int"},
 	{"uint"},
 	{"double"},
 	{"FileURI"},
 	{"FileURI"},
-	{"std::string"},
-	{"std::nullptr_t"}
+	{"String"},
+	{"Null"}
 };
 
 int main(int argc, char** argv)
