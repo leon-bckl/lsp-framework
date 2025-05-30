@@ -292,18 +292,18 @@ private:
 		while(m_pos < m_end && std::isalnum(*m_pos))
 			++m_pos;
 
-		std::string_view id{ idStart, static_cast<std::size_t>(std::distance(idStart, m_pos)) };
+		auto identifier = std::string_view(idStart, m_pos);
 
-		if(id == TrueValueString)
-			return true;
+		if(identifier == TrueValueString)
+			return Boolean(true);
 
-		if(id == FalseValueString)
-			return false;
+		if(identifier == FalseValueString)
+			return Boolean(false);
 
-		if(id == NullValueString)
-			return {};
+		if(identifier == NullValueString)
+			return Null();
 
-		throw ParseError{"Unexpected '" + std::string{idStart, m_pos} + "'", textOffset(m_start, m_pos)};
+		throw ParseError{"Unexpected '" + std::string(identifier) + "'", textOffset(m_start, m_pos)};
 	}
 
 	Any parseSimpleValue()
@@ -475,7 +475,7 @@ std::string toStringLiteral(std::string_view str)
 {
 	std::string result;
 	result.reserve(str.size() + 2);
-	result.push_back('\"');
+	result += '\"';
 
 	for(const char c : str)
 	{
@@ -516,7 +516,7 @@ std::string toStringLiteral(std::string_view str)
 		}
 	}
 
-	result.push_back('\"');
+	result += '\"';
 
 	return result;
 }
