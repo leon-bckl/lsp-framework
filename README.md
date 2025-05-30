@@ -180,7 +180,7 @@ auto socket     = lsp::io::Socket::connect(lsp::io::Socket::Localhost, port);
 auto connection = lsp::Connection(socket);
 ```
 
-Servers need to listen for incoming socket connections. This is done by creating an `lsp::io::SocketServer` and calling its `listen` method in a loop. It waits until a new socket connection is made and returns an `lsp::io::Socket`. Since multiple connections can be accepted at once, it is possible for a single server executable to communicate with multiple clients as shown in the following example:
+Servers need to listen for incoming socket connections. This is done by creating an `lsp::io::SocketServer` and calling its `listen` method in a loop. It waits until a new socket connection is made and returns an `lsp::io::Socket`. Since multiple connections can be accepted at once, it is possible for a single server executable to communicate with multiple clients. The following example creates a socket server which is listening for incoming connections. If one is made, a new thread is spawned which uses the socket to create and run a new server instance for that connection:
 
 ```cpp
 auto port         = 12345;
@@ -190,10 +190,14 @@ while(socketServer.isReady())
 {
     auto socket = socketServer.listen();
 
+    if(!socket.isOpen())
+        break;
+
     std::thread([socket = std::move(socket)]() mutable
     {
-        auto connection = lsp::Connection(socket);
-        launchServerInstanceUsingConnection(connection);
+        auto connection     = lsp::Connection(socket);
+        auto messageHandler = lsp::MessageHandler(connection);
+        // ...
     }).detach();
 }
 ```
