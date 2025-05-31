@@ -109,7 +109,7 @@ add_custom_command(
 	COMMENT "Generating lsp types from meta model..."
 )
 
-add_library(lsp STATIC
+add_library(lsp
 	${LSP_HEADERS}
 	${LSP_SOURCES}
 	${LSP_GENERATED_HEADERS}
@@ -119,6 +119,13 @@ target_include_directories(lsp PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${LSP_GENERATED_FILES_DIR}
 )
+install(TARGETS lsp LIBRARY)
+include(GNUInstallDirs)
+install(FILES
+	${LSP_GENERATED_FILES_DIR}/lsp/types.h
+	${LSP_GENERATED_FILES_DIR}/lsp/messages.h
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp)
+install(DIRECTORY lsp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(WIN32)
 	target_link_libraries(lsp PUBLIC Ws2_32)
