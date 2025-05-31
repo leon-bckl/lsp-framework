@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.12)
 
 project(lsp)
 
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers" ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -99,9 +100,16 @@ add_custom_command(
 	COMMENT "Generating lsp types from meta model..."
 )
 
-add_library(lsp STATIC)
+add_library(lsp)
 target_include_directories(lsp PUBLIC . ${LSP_GENERATED_FILES_DIR})
 target_sources(lsp PRIVATE ${LSP_HEADERS} ${LSP_SOURCES} ${LSP_GENERATED_HEADERS} ${LSP_GENERATED_SOURCES})
+install(TARGETS lsp LIBRARY)
+include(GNUInstallDirs)
+install(FILES
+	${LSP_GENERATED_FILES_DIR}/lsp/types.h
+	${LSP_GENERATED_FILES_DIR}/lsp/messages.h
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp)
+install(DIRECTORY lsp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(WIN32)
 	target_link_libraries(lsp PUBLIC Ws2_32)
