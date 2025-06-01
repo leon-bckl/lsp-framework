@@ -1,6 +1,6 @@
 # lsp-framework
 
-This is an implementation of the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) in C++. It can be used to implement both servers and clients that communicate using the LSP.
+This is an implementation of the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/overviews/lsp/overview/) in C++. It can be used to implement both servers and clients that communicate using the LSP.
 
 ## Building
 
@@ -183,12 +183,12 @@ auto connection = lsp::Connection(socket);
 Servers need to listen for incoming socket connections. This is done by creating an `lsp::io::SocketListener` and calling its `listen` method in a loop. It waits until a new socket connection is made and returns an `lsp::io::Socket`. Since multiple connections can be accepted at once, it is possible for a single server executable to communicate with multiple clients. The following example creates a socket server which is listening for incoming connections. If one is made, a new thread is spawned which uses the socket to create and run a new server instance for that connection:
 
 ```cpp
-auto port         = 12345;
-auto socketServer = lsp::io::SocketListener(port);
+auto port           = 12345;
+auto socketListener = lsp::io::SocketListener(port);
 
-while(socketServer.isReady())
+while(socketListener.isReady())
 {
-    auto socket = socketServer.listen();
+    auto socket = socketListener.listen();
 
     if(!socket.isOpen())
         break;
