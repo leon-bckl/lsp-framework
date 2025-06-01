@@ -261,15 +261,15 @@ void Socket::write(const char* buffer, std::size_t size)
 }
 
 /*
- * SocketServer
+ * SocketListener
  */
 
-SocketServer::SocketServer(unsigned short port, unsigned short maxConnections)
+SocketListener::SocketListener(unsigned short port, unsigned short maxConnections)
 	: m_socket(Socket::Impl::setupForListen(port, maxConnections))
 {
 }
 
-Socket SocketServer::listen()
+Socket SocketListener::listen()
 {
 	if(!isReady())
 		throw Error("Server socket is not open for listening");

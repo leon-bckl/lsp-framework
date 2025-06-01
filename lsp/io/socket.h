@@ -37,7 +37,7 @@ public:
 	void write(const char* buffer, std::size_t size) override;
 
 private:
-	friend class SocketServer;
+	friend class SocketListener;
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
 
@@ -45,12 +45,12 @@ private:
 };
 
 /*
- * SocketServer
+ * SocketListener
  */
 
-class SocketServer{
+class SocketListener{
 public:
-	SocketServer(unsigned short port, unsigned short maxConnections = 32);
+	SocketListener(unsigned short port, unsigned short maxConnections = 32);
 
 	[[nodiscard]] Socket listen();
 	[[nodiscard]] bool isReady() const{ return m_socket.isOpen(); }
