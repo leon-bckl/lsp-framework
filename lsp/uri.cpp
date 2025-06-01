@@ -74,7 +74,7 @@ void replaceStringRange(std::string& str, std::size_t first, std::size_t len, st
 
 	if(len < replacementLen)
 	{
-		const auto sizeDiff = replacement.size() - len;
+		const auto sizeDiff = replacementLen - len;
 		const auto copySize = str.size() - (first + len);
 		str.resize(str.size() + sizeDiff);
 		std::copy_n(str.begin() + first + len,
@@ -83,10 +83,10 @@ void replaceStringRange(std::string& str, std::size_t first, std::size_t len, st
 	}
 	else if(len > replacementLen)
 	{
-		const auto sizeDiff = len - replacement.size();
+		const auto sizeDiff = len - replacementLen;
 		std::copy_backward(str.begin() + first + len,
 		                   str.end(),
-		                   str.begin() + first + replacementLen);
+		                   str.end() - sizeDiff);
 		str.resize(str.size() - sizeDiff);
 	}
 
