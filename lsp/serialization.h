@@ -9,9 +9,9 @@
 #include <type_traits>
 #include <lsp/uri.h>
 #include <lsp/strmap.h>
+#include <lsp/fileuri.h>
 #include <lsp/nullable.h>
 #include <lsp/json/json.h>
-#include <lsp/documenturi.h>
 #include <lsp/enumeration.h>
 
 namespace lsp{
@@ -30,7 +30,7 @@ struct MapKeyType<Uri>{
 };
 
 template<>
-struct MapKeyType<DocumentUri>{
+struct MapKeyType<FileUri>{
 	using Type = std::string;
 };
 
@@ -47,7 +47,7 @@ inline const std::string& mapKey(const Uri& uri)
 }
 
 template<>
-inline const std::string& mapKey(const DocumentUri& uri)
+inline const std::string& mapKey(const FileUri& uri)
 {
 	return uri.data();
 }

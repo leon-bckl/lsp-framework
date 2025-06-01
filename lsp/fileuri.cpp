@@ -1,15 +1,22 @@
 #include <filesystem>
-#include <lsp/documenturi.h>
+#include <lsp/fileuri.h>
 
 namespace lsp{
 
-DocumentUri::DocumentUri()
+FileUri::FileUri()
 {
 	setScheme(Scheme);
 	setAuthority({});
 }
 
-std::string_view DocumentUri::path() const
+FileUri FileUri::fromPath(std::string_view path)
+{
+	auto uri = FileUri();
+	uri.setPath(path);
+	return uri;
+}
+
+std::string_view FileUri::path() const
 {
 	const auto p = Uri::path();
 
@@ -21,7 +28,7 @@ std::string_view DocumentUri::path() const
 	return p;
 }
 
-bool DocumentUri::setPath(std::string_view path)
+bool FileUri::setPath(std::string_view path)
 {
 	const auto absolute = std::filesystem::absolute(path);
 #ifdef _WIN32
@@ -32,14 +39,14 @@ bool DocumentUri::setPath(std::string_view path)
 	return true;
 }
 
-DocumentUri::DocumentUri(Uri&& other)
+FileUri::FileUri(Uri&& other)
 	: Uri(other.isValid() && other.scheme() == Scheme ? std::move(other) : Uri())
 {
 }
 
-DocumentUri& DocumentUri::operator=(Uri&& other)
+FileUri& FileUri::operator=(Uri&& other)
 {
-	*this = DocumentUri(std::move(other));
+	*this = FileUri(std::move(other));
 	return *this;
 }
 

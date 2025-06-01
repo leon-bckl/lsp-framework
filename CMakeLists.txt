@@ -37,10 +37,10 @@ set(LSP_HEADERS
 	# lsp
 	concepts.h
 	connection.h
-	documenturi.h
 	enumeration.h
 	error.h
 	exception.h
+	fileuri.h
 	messagebase.h
 	messagehandler.h
 	nullable.h
@@ -64,7 +64,7 @@ list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR})
 set(LSP_SOURCES
 	# lsp
 	connection.cpp
-	documenturi.cpp
+	fileuri.cpp
 	messagehandler.cpp
 	process.cpp
 	threadpool.cpp

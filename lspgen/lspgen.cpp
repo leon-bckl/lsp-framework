@@ -898,6 +898,7 @@ R"(#pragma once
 #include <string_view>
 #include <lsp/uri.h>
 #include <lsp/strmap.h>
+#include <lsp/fileuri.h>
 #include <lsp/nullable.h>
 #include <lsp/json/json.h>
 #include <lsp/enumeration.h>
