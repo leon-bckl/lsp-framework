@@ -270,6 +270,24 @@ bool Uri::setFragment(std::string_view fragment)
 	return true;
 }
 
+void Uri::removeAuthority()
+{
+	insertAuthority({});
+	m_hasAuthority = 0;
+}
+
+void Uri::removeQuery()
+{
+	insertQuery({});
+	m_hasQuery = 0;
+}
+
+void Uri::removeFragment()
+{
+	insertFragment({});
+	m_hasFragment = 0;
+}
+
 void Uri::insertScheme(std::string_view scheme)
 {
 	m_data.replace(0, m_schemeLen, scheme);

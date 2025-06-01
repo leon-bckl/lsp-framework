@@ -39,6 +39,10 @@ public:
 	bool setQuery(std::string_view query);
 	bool setFragment(std::string_view fragment);
 
+	void removeAuthority();
+	void removeQuery();
+	void removeFragment();
+
 	[[nodiscard]] static std::string encode(std::string_view decoded, std::string_view exclude = {});
 	[[nodiscard]] static std::string decode(std::string_view encoded);
 
