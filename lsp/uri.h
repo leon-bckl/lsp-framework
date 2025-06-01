@@ -13,19 +13,25 @@ class Uri{
 public:
 	Uri() = default;
 
-	static Uri parse(std::string_view uriStr);
+	[[nodiscard]] static Uri parse(std::string_view uriStr);
 
 	// Constructors required for StrMap. Prefer Uri::parse
 	Uri(const std::string& str){ *this = parse(str); }
 	Uri(std::string_view str){ *this = parse(str); }
 	Uri(const char* str){ *this = parse(str); }
 
-	std::string toString() const;
+	[[nodiscard]] std::string toString() const;
 
-	bool isValid() const;
-	bool hasAuthority() const;
-	bool hasQuery() const;
-	bool hasFragment() const;
+	[[nodiscard]] bool isValid() const;
+	[[nodiscard]] bool hasAuthority() const;
+	[[nodiscard]] bool hasQuery() const;
+	[[nodiscard]] bool hasFragment() const;
+
+	[[nodiscard]] std::string_view scheme() const;
+	[[nodiscard]] std::string_view authority() const;
+	[[nodiscard]] std::string_view path() const;
+	[[nodiscard]] std::string_view query() const;
+	[[nodiscard]] std::string_view fragment() const;
 
 	bool setScheme(std::string_view scheme);
 	bool setAuthority(std::string_view authority);
@@ -33,22 +39,14 @@ public:
 	bool setQuery(std::string_view query);
 	bool setFragment(std::string_view fragment);
 
-	std::string_view scheme() const;
-	std::string_view authority() const;
-	std::string_view path() const;
-	std::string_view query() const;
-	std::string_view fragment() const;
+	[[nodiscard]] static std::string encode(std::string_view decoded, std::string_view exclude = {});
+	[[nodiscard]] static std::string decode(std::string_view encoded);
 
-	static std::string encode(std::string_view decoded, std::string_view exclude = {});
-	static std::string decode(std::string_view encoded);
+	[[nodiscard]] const std::string& data() const{ return m_data; }
 
-	const std::string& data() const{ return m_data; }
-
-	bool operator==(const Uri& other) const{ return m_data == other.m_data; }
-	bool operator!=(const Uri& other) const{ return m_data != other.m_data; }
-	bool operator==(std::string_view other) const{ return toString() == other; }
-	bool operator!=(std::string_view other) const{ return toString() != other; }
-	bool operator<(const Uri& other) const{ return m_data < other.m_data; }
+	[[nodiscard]] bool operator==(const Uri& other) const{ return m_data == other.m_data; }
+	[[nodiscard]] bool operator!=(const Uri& other) const{ return m_data != other.m_data; }
+	[[nodiscard]] bool operator<(const Uri& other) const{ return m_data < other.m_data; }
 
 private:
 	std::string   m_data;
