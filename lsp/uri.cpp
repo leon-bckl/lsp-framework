@@ -1,6 +1,5 @@
 #include <cassert>
 #include <charconv>
-#include <algorithm>
 #include <lsp/uri.h>
 
 namespace lsp{
@@ -64,33 +63,6 @@ std::uint16_t parseUriQuery(std::string_view uriQueryStr)
 	}
 
 	return len;
-}
-
-void replaceStringRange(std::string& str, std::size_t first, std::size_t len, std::string_view replacement)
-{
-	assert(first + len <= str.size());
-
-	const auto replacementLen = replacement.size();
-
-	if(len < replacementLen)
-	{
-		const auto sizeDiff = replacementLen - len;
-		const auto copySize = str.size() - (first + len);
-		str.resize(str.size() + sizeDiff);
-		std::copy_n(str.begin() + first + len,
-		            copySize,
-		            str.begin() + first + replacementLen);
-	}
-	else if(len > replacementLen)
-	{
-		const auto sizeDiff = len - replacementLen;
-		std::copy_backward(str.begin() + first + len,
-		                   str.end(),
-		                   str.end() - sizeDiff);
-		str.resize(str.size() - sizeDiff);
-	}
-
-	std::copy_n(replacement.begin(), replacementLen, str.begin() + first);
 }
 
 } // namespace
@@ -210,6 +182,43 @@ bool Uri::hasFragment() const
 	return !!m_hasFragment;
 }
 
+std::string_view Uri::scheme() const
+{
+	return std::string_view(m_data).substr(0, m_schemeLen);
+}
+
+std::string_view Uri::authority() const
+{
+	if(!hasAuthority())
+		return {};
+
+	return std::string_view(m_data).substr(m_schemeLen, m_authorityLen);
+}
+
+std::string_view Uri::path() const
+{
+	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen,
+	                                       m_pathLen);
+}
+
+std::string_view Uri::query() const
+{
+	if(!hasQuery())
+		return {};
+
+	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen + m_pathLen,
+	                                       m_queryLen);
+}
+
+std::string_view Uri::fragment() const
+{
+	if(!hasFragment())
+		return {};
+
+	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen + m_pathLen + m_queryLen,
+	                                       m_fragmentLen);
+}
+
 bool Uri::setScheme(std::string_view scheme)
 {
 	const auto len = parseUriScheme(scheme);
@@ -261,81 +270,41 @@ bool Uri::setFragment(std::string_view fragment)
 	return true;
 }
 
-std::string_view Uri::scheme() const
-{
-	return std::string_view(m_data).substr(0, m_schemeLen);
-}
-
-std::string_view Uri::authority() const
-{
-	if(!hasAuthority())
-		return {};
-
-	return std::string_view(m_data).substr(m_schemeLen, m_authorityLen);
-}
-
-std::string_view Uri::path() const
-{
-	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen,
-	                                       m_pathLen);
-}
-
-std::string_view Uri::query() const
-{
-	if(!hasQuery())
-		return {};
-
-	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen + m_pathLen,
-	                                       m_queryLen);
-}
-
-std::string_view Uri::fragment() const
-{
-	if(!hasFragment())
-		return {};
-
-	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen + m_pathLen + m_queryLen,
-	                                       m_fragmentLen);
-}
-
 void Uri::insertScheme(std::string_view scheme)
 {
-	replaceStringRange(m_data, 0, m_schemeLen, scheme);
+	m_data.replace(0, m_schemeLen, scheme);
 	m_schemeLen = static_cast<std::uint16_t>(scheme.size());
 }
 
 void Uri::insertAuthority(std::string_view authority)
 {
-	replaceStringRange(m_data, m_schemeLen, m_authorityLen, authority);
+	m_data.replace(m_schemeLen, m_authorityLen, authority);
 	m_authorityLen = static_cast<std::uint16_t>(authority.size());
 	m_hasAuthority = 1;
 }
 
 void Uri::insertPath(std::string_view path)
 {
-	replaceStringRange(m_data,
-	                   m_schemeLen + m_authorityLen,
-	                   m_pathLen,
-	                   path);
+	m_data.replace(m_schemeLen + m_authorityLen,
+	               m_pathLen,
+	               path);
 	m_pathLen = static_cast<std::uint16_t>(path.size());
 }
 
 void Uri::insertQuery(std::string_view query)
 {
-	replaceStringRange(m_data,
-	                   m_schemeLen + m_authorityLen + m_pathLen,
-	                   m_queryLen,
-	                   query);
+	m_data.replace(m_schemeLen + m_authorityLen + m_pathLen,
+	               m_queryLen,
+	               query);
 	m_queryLen = static_cast<std::uint16_t>(query.size());
 	m_hasQuery = 1;
 }
 
 void Uri::insertFragment(std::string_view fragment)
 {
-	replaceStringRange(m_data,
-	                   m_schemeLen + m_authorityLen + m_pathLen + m_queryLen,
-	                   m_fragmentLen,
-	                   fragment);
+	m_data.replace(m_schemeLen + m_authorityLen + m_pathLen + m_queryLen,
+	               m_fragmentLen,
+	               fragment);
 	m_fragmentLen = static_cast<std::uint16_t>(fragment.size());
 	m_hasFragment = 1;
 }
