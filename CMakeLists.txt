@@ -37,10 +37,10 @@ set(LSP_HEADERS
 	# lsp
 	concepts.h
 	connection.h
+	documenturi.h
 	enumeration.h
 	error.h
 	exception.h
-	fileuri.h
 	messagebase.h
 	messagehandler.h
 	nullable.h
@@ -49,6 +49,7 @@ set(LSP_HEADERS
 	serialization.h
 	strmap.h
 	threadpool.h
+	uri.h
 	# io
 	io/socket.h
 	io/standardio.h
@@ -63,10 +64,11 @@ list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR})
 set(LSP_SOURCES
 	# lsp
 	connection.cpp
+	documenturi.cpp
 	messagehandler.cpp
-	fileuri.cpp
 	process.cpp
 	threadpool.cpp
+	uri.cpp
 	# io
 	io/socket.cpp
 	io/standardio.cpp

@@ -7,10 +7,11 @@
 #include <iterator>
 #include <algorithm>
 #include <type_traits>
+#include <lsp/uri.h>
 #include <lsp/strmap.h>
-#include <lsp/fileuri.h>
 #include <lsp/nullable.h>
 #include <lsp/json/json.h>
+#include <lsp/documenturi.h>
 #include <lsp/enumeration.h>
 
 namespace lsp{
@@ -24,7 +25,12 @@ struct MapKeyType{
 };
 
 template<>
-struct MapKeyType<FileURI>{
+struct MapKeyType<Uri>{
+	using Type = std::string;
+};
+
+template<>
+struct MapKeyType<DocumentUri>{
 	using Type = std::string;
 };
 
@@ -35,9 +41,15 @@ const typename MapKeyType<T>::Type& mapKey(const T& u)
 }
 
 template<>
-inline const std::string& mapKey(const FileURI& uri)
+inline const std::string& mapKey(const Uri& uri)
 {
-	return uri.path();
+	return uri.data();
+}
+
+template<>
+inline const std::string& mapKey(const DocumentUri& uri)
+{
+	return uri.data();
 }
 
 template<typename T, typename F, int idx = std::tuple_size_v<typename std::decay<T>::type> - 1>
@@ -141,7 +153,7 @@ inline json::Any toJson(double i){ return i; }
 inline json::Any toJson(std::string&& v){ return std::move(v); }
 inline json::Any toJson(const std::string& v){ return json::String{v}; }
 inline json::Any toJson(std::string_view v){ return json::String{v}; }
-inline json::Any toJson(const FileURI& uri){ return uri.toString(); }
+inline json::Any toJson(const Uri& uri){ return uri.toString(); }
 inline json::Any toJson(json::Any&& v){ return std::move(v); }
 inline json::Any toJson(json::Object&& v){ return std::move(v); }
 inline json::Any toJson(json::Array&& v){ return std::move(v); }
@@ -261,7 +273,7 @@ inline void fromJson(json::Any&& json, unsigned long long& value){ value = stati
 inline void fromJson(json::Any&& json, float& value){ value = static_cast<float>(json.number()); }
 inline void fromJson(json::Any&& json, double& value){ value = static_cast<double>(json.number()); }
 inline void fromJson(json::Any&& json, std::string& value){ value = std::move(json.string()); }
-inline void fromJson(json::Any&& json, FileURI& value){ value = FileURI{json.string()}; }
+inline void fromJson(json::Any&& json, Uri& value){ value = Uri::parse(json.string()); }
 inline void fromJson(json::Any&& json, json::Any& v){ v = std::move(json); }
 inline void fromJson(json::Any&& json, json::Object& v){ v = std::move(json.object()); }
 inline void fromJson(json::Any&& json, json::Array& v){ v = std::move(json.array()); }
