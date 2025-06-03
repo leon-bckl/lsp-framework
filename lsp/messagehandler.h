@@ -11,6 +11,7 @@
 #include <lsp/threadpool.h>
 #include <lsp/messagebase.h>
 #include <lsp/requestresult.h>
+#include <lsp/serialization.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
