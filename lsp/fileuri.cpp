@@ -19,12 +19,10 @@ FileUri FileUri::fromPath(std::string_view path)
 std::string_view FileUri::path() const
 {
 	const auto p = Uri::path();
-
 #ifdef _WIN32
 	if(p.starts_with('/'))
 		return p.substr(1);
 #endif
-
 	return p;
 }
 

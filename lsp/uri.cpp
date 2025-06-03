@@ -71,19 +71,18 @@ Uri Uri::parse(std::string_view uriStr)
 {
 	auto uri = Uri();
 
-	const auto schemeLen = parseUriScheme(uriStr);
+	const auto schemeLen = std::size_t(parseUriScheme(uriStr));
 	const auto scheme    = uriStr.substr(0, schemeLen);
-
 
 	if(schemeLen == 0 || schemeLen == uriStr.size() || uriStr[schemeLen] != ':')
 		return {};
 
 	uri.insertScheme(scheme);
 
-	std::uint16_t nextComponentStart = schemeLen + 1;
+	auto nextComponentStart = schemeLen + 1;
 	const auto hasAuthority = uriStr.size() >= nextComponentStart + 2 &&
-														uriStr[nextComponentStart] == '/' &&
-														uriStr[nextComponentStart + 1] == '/';
+	                          uriStr[nextComponentStart] == '/' &&
+	                          uriStr[nextComponentStart + 1] == '/';
 
 	if(hasAuthority)
 	{
