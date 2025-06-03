@@ -71,7 +71,7 @@ Uri Uri::parse(std::string_view uriStr)
 {
 	auto uri = Uri();
 
-	const auto schemeLen = std::size_t(parseUriScheme(uriStr));
+	const auto schemeLen = static_cast<std::size_t>(parseUriScheme(uriStr));
 	const auto scheme    = uriStr.substr(0, schemeLen);
 
 	if(schemeLen == 0 || schemeLen == uriStr.size() || uriStr[schemeLen] != ':')
@@ -132,8 +132,10 @@ std::string Uri::toString() const
 	if(!isValid())
 		return {};
 
+	const auto encodedPath = encode(path(), "/");
+
 	auto result = std::string();
-	result.reserve(m_data.size() + 5); // ://?#
+	result.reserve(m_data.size() - path().size() + encodedPath.size() + 5); // ://?#
 
 	result += scheme();
 	result += ':';
@@ -144,7 +146,7 @@ std::string Uri::toString() const
 		result += authority();
 	}
 
-	result += encode(path(), "/");
+	result += encodedPath;
 
 	if(hasQuery())
 	{
