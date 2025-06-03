@@ -22,7 +22,7 @@ public:
 	Enumeration(EnumType index) : m_index{index}{}
 	explicit Enumeration(ValueType&& value){ *this = value; }
 
-	Enumeration& operator=(EnumType other){ m_index = other; }
+	Enumeration& operator=(EnumType other){ m_index = other; return *this; }
 
 	Enumeration& operator=(ValueType&& other)
 	{
