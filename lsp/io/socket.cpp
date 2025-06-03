@@ -138,7 +138,7 @@ struct Socket::Impl{
 		addrinfo* addrInfoList = nullptr;
 
 		if(auto status = getaddrinfo(address.c_str(), std::to_string(port).c_str(), &hints, &addrInfoList); status != 0)
-			throwError(std::string("getaddrinfo: ") + gai_strerror(status));
+			throwError("getaddrinfo: " + std::to_string(status));
 
 		for(const auto* addr = addrInfoList; addr; addr = addr->ai_next)
 		{
