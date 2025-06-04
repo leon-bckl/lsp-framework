@@ -37,6 +37,17 @@ bool FileUri::setPath(std::string_view path)
 	return true;
 }
 
+FileUri::FileUri(const Uri& other)
+	: Uri(other.isValid() && other.scheme() == Scheme ? std::move(other) : Uri())
+{
+}
+
+FileUri& FileUri::operator=(const Uri& other)
+{
+	*this = FileUri(other);
+	return *this;
+}
+
 FileUri::FileUri(Uri&& other)
 	: Uri(other.isValid() && other.scheme() == Scheme ? std::move(other) : Uri())
 {

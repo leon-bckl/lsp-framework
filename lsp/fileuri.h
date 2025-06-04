@@ -24,6 +24,8 @@ public:
 	FileUri& operator=(FileUri&&) = default;
 	FileUri& operator=(const FileUri&) = default;
 
+	FileUri(const Uri& other);
+	FileUri& operator=(const Uri& other);
 	FileUri(Uri&& other);
 	FileUri& operator=(Uri&& other);
 
