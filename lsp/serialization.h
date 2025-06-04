@@ -21,7 +21,7 @@ namespace impl{
 
 template<typename T>
 struct MapKeyType{
-	using Type = T;
+	using Type = const T&;
 };
 
 template<>
@@ -35,21 +35,21 @@ struct MapKeyType<FileUri>{
 };
 
 template<typename T>
-const typename MapKeyType<T>::Type& mapKey(const T& u)
+typename MapKeyType<T>::Type mapKey(const T& u)
 {
 	return u;
 }
 
 template<>
-inline const std::string& mapKey(const Uri& uri)
+inline std::string mapKey(const Uri& uri)
 {
-	return uri.data();
+	return uri.toString();
 }
 
 template<>
-inline const std::string& mapKey(const FileUri& uri)
+inline std::string mapKey(const FileUri& uri)
 {
-	return uri.data();
+	return uri.toString();
 }
 
 template<typename T, typename F, int idx = std::tuple_size_v<typename std::decay<T>::type> - 1>
@@ -278,6 +278,7 @@ inline void fromJson(json::Any&& json, json::Any& v){ v = std::move(json); }
 inline void fromJson(json::Any&& json, json::Object& v){ v = std::move(json.object()); }
 inline void fromJson(json::Any&& json, json::Array& v){ v = std::move(json.array()); }
 
+
 template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value);
 
@@ -332,16 +333,30 @@ template<typename T>
 void fromJson(json::Any&& json, StrMap<Uri, T>& value)
 {
 	auto& obj = json.object();
+	value.reserve(obj.size());
+
 	for(auto&& [k, v] : obj)
-		fromJson(std::move(v), value[Uri::parse(k)]);
+	{
+		auto uri = Uri::parse(k);
+
+		if(uri.isValid())
+			fromJson(std::move(v), value[Uri::parse(k)]);
+	}
 }
 
 template<typename T>
 void fromJson(json::Any&& json, StrMap<FileUri, T>& value)
 {
 	auto& obj = json.object();
+	value.reserve(obj.size());
+
 	for(auto&& [k, v] : obj)
-		fromJson(std::move(v), value[Uri::parse(k)]);
+	{
+		auto fileUri = FileUri(Uri::parse(k));
+
+		if(fileUri.isValid())
+			fromJson(std::move(v), value[std::move(fileUri)]);
+	}
 }
 
 template<typename T>
