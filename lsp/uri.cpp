@@ -65,6 +65,11 @@ std::uint16_t parseUriQuery(std::string_view uriQueryStr)
 	return len;
 }
 
+bool hasCharAt(std::string_view str, std::size_t idx, char c)
+{
+	return str.size() > idx && str[idx] == c;
+}
+
 } // namespace
 
 Uri Uri::parse(std::string_view uriStr)
@@ -73,56 +78,60 @@ Uri Uri::parse(std::string_view uriStr)
 
 	const auto schemeLen = static_cast<std::size_t>(parseUriScheme(uriStr));
 	const auto scheme    = uriStr.substr(0, schemeLen);
+	auto       idx       = schemeLen;
 
-	if(schemeLen == 0 || schemeLen == uriStr.size() || uriStr[schemeLen] != ':')
+	if(schemeLen == 0 || !hasCharAt(uriStr, idx, ':'))
 		return {};
 
 	uri.insertScheme(scheme);
+	idx += 1; // :
 
-	auto nextComponentStart = schemeLen + 1;
-	const auto hasAuthority = uriStr.size() >= nextComponentStart + 2 &&
-	                          uriStr[nextComponentStart] == '/' &&
-	                          uriStr[nextComponentStart + 1] == '/';
+	const auto hasAuthority = hasCharAt(uriStr, idx, '/') && hasCharAt(uriStr, idx + 1, '/');
 
 	if(hasAuthority)
 	{
-		nextComponentStart += 2;
-		const auto authorityLen = parseUriAuthority(uriStr.substr(nextComponentStart));
-		const auto authority    = uriStr.substr(nextComponentStart, authorityLen);
+		idx += 2; // //
+		const auto authorityLen = parseUriAuthority(uriStr.substr(idx));
+		const auto authority    = uriStr.substr(idx, authorityLen);
 		uri.insertAuthority(authority);
-		nextComponentStart += authorityLen;
+		idx += authorityLen;
 	}
 
-	if(nextComponentStart < uriStr.size())
+	const auto pathIsEmpty = idx >= uriStr.size();
+
+	if(!pathIsEmpty)
 	{
-		if(hasAuthority && uriStr[nextComponentStart] != '/')
+		if(hasAuthority && uriStr[idx] != '/')
 			return {};
 
-		const auto pathLen = parseUriPath(uriStr.substr(nextComponentStart));
-		const auto path    = uriStr.substr(nextComponentStart, pathLen);
+		const auto pathLen = parseUriPath(uriStr.substr(idx));
+		const auto path    = uriStr.substr(idx, pathLen);
 		uri.insertPath(decode(path));
-		nextComponentStart += pathLen;
+		idx += pathLen;
 	}
 
-	const auto hasQuery = uriStr.size() >= nextComponentStart + 1 && uriStr[nextComponentStart] == '?';
+	const auto hasQuery = hasCharAt(uriStr, idx, '?');
 
 	if(hasQuery)
 	{
-		nextComponentStart += 1;
-		const auto queryLen = parseUriQuery(uriStr.substr(nextComponentStart));
-		const auto query    = uriStr.substr(nextComponentStart, queryLen);
+		idx += 1; // ?
+		const auto queryLen = parseUriQuery(uriStr.substr(idx));
+		const auto query    = uriStr.substr(idx, queryLen);
 		uri.insertQuery(query);
-		nextComponentStart += queryLen;
+		idx += queryLen;
 	}
 
-	const auto hasFragment = uriStr.size() >= nextComponentStart + 1 && uriStr[nextComponentStart] == '#';
+	const auto hasFragment = hasCharAt(uriStr, idx, '#');
 
 	if(hasFragment)
 	{
-		nextComponentStart += 1;
-		const auto fragment = uriStr.substr(nextComponentStart);
+		idx += 1; // #
+		const auto fragment = uriStr.substr(idx);
 		uri.insertFragment(fragment);
+		idx += fragment.size();
 	}
+
+	assert(idx == uriStr.size());
 
 	return uri;
 }

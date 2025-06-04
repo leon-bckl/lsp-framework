@@ -329,6 +329,22 @@ void fromJson(json::Any&& json, StrMap<K, T>& value)
 }
 
 template<typename T>
+void fromJson(json::Any&& json, StrMap<Uri, T>& value)
+{
+	auto& obj = json.object();
+	for(auto&& [k, v] : obj)
+		fromJson(std::move(v), value[Uri::parse(k)]);
+}
+
+template<typename T>
+void fromJson(json::Any&& json, StrMap<FileUri, T>& value)
+{
+	auto& obj = json.object();
+	for(auto&& [k, v] : obj)
+		fromJson(std::move(v), value[Uri::parse(k)]);
+}
+
+template<typename T>
 void fromJson(json::Any&& json, std::vector<T>& value)
 {
 	auto& array = json.array();

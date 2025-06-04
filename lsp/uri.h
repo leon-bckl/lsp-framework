@@ -15,11 +15,6 @@ public:
 
 	[[nodiscard]] static Uri parse(std::string_view uriStr);
 
-	// Constructors required for StrMap. Prefer Uri::parse
-	Uri(const std::string& str){ *this = parse(str); }
-	Uri(std::string_view str){ *this = parse(str); }
-	Uri(const char* str){ *this = parse(str); }
-
 	[[nodiscard]] std::string toString() const;
 
 	[[nodiscard]] bool isValid() const;

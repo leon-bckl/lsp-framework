@@ -19,11 +19,6 @@ public:
 	std::string_view path() const;
 	bool setPath(std::string_view path);
 
-	// Constructors required for StrMap. Prefer Uri::parse
-	FileUri(const std::string& str){ *this = parse(str); }
-	FileUri(std::string_view str){ *this = parse(str); }
-	FileUri(const char* str){ *this = parse(str); }
-
 	FileUri(FileUri&&) = default;
 	FileUri(const FileUri&) = default;
 	FileUri& operator=(FileUri&&) = default;

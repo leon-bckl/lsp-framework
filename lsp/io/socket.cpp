@@ -21,6 +21,10 @@
 
 namespace lsp::io{
 
+/*
+ * Socket::Impl
+ */
+
 struct Socket::Impl{
 	static constexpr auto InvalidSocket =
 #ifdef LSP_SOCKET_POSIX
@@ -88,7 +92,7 @@ struct Socket::Impl{
 	{
 		const auto errorCode =
 #ifdef LSP_SOCKET_POSIX
-		 errno;
+		errno;
 #elif defined(LSP_SOCKET_WIN32)
 		WSAGetLastError();
 #endif
