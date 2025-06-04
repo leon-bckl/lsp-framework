@@ -49,11 +49,11 @@ public:
 
 private:
 	std::string   m_data;
-	std::uint16_t m_schemeLen    = 0;
-	std::uint16_t m_authorityLen = 0;
-	std::uint16_t m_pathLen      = 0;
-	std::uint16_t m_queryLen     = 0;
-	std::uint16_t m_fragmentLen  = 0;
+	std::uint16_t m_schemeLen        = 0;
+	std::uint16_t m_authorityLen     = 0;
+	std::uint16_t m_pathLen          = 0;
+	std::uint16_t m_queryLen         = 0;
+	std::uint16_t m_fragmentLen      = 0;
 	std::uint8_t  m_hasAuthority : 1 = 0;
 	std::uint8_t  m_hasQuery     : 1 = 0;
 	std::uint8_t  m_hasFragment  : 1 = 0;

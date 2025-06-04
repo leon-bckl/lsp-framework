@@ -1,3 +1,4 @@
+#include <cctype>
 #include <cassert>
 #include <charconv>
 #include <lsp/uri.h>
@@ -68,6 +69,24 @@ std::uint16_t parseUriQuery(std::string_view uriQueryStr)
 bool hasCharAt(std::string_view str, std::size_t idx, char c)
 {
 	return str.size() > idx && str[idx] == c;
+}
+
+void normalizeEncodedCase(std::string& str, std::size_t first, std::size_t count)
+{
+	const auto end = std::min(first + count, str.size());
+
+	for(std::size_t i = first; i < end; ++i)
+	{
+		if(str[i] == '%' && i + 2 < end)
+		{
+			auto j = i + 1;
+			str[j] = std::toupper(static_cast<unsigned char>(str[j]));
+			++j;
+			str[j] = std::toupper(static_cast<unsigned char>(str[j]));
+
+			i += 2;
+		}
+	}
 }
 
 } // namespace
@@ -302,38 +321,42 @@ void Uri::insertScheme(std::string_view scheme)
 {
 	m_data.replace(0, m_schemeLen, scheme);
 	m_schemeLen = static_cast<std::uint16_t>(scheme.size());
+
+	for(std::uint16_t i = 0; i < m_schemeLen; ++i)
+		m_data[i] = std::tolower(static_cast<unsigned char>(m_data[i]));
 }
 
 void Uri::insertAuthority(std::string_view authority)
 {
-	m_data.replace(m_schemeLen, m_authorityLen, authority);
+	const auto authorityIdx = m_schemeLen;
+	m_data.replace(authorityIdx, m_authorityLen, authority);
 	m_authorityLen = static_cast<std::uint16_t>(authority.size());
+	normalizeEncodedCase(m_data, m_schemeLen, m_authorityLen);
 	m_hasAuthority = 1;
 }
 
 void Uri::insertPath(std::string_view path)
 {
-	m_data.replace(m_schemeLen + m_authorityLen,
-	               m_pathLen,
-	               path);
+	const auto pathIdx = m_schemeLen + m_authorityLen;
+	m_data.replace(pathIdx, m_pathLen, path);
 	m_pathLen = static_cast<std::uint16_t>(path.size());
 }
 
 void Uri::insertQuery(std::string_view query)
 {
-	m_data.replace(m_schemeLen + m_authorityLen + m_pathLen,
-	               m_queryLen,
-	               query);
+	const auto queryIdx = m_schemeLen + m_authorityLen + m_pathLen;
+	m_data.replace(queryIdx, m_queryLen, query);
 	m_queryLen = static_cast<std::uint16_t>(query.size());
+	normalizeEncodedCase(m_data, queryIdx, m_queryLen);
 	m_hasQuery = 1;
 }
 
 void Uri::insertFragment(std::string_view fragment)
 {
-	m_data.replace(m_schemeLen + m_authorityLen + m_pathLen + m_queryLen,
-	               m_fragmentLen,
-	               fragment);
+	const auto fragmentIdx = m_schemeLen + m_authorityLen + m_pathLen + m_queryLen;
+	m_data.replace(fragmentIdx, m_fragmentLen, fragment);
 	m_fragmentLen = static_cast<std::uint16_t>(fragment.size());
+	normalizeEncodedCase(m_data, fragmentIdx, m_fragmentLen);
 	m_hasFragment = 1;
 }
 
