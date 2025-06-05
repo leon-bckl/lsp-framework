@@ -96,11 +96,12 @@ Uri Uri::parse(std::string_view uriStr)
 	auto uri = Uri();
 
 	const auto schemeLen = static_cast<std::size_t>(parseUriScheme(uriStr));
-	const auto scheme    = uriStr.substr(0, schemeLen);
-	auto       idx       = schemeLen;
 
-	if(schemeLen == 0 || !hasCharAt(uriStr, idx, ':'))
+	if(schemeLen == 0 || !hasCharAt(uriStr, schemeLen, ':'))
 		return {};
+
+	const auto scheme = uriStr.substr(0, schemeLen);
+	auto       idx    = schemeLen;
 
 	uri.insertScheme(scheme);
 	idx += 1; // :
@@ -123,9 +124,10 @@ Uri Uri::parse(std::string_view uriStr)
 		if(hasAuthority && uriStr[idx] != '/')
 			return {};
 
-		const auto pathLen = parseUriPath(uriStr.substr(idx));
-		const auto path    = uriStr.substr(idx, pathLen);
-		uri.insertPath(decode(path));
+		const auto pathLen     = parseUriPath(uriStr.substr(idx));
+		const auto path        = uriStr.substr(idx, pathLen);
+		const auto decodedPath = decode(path);
+		uri.insertPath(decodedPath);
 		idx += pathLen;
 	}
 
@@ -221,13 +223,14 @@ std::string_view Uri::authority() const
 	if(!hasAuthority())
 		return {};
 
-	return std::string_view(m_data).substr(m_schemeLen, m_authorityLen);
+	const auto authorityIdx = m_schemeLen;
+	return std::string_view(m_data).substr(authorityIdx, m_authorityLen);
 }
 
 std::string_view Uri::path() const
 {
-	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen,
-	                                       m_pathLen);
+	const auto pathIdx = m_schemeLen + m_authorityLen;
+	return std::string_view(m_data).substr(pathIdx, m_pathLen);
 }
 
 std::string_view Uri::query() const
@@ -235,8 +238,8 @@ std::string_view Uri::query() const
 	if(!hasQuery())
 		return {};
 
-	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen + m_pathLen,
-	                                       m_queryLen);
+	const auto queryIdx = m_schemeLen + m_authorityLen + m_pathLen;
+	return std::string_view(m_data).substr(queryIdx, m_queryLen);
 }
 
 std::string_view Uri::fragment() const
@@ -244,8 +247,8 @@ std::string_view Uri::fragment() const
 	if(!hasFragment())
 		return {};
 
-	return std::string_view(m_data).substr(m_schemeLen + m_authorityLen + m_pathLen + m_queryLen,
-	                                       m_fragmentLen);
+	const auto fragmentIdx = m_schemeLen + m_authorityLen + m_pathLen + m_queryLen;
+	return std::string_view(m_data).substr(fragmentIdx, m_fragmentLen);
 }
 
 bool Uri::setScheme(std::string_view scheme)
