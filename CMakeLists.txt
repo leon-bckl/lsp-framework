@@ -2,13 +2,17 @@ cmake_minimum_required(VERSION 3.12)
 
 project(lsp)
 
-option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers" ON)
+# compiler flags
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
+set(CMAKE_CXX_EXTENSIONS NO)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
-else()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers for Debug builds" ON)
+
 	add_compile_options(-Wall -Wextra -pedantic)
 
 	if(LSP_USE_SANITIZERS)
@@ -28,10 +32,14 @@ if(WIN32)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp)
-target_include_directories(lspgen PRIVATE .)
+# lspgen
 
-set(LSP_SRC_DIR lsp/)
+add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp)
+target_include_directories(lspgen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# liblsp
+
+set(LSP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lsp/)
 
 set(LSP_HEADERS
 	# lsp
@@ -101,9 +109,16 @@ add_custom_command(
 	COMMENT "Generating lsp types from meta model..."
 )
 
-add_library(lsp STATIC)
-target_include_directories(lsp PUBLIC . ${LSP_GENERATED_FILES_DIR})
-target_sources(lsp PRIVATE ${LSP_HEADERS} ${LSP_SOURCES} ${LSP_GENERATED_HEADERS} ${LSP_GENERATED_SOURCES})
+add_library(lsp STATIC
+	${LSP_HEADERS}
+	${LSP_SOURCES}
+	${LSP_GENERATED_HEADERS}
+	${LSP_GENERATED_SOURCES}
+)
+target_include_directories(lsp PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}
+	${LSP_GENERATED_FILES_DIR}
+)
 
 if(WIN32)
 	target_link_libraries(lsp PUBLIC Ws2_32)
