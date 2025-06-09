@@ -80,9 +80,9 @@ void normalizeEncodedCase(std::string& str, std::size_t first, std::size_t count
 		if(str[i] == '%' && i + 2 < end)
 		{
 			auto j = i + 1;
-			str[j] = std::toupper(static_cast<unsigned char>(str[j]));
+			str[j] = static_cast<char>(std::toupper(static_cast<unsigned char>(str[j])));
 			++j;
-			str[j] = std::toupper(static_cast<unsigned char>(str[j]));
+			str[j] = static_cast<char>(std::toupper(static_cast<unsigned char>(str[j])));
 
 			i += 2;
 		}
@@ -326,7 +326,7 @@ void Uri::insertScheme(std::string_view scheme)
 	m_schemeLen = static_cast<std::uint16_t>(scheme.size());
 
 	for(std::uint16_t i = 0; i < m_schemeLen; ++i)
-		m_data[i] = std::tolower(static_cast<unsigned char>(m_data[i]));
+		m_data[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(m_data[i])));
 }
 
 void Uri::insertAuthority(std::string_view authority)
