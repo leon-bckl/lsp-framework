@@ -1538,10 +1538,8 @@ private:
 
 			if(!literalValue.empty())
 				m_typesHeaderFileContent += " = " + literalValue;
-			// Provide default initializer for optional values
 			else if (p.isOptional)
 				m_typesHeaderFileContent += " = {}";
-
 
 			m_typesHeaderFileContent += ";\n";
 
@@ -1557,10 +1555,14 @@ private:
 				fromJson += "\tfromJson(std::move(json.get(\"" + p.name + "\")), value." + p.name + ");\n";
 			}
 
-			if(isTrivialBaseType(p.type))
-				toJson += "\tjson[\"" + p.name + "\"] = toJson(" + typeName + "{value." + p.name + "});\n";
+			std::string toJsonParam;
+
+			if(isTrivialBaseType(p.type) && !p.isOptional)
+				toJsonParam = "value." + p.name;
 			else
-				toJson += "\tjson[\"" + p.name + "\"] = toJson(std::move(value." + p.name + "));\n";
+				toJsonParam = "std::move(value." + p.name + ')';
+
+			toJson += "\tjson[\"" + p.name + "\"] = toJson(" + toJsonParam + ");\n";
 		}
 	}
 
