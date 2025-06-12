@@ -481,8 +481,8 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 
 	if constexpr(Index + 1 < sizeof...(Args))
 		return variantFromJson<Index + 1, Args...>(std::move(json), value, requiredPropertyCount);
-
-	return false;
+	else
+		return false;
 }
 
 template<typename... Args>
