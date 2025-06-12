@@ -154,6 +154,7 @@ inline json::Any toJson(std::string&& v){ return std::move(v); }
 inline json::Any toJson(const std::string& v){ return json::String{v}; }
 inline json::Any toJson(std::string_view v){ return json::String{v}; }
 inline json::Any toJson(const Uri& uri){ return uri.toString(); }
+inline json::Any toJson(const FileUri& uri){ return uri.toString(); }
 inline json::Any toJson(json::Any&& v){ return std::move(v); }
 inline json::Any toJson(json::Object&& v){ return std::move(v); }
 inline json::Any toJson(json::Array&& v){ return std::move(v); }
@@ -274,6 +275,7 @@ inline void fromJson(json::Any&& json, float& value){ value = static_cast<float>
 inline void fromJson(json::Any&& json, double& value){ value = static_cast<double>(json.number()); }
 inline void fromJson(json::Any&& json, std::string& value){ value = std::move(json.string()); }
 inline void fromJson(json::Any&& json, Uri& value){ value = Uri::parse(json.string()); }
+inline void fromJson(json::Any&& json, FileUri& value){ value = Uri::parse(json.string()); }
 inline void fromJson(json::Any&& json, json::Any& v){ v = std::move(json); }
 inline void fromJson(json::Any&& json, json::Object& v){ v = std::move(json.object()); }
 inline void fromJson(json::Any&& json, json::Array& v){ v = std::move(json.array()); }
@@ -370,6 +372,13 @@ void fromJson(json::Any&& json, std::vector<T>& value)
 }
 
 template<typename T>
+const std::pair<const char*, json::Any>* literalProperties()
+{
+	static std::pair<const char*, json::Any> properties[] = {{nullptr, {}}};
+	return properties;
+}
+
+template<typename T>
 const char** requiredProperties()
 {
 	static const char* properties[] = {nullptr};
@@ -377,7 +386,7 @@ const char** requiredProperties()
 }
 
 template<std::size_t Index, typename... Args, typename VariantType = std::variant<Args...>>
-void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyCount = 0)
+bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyCount = 0)
 {
 	using T = std::variant_alternative_t<Index, VariantType>;
 
@@ -386,7 +395,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 		if(json.isNull())
 		{
 			value.template emplace<Index>();
-			return;
+			return true;
 		}
 	}
 	else if constexpr(std::is_same_v<T, bool>)
@@ -394,7 +403,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 		if(json.isBoolean())
 		{
 			fromJson(std::move(json), value. template emplace<Index>());
-			return;
+			return true;
 		}
 	}
 	else if constexpr(std::is_integral_v<T> || std::is_floating_point_v<T>)
@@ -402,7 +411,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 		if(json.isNumber())
 		{
 			fromJson(std::move(json), value. template emplace<Index>());
-			return;
+			return true;
 		}
 	}
 	else if constexpr(std::is_same_v<T, std::string>)
@@ -410,7 +419,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 		if(json.isString())
 		{
 			fromJson(std::move(json), value. template emplace<Index>());
-			return;
+			return true;
 		}
 	}
 	else if constexpr(impl::IsVector<T>{} || impl::IsTuple<T>{})
@@ -418,7 +427,7 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 		if(json.isArray())
 		{
 			fromJson(std::move(json), value. template emplace<Index>());
-			return;
+			return true;
 		}
 	}
 	else if constexpr(impl::IsEnumeration<T>{})
@@ -426,51 +435,61 @@ void variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 		if(json.isNumber() || json.isString())
 		{
 			fromJson(std::move(json), value);
-			return;
+			return true;
 		}
 	}
 	else if constexpr(std::is_class_v<T>)
 	{
-		// The object with the most required properties that match the json is constructed.
-		// To achieve this, all alternatives are checked but only constructed if the number of matching properties is higher than it has been so far.
 		if(json.isObject())
 		{
 			const auto& obj = json.object();
-			bool hasAllRequiredProperties = true;
-			int matchCount = 1; // Make this at least one to signify that an object was successfully created and no error is thrown at the end
+			bool        hasLiteralProperties = true;
 
-			for(const char** p = requiredProperties<T>(); *p; ++p)
+			for(const auto* p = literalProperties<T>(); p->first; ++p)
 			{
-				if(!obj.contains(*p))
+				if(const auto it = obj.find(p->first); it != obj.end())
 				{
-					hasAllRequiredProperties = false;
-					break;
+					if(it->second != p->second)
+					{
+						hasLiteralProperties = false;
+						break;
+					}
 				}
-
-				++matchCount;
 			}
 
-			if(hasAllRequiredProperties && matchCount >= requiredPropertyCount)
+			if(hasLiteralProperties)
 			{
-				fromJson(std::move(json), value. template emplace<Index>());
-				requiredPropertyCount = matchCount;
+				bool hasRequiredProperties = true;
+
+				for(const auto* p = requiredProperties<T>(); *p; ++p)
+				{
+					if(!obj.contains(*p))
+					{
+						hasRequiredProperties = false;
+						break;
+					}
+				}
+
+				if(hasRequiredProperties)
+				{
+					fromJson(std::move(json), value. template emplace<Index>());
+					return true;
+				}
 			}
 		}
 	}
-	else if constexpr(Index + 1 < sizeof...(Args))
-	{
-		variantFromJson<Index + 1, Args...>(std::move(json), value, requiredPropertyCount);
-	}
-	else if(requiredPropertyCount == 0)
-	{
-		throw json::TypeError{};
-	}
+
+	if constexpr(Index + 1 < sizeof...(Args))
+		return variantFromJson<Index + 1, Args...>(std::move(json), value, requiredPropertyCount);
+
+	return false;
 }
 
 template<typename... Args>
 void fromJson(json::Any&& json, std::variant<Args...>& value)
 {
-	variantFromJson<0, Args...>(std::move(json), value);
+	if(!variantFromJson<0, Args...>(std::move(json), value))
+		throw json::TypeError();
 }
 
 template<typename EnumType, typename ValueType>

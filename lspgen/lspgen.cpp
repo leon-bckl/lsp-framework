@@ -1501,11 +1501,13 @@ private:
 	                                 std::string& toJson,
 	                                 std::string& fromJson,
 	                                 std::vector<std::string>& requiredProperties,
-	                                 std::vector<std::pair<std::string_view, std::string>>& literalValues)
+	                                 std::vector<std::pair<std::string, std::string>>& literalProperties,
+	                                 std::vector<std::pair<std::string_view, std::string>>& inheritedLiterals)
 	{
 		for(const auto& p : properties)
 		{
 			std::string literalValue;
+			bool isInheritedLiteral = false;
 
 			if(p.type->isLiteral())
 			{
@@ -1526,22 +1528,26 @@ private:
 
 				if(basePropertiesByName.contains(p.name))
 				{
-					literalValues.emplace_back(p.name, std::move(literalValue));
-					continue; // Don't write literal properties with the same name as an inherited property. Instead initialize the inherited property.
+					inheritedLiterals.emplace_back(p.name, literalValue);
+					isInheritedLiteral = true;
 				}
 			}
 
-			const auto typeName = cppTypeName(*p.type, p.isOptional);
+			// Don't write literal properties with the same name as an inherited property. Instead initialize the inherited property.
+			if(!isInheritedLiteral)
+			{
+				const auto typeName = cppTypeName(*p.type, p.isOptional);
 
-			m_typesHeaderFileContent += documentationComment({}, p.documentation, 1) +
-			                            '\t' + typeName + ' ' + p.name;
+				m_typesHeaderFileContent += documentationComment({}, p.documentation, 1) +
+				                            '\t' + typeName + ' ' + p.name;
 
-			if(!literalValue.empty())
-				m_typesHeaderFileContent += " = " + literalValue;
-			else if (p.isOptional)
-				m_typesHeaderFileContent += " = {}";
+				if(!literalValue.empty())
+					m_typesHeaderFileContent += " = " + literalValue;
+				else if (p.isOptional)
+					m_typesHeaderFileContent += " = {}";
 
-			m_typesHeaderFileContent += ";\n";
+				m_typesHeaderFileContent += ";\n";
+			}
 
 			if(p.isOptional)
 			{
@@ -1551,18 +1557,31 @@ private:
 			}
 			else
 			{
-				requiredProperties.push_back(p.name);
-				fromJson += "\tfromJson(std::move(json.get(\"" + p.name + "\")), value." + p.name + ");\n";
+				if(!isInheritedLiteral)
+					fromJson += "\tfromJson(std::move(json.get(\"" + p.name + "\")), value." + p.name + ");\n";
+
+				if(literalValue.empty())
+					requiredProperties.push_back(p.name);
 			}
 
-			std::string toJsonParam;
+			if(!literalValue.empty())
+			{
+				literalProperties.push_back({p.name, literalValue});
+				fromJson += "\tif(value." + p.name + " != " + literalValue + ")\n"
+				            "\t\tthrow json::TypeError(\"Unexpected value for literal '" + p.name + "'\");\n";
+			}
 
-			if(isTrivialBaseType(p.type) && !p.isOptional)
-				toJsonParam = "value." + p.name;
-			else
-				toJsonParam = "std::move(value." + p.name + ')';
+			if(!isInheritedLiteral)
+			{
+				std::string toJsonParam;
 
-			toJson += "\tjson[\"" + p.name + "\"] = toJson(" + toJsonParam + ");\n";
+				if(isTrivialBaseType(p.type) && !p.isOptional)
+					toJsonParam = "value." + p.name;
+				else
+					toJsonParam = "std::move(value." + p.name + ')';
+
+				toJson += "\tjson[\"" + p.name + "\"] = toJson(" + toJsonParam + ");\n";
+			}
 		}
 	}
 
@@ -1588,12 +1607,15 @@ private:
 		                            "struct " + structureCppName;
 
 		std::string propertiesToJson = "static void " + uncapitalizeString(structureCppName) + "ToJson(" +
-		                               structureCppName + "&& value, json::Object& json)\n{\n";
+		                               structureCppName + "& value, json::Object& json)\n{\n";
 		std::string propertiesFromJson = "static void " + uncapitalizeString(structureCppName) + "FromJson("
 		                                 "json::Object& json, " + structureCppName + "& value)\n{\n";
-		std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<" + structureCppName + ">()";
-		std::vector<std::string> requiredPropertiesList;
+		const std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<" + structureCppName + ">()";
+		const std::string literalPropertiesSig = "template<>\nconst std::pair<const char*, json::Any>* literalProperties<" + structureCppName + ">()";
+		std::vector<std::string>                         requiredPropertiesList;
+		std::vector<std::pair<std::string, std::string>> literalPropertiesList;
 		std::string requiredProperties = requiredPropertiesSig + "\n{\n\tstatic const char* properties[] = {\n";
+		std::string literalProperties = literalPropertiesSig + "\n{\n\tstatic const std::pair<const char*, json::Any> properties[] = {\n";
 
 		// Add base classes
 
@@ -1603,7 +1625,7 @@ private:
 			const auto* extends = &(*it)->as<ReferenceType>();
 			m_typesHeaderFileContent += " : " + extends->name;
 			std::string lower = uncapitalizeString(extends->name);
-			propertiesToJson += '\t' + lower + "ToJson(std::move(value), json);\n";
+			propertiesToJson += '\t' + lower + "ToJson(value, json);\n";
 			propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 			++it;
 
@@ -1620,7 +1642,7 @@ private:
 				extends = &(*it)->as<ReferenceType>();
 				m_typesHeaderFileContent += ", " + extends->name;
 				lower = uncapitalizeString(extends->name);
-				propertiesToJson += '\t' + lower + "ToJson(std::move(value), json);\n";
+				propertiesToJson += '\t' + lower + "ToJson(value, json);\n";
 				propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
 				++it;
 
@@ -1636,7 +1658,7 @@ private:
 
 		// Generate properties
 
-		std::vector<std::pair<std::string_view, std::string>> literalValues;
+		std::vector<std::pair<std::string_view, std::string>> inheritedLiterals;
 		for(const auto& m : structure.mixins)
 		{
 			if(!m->isA<ReferenceType>())
@@ -1647,16 +1669,16 @@ private:
 			if(!std::holds_alternative<const Structure*>(type))
 				throw std::runtime_error{"Mixin type for '" + structure.name + "' must be a structure type"};
 
-			generateStructureProperties(std::get<const Structure*>(type)->properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalValues);
+			generateStructureProperties(std::get<const Structure*>(type)->properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalPropertiesList, inheritedLiterals);
 		}
 
-		generateStructureProperties(structure.properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalValues);
+		generateStructureProperties(structure.properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalPropertiesList, inheritedLiterals);
 
-		if(!literalValues.empty())
+		if(!inheritedLiterals.empty())
 		{
 			m_typesHeaderFileContent += "\n\t" + structure.name + "()\n\t{\n";
 
-			for(const auto& v : literalValues)
+			for(const auto& v : inheritedLiterals)
 			{
 				m_typesHeaderFileContent += "\t\t";
 				m_typesHeaderFileContent += v.first;
@@ -1676,6 +1698,11 @@ private:
 
 		requiredProperties += "\t\tnullptr\n\t};\n\treturn properties;\n}\n\n";
 
+		for(const auto& p : literalPropertiesList)
+			literalProperties += "\t\t{\"" + p.first + "\", " + p.second + "},\n";
+
+		literalProperties += "\t\t{nullptr, {}}\n\t};\n\treturn properties;\n}\n\n";
+
 		std::string toJson = toJsonSig(structureCppName);
 		std::string fromJson = fromJsonSig(structureCppName);
 
@@ -1685,13 +1712,19 @@ private:
 			m_typesBoilerPlateSourceFileContent += requiredProperties;
 		}
 
+		if(!literalPropertiesList.empty())
+		{
+			m_typesBoilerPlateHeaderFileContent += literalPropertiesSig + ";\n";
+			m_typesBoilerPlateSourceFileContent += literalProperties;
+		}
+
 		m_typesBoilerPlateHeaderFileContent += toJson + ";\n" +
 		                                       fromJson + ";\n";
 		m_typesSourceFileContent += propertiesToJson + propertiesFromJson;
 		m_typesBoilerPlateSourceFileContent += toJson + "\n"
 		                                       "{\n"
 		                                       "\tjson::Object obj;\n"
-		                                       "\t" + uncapitalizeString(structureCppName) + "ToJson(std::move(value), obj);\n"
+		                                       "\t" + uncapitalizeString(structureCppName) + "ToJson(value, obj);\n"
 		                                       "\treturn obj;\n"
 		                                       "}\n\n" +
 		                                       fromJson + "\n"

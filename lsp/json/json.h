@@ -97,6 +97,16 @@ public:
 		throw TypeError{};
 	}
 
+	bool operator==(const Any& other) const
+	{
+		return static_cast<const AnyVariant&>(*this) == other;
+	}
+
+	bool operator!=(const Any& other) const
+	{
+		return static_cast<const AnyVariant&>(*this) != other;
+	}
+
 private:
 	template<typename T>
 	T& get()
