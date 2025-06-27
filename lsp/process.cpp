@@ -4,13 +4,14 @@
 #ifndef LSP_PROCESS_UNSUPPORTED
 
 #ifdef LSP_PROCESS_POSIX
+#include <cerrno>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/wait.h>
 #elif defined(LSP_PROCESS_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
