@@ -402,7 +402,7 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isBoolean())
 		{
-			fromJson(std::move(json), value. template emplace<Index>());
+			fromJson(std::move(json), value.template emplace<Index>());
 			return true;
 		}
 	}
@@ -410,7 +410,7 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isNumber())
 		{
-			fromJson(std::move(json), value. template emplace<Index>());
+			fromJson(std::move(json), value.template emplace<Index>());
 			return true;
 		}
 	}
@@ -418,7 +418,7 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isString())
 		{
-			fromJson(std::move(json), value. template emplace<Index>());
+			fromJson(std::move(json), value.template emplace<Index>());
 			return true;
 		}
 	}
@@ -426,7 +426,7 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isArray())
 		{
-			fromJson(std::move(json), value. template emplace<Index>());
+			fromJson(std::move(json), value.template emplace<Index>());
 			return true;
 		}
 	}
@@ -434,7 +434,7 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	{
 		if(json.isNumber() || json.isString())
 		{
-			fromJson(std::move(json), value);
+			fromJson(std::move(json), value.template emplace<Index>());
 			return true;
 		}
 	}
@@ -472,7 +472,7 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 
 				if(hasRequiredProperties)
 				{
-					fromJson(std::move(json), value. template emplace<Index>());
+					fromJson(std::move(json), value.template emplace<Index>());
 					return true;
 				}
 			}
