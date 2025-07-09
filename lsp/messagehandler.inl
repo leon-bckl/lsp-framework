@@ -83,7 +83,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestC
 
 		if constexpr(IsNoParamsCallbackResult<AsyncRequestResult<M>, F>)
 		{
-			auto future = f(id);
+			auto future = f();
 
 			if(allowAsync)
 			{
