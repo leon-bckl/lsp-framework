@@ -40,6 +40,22 @@ void ThreadPool::waitUntilFinished()
 	m_event.notify_all();
 }
 
+void ThreadPool::addTask(TaskPtr task)
+{
+	auto lock = std::unique_lock(m_mutex);
+
+	if(!m_waitForNewTasks)
+		m_event.wait(lock, [this](){ return m_waitForNewTasks; });
+
+	m_taskQueue.emplace(std::move(task));
+
+	if((m_taskQueue.size() > 1 && m_threads.size() < m_maxThreads) || m_threads.empty())
+		addThread();
+
+	lock.unlock();
+	m_event.notify_one();
+}
+
 void ThreadPool::addThread()
 {
 	m_threads.emplace_back([this]()

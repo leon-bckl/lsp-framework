@@ -24,21 +24,7 @@ public:
 	{
 		auto task   = std::make_unique<Task<F, Args...>>(std::forward<F>(f), std::forward<Args>(args)...);
 		auto future = task->promise.get_future();
-
-		{
-			auto lock = std::unique_lock(m_mutex);
-
-			if(!m_waitForNewTasks)
-				m_event.wait(lock, [this](){ return m_waitForNewTasks; });
-
-			m_taskQueue.emplace(std::move(task));
-
-			if((m_taskQueue.size() > 1 && m_threads.size() < m_maxThreads) || m_threads.empty())
-				addThread();
-		}
-
-		m_event.notify_one();
-
+		addTask(std::move(task));
 		return future;
 	}
 
@@ -53,6 +39,7 @@ private:
 	std::mutex               m_mutex;
 	std::condition_variable  m_event;
 
+	void addTask(TaskPtr task);
 	void addThread();
 
 	struct TaskBase{
@@ -65,8 +52,8 @@ private:
 		using ResultType = std::invoke_result_t<F, Args...>;
 
 		Task(F&& f, Args&&... args)
-			: callback(std::forward<F>(f))
-			, callbackArgs(std::make_tuple(std::forward<Args>(args)...))
+			: callback{std::forward<F>(f)}
+			, callbackArgs{std::make_tuple(std::forward<Args>(args)...)}
 		{
 		}
 
