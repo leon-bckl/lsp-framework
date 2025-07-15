@@ -1,8 +1,8 @@
 #pragma once
 
-#include <lsp/io/stream.h>
-
 namespace lsp::io{
+
+class Stream;
 
 Stream& standardIO();
 
