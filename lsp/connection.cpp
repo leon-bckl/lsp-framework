@@ -1,6 +1,8 @@
+#include <cctype>
 #include <cstring>
 #include <charconv>
 #include <optional>
+#include <algorithm>
 #include <string_view>
 #include <lsp/connection.h>
 #include <lsp/json/json.h>
@@ -41,7 +43,7 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 }
 #endif
 
-std::string_view trimStringView(std::string_view str)
+std::string_view trimWhitespace(std::string_view str)
 {
 	while(!str.empty() && std::isspace(static_cast<unsigned char>(str.front())))
 		str.remove_prefix(1);
@@ -50,6 +52,15 @@ std::string_view trimStringView(std::string_view str)
 		str.remove_suffix(1);
 
 	return str;
+}
+
+bool equalCaseInsensitive(std::string_view lhs, std::string_view rhs)
+{
+	return std::ranges::equal(lhs, rhs, [](char a, char b)
+		{
+			return std::tolower(static_cast<unsigned char>(a)) ==
+			       std::tolower(static_cast<unsigned char>(b));
+		});
 }
 
 void verifyContentType(std::string_view contentType)
@@ -61,7 +72,7 @@ void verifyContentType(std::string_view contentType)
 	if(const auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
 	{
 		auto charset = contentType.substr(idx + charsetKey.size());
-		charset = trimStringView(charset.substr(0, charset.find(';')));
+		charset = trimWhitespace(charset.substr(0, charset.find(';')));
 
 		if(charset != "utf-8" && charset != "utf8")
 			throw ConnectionError{"Protocol: Unsupported or invalid character encoding: " + std::string{charset}};
@@ -219,6 +230,29 @@ Connection::MessageHeader Connection::readMessageHeader(InputReader& reader)
 	return header;
 }
 
+void Connection::parseHeaderValue(MessageHeader& header, std::string_view line)
+{
+	const auto separatorIdx = line.find(':');
+
+	if(separatorIdx != std::string_view::npos)
+	{
+		const auto key   = trimWhitespace(line.substr(0, separatorIdx));
+		const auto value = trimWhitespace(line.substr(separatorIdx + 1));
+
+		if(equalCaseInsensitive(key, "Content-Length"))
+		{
+			const auto [ptr, ec] = std::from_chars(value.begin(), value.end(), header.contentLength);
+
+			if(ec != std::error_code{} || ptr != value.end())
+				throw ConnectionError("Protocol: Invalid value for Content-Length header field");
+		}
+		else if(equalCaseInsensitive(key, "Content-Type"))
+		{
+			header.contentType = std::string{value.data(), value.size()};
+		}
+	}
+}
+
 void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& reader)
 {
 	if(reader.peek() == std::char_traits<char>::eof())
@@ -236,19 +270,7 @@ void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& 
 		lineData.push_back(c);
 	}
 
-	std::string_view line{lineData};
-	const auto separatorIdx = line.find(':');
-
-	if(separatorIdx != std::string_view::npos)
-	{
-		const auto key   = trimStringView(line.substr(0, separatorIdx));
-		const auto value = trimStringView(line.substr(separatorIdx + 1));
-
-		if(key == "Content-Length")
-			std::from_chars(value.data(), value.data() + value.size(), header.contentLength);
-		else if(key == "Content-Type")
-			header.contentType = std::string{value.data(), value.size()};
-	}
+	parseHeaderValue(header, lineData);
 
 	if(reader.get() != '\r' || reader.get() != '\n')
 		throw ConnectionError("Protocol: Expected header field to be terminated by '\\r\\n'");

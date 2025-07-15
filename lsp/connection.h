@@ -33,7 +33,8 @@ private:
 	class InputReader;
 
 	MessageHeader readMessageHeader(InputReader& reader);
-	void readNextMessageHeaderField(MessageHeader& header, InputReader& reader);
+	static void parseHeaderValue(MessageHeader& header, std::string_view line);
+	static void readNextMessageHeaderField(MessageHeader& header, InputReader& reader);
 	void writeMessageData(const std::string& content);
 	std::string messageHeaderString(const MessageHeader& header);
 };
