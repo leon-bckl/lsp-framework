@@ -4,6 +4,7 @@
 #include <optional>
 #include <algorithm>
 #include <string_view>
+#include <system_error>
 #include <lsp/connection.h>
 #include <lsp/json/json.h>
 #include <lsp/io/stream.h>

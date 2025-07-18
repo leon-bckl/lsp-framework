@@ -32,7 +32,7 @@ bool FileUri::setPath(std::string_view path)
 #ifdef _WIN32
 	Uri::setPath('/' + absolute.string());
 #else
-	Uri::setPath(absolute .string());
+	Uri::setPath(absolute.string());
 #endif
 	return true;
 }
