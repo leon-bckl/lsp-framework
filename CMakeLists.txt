@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS NO)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers for Debug builds" ON)
+	option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers for Debug builds" OFF)
 
 	add_compile_options(
 		-Wall
