@@ -3,6 +3,11 @@
 -Wall
 -Wextra
 -pedantic
+-Wint-conversion
+-Wsign-conversion
+-Wimplicit-int-conversion
+-Wfloat-conversion
+-Wimplicit-float-conversion
 -I.
 -I./build/generated
 -I../build/lsp-framework/generated

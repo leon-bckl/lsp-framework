@@ -68,7 +68,7 @@ private:
 	EnumType  m_index       = EnumType::MAX_VALUE;
 	ValueType m_customValue = {};
 
-	static const ConstInitType s_values[static_cast<int>(EnumType::MAX_VALUE)];
+	static const ConstInitType s_values[static_cast<std::size_t>(EnumType::MAX_VALUE)];
 };
 
 template<typename EnumType, typename ValueType>

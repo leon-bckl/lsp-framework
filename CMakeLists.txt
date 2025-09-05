@@ -13,7 +13,20 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers for Debug builds" ON)
 
-	add_compile_options(-Wall -Wextra -pedantic)
+	add_compile_options(
+		-Wall
+		-Wextra
+		-pedantic
+		-Wsign-conversion
+		-Wfloat-conversion
+	)
+
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		add_compile_options(
+			-Wimplicit-int-conversion
+			-Wimplicit-float-conversion
+		)
+	endif()
 
 	if(LSP_USE_SANITIZERS)
 		add_compile_options(

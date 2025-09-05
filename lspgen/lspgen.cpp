@@ -1155,7 +1155,7 @@ private:
 		return "void fromJson(json::Any&& json, " + typeName + "& value)";
 	}
 
-	static std::string documentationComment(const std::string& title, const std::string& documentation, int indentLevel = 0)
+	static std::string documentationComment(const std::string& title, const std::string& documentation, std::size_t indentLevel = 0)
 	{
 		std::string indent(indentLevel, '\t');
 		std::string comment = indent + "/*\n";

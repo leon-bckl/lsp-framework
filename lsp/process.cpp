@@ -159,7 +159,7 @@ struct Process::Impl final : public io::Stream{
 				throw io::Error(std::string("Failed to read from process stdout: ") + strerror(errno));
 			}
 
-			totalBytesRead += bytesRead;
+			totalBytesRead += static_cast<std::size_t>(bytesRead);
 		}
 	}
 
@@ -179,7 +179,7 @@ struct Process::Impl final : public io::Stream{
 				throw io::Error(std::string("Failed to write to process stdin: ") + strerror(errno));
 			}
 
-			totalBytesWritten += bytesWritten;
+			totalBytesWritten += static_cast<std::size_t>(bytesWritten);
 		}
 	}
 #elif defined(LSP_PROCESS_WIN32)

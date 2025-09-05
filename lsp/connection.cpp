@@ -165,7 +165,7 @@ json::Any Connection::readMessage()
 
 		std::string content;
 		content.resize(header.contentLength);
-		reader.read(&content[0], static_cast<std::streamsize>(header.contentLength));
+		reader.read(&content[0], header.contentLength);
 
 		// Verify only after reading the entire message so no partially unread message is left in the stream
 		verifyContentType(header.contentType);
@@ -284,7 +284,7 @@ void Connection::writeMessageData(const std::string& content)
 	std::lock_guard lock{m_writeMutex};
 	MessageHeader header{content.size()};
 	const auto messageStr = messageHeaderString(header) + content;
-	m_stream.write(messageStr.data(), static_cast<std::streamsize>(messageStr.size()));
+	m_stream.write(messageStr.data(), messageStr.size());
 }
 
 std::string Connection::messageHeaderString(const MessageHeader& header)

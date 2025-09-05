@@ -42,7 +42,7 @@ struct Socket::Impl{
 
 	using SizeType =
 #ifdef LSP_SOCKET_POSIX
-		std::size_t;
+		socklen_t;
 #elif defined(LSP_SOCKET_WIN32)
 		int;
 #endif

@@ -52,7 +52,7 @@ inline std::string mapKey(const FileUri& uri)
 	return uri.toString();
 }
 
-template<typename T, typename F, int idx = std::tuple_size_v<typename std::decay<T>::type> - 1>
+template<typename T, typename F, std::size_t idx = std::tuple_size_v<typename std::decay<T>::type> - 1>
 struct TupleVisitor
 {
 	void visitTuple(T&& tuple, F&& f)
@@ -64,7 +64,7 @@ struct TupleVisitor
 };
 
 template<typename T, typename F>
-struct TupleVisitor<T, F, -1>
+struct TupleVisitor<T, F, static_cast<std::size_t>(-1)>
 {
 	void visitTuple(T&&, F&&){}
 };
@@ -191,7 +191,7 @@ json::Any toJson(std::tuple<Args...>&& tuple)
 {
 	json::Array result;
 	result.resize(sizeof...(Args));
-	impl::visitTuple(tuple, [&result](auto&& v, int idx)
+	impl::visitTuple(tuple, [&result](auto&& v, std::size_t idx)
 	{
 		result[idx] = toJson(std::forward<std::decay_t<decltype(v)>>(v));
 	});
@@ -314,7 +314,7 @@ template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value)
 {
 	auto& array = json.array();
-	impl::visitTuple(value, [&array](auto& v, int idx)
+	impl::visitTuple(value, [&array](auto& v, std::size_t idx)
 	{
 		if(static_cast<std::size_t>(idx) >= array.size())
 			throw json::TypeError{};
