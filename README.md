@@ -103,6 +103,8 @@ messageHandler.add<lsp::requests::TextDocument_Hover>(
     }
 ```
 
+Notification callbacks can also be executed asynchronously. They must return a `std::future<void>`.
+
 ### Returning Error Responses
 
 If an error occurs while processing the request and no proper result can be provided an error response should be sent back. In order to do that simply throw an `lsp::RequestError` from inside of the callback (`#include <lsp/error.h>`):

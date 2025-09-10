@@ -13,6 +13,8 @@ using MessageId = jsonrpc::MessageId;
 template<typename MessageType>
 using AsyncRequestResult = std::future<typename MessageType::Result>;
 
+using AsyncNotificationResult = std::future<void>;
+
 /*
  * The return type of MessageHandler::sendRequest.
  * id can be used to send a cancel notification (if the requests supports it).

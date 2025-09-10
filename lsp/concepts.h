@@ -27,10 +27,12 @@ concept IsNoParamsRequestCallbackResult = IsNoParamsCallbackResult<typename M::R
                                           IsNoParamsCallbackResult<AsyncRequestResult<M>, F>;
 
 template<typename M, typename F>
-concept IsNotificationCallbackResult = IsCallbackResult<void, typename M::Params, F>;
+concept IsNotificationCallbackResult = IsCallbackResult<void, typename M::Params, F> ||
+                                       IsCallbackResult<AsyncNotificationResult, typename M::Params, F>;
 
 template<typename M, typename F>
-concept IsNoParamsNotificationCallbackResult = IsNoParamsCallbackResult<void, F>;
+concept IsNoParamsNotificationCallbackResult = IsNoParamsCallbackResult<void, F> ||
+                                               IsNoParamsCallbackResult<AsyncNotificationResult, F>;
 
 template<typename M, typename F>
 concept IsRequestCallback = message::HasParams<M> &&

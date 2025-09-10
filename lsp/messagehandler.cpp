@@ -52,7 +52,9 @@ void MessageHandler::processIncomingMessages()
 
 			for(auto&& r : *requests)
 			{
-				auto response = processRequest(std::move(r), false);
+				// Notifications can always be async because they're not part of the response batch
+				const auto allowAsync = r.isNotification();
+				auto response = processRequest(std::move(r), allowAsync);
 
 				if(response.has_value())
 					responses.push_back(std::move(*response));

@@ -51,11 +51,11 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<
 
 			if(allowAsync)
 			{
-				m_threadPool.addTask([this, id = id](AsyncRequestResult<M>&& result) mutable
+				m_threadPool.addTask([this, id = id, result = std::move(future)]() mutable
 				{
 					auto response = createResponseFromAsyncResult<M>(id, result);
 					sendResponse(std::move(response));
-				}, std::move(future));
+				});
 
 				return std::nullopt;
 			}
@@ -113,11 +113,34 @@ template<typename M, typename F>
 MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNotificationCallback<M, F>
 {
 	addHandler(M::Method,
-	[f = std::forward<F>(handlerFunc)](json::Any&& json, bool) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Any&& json, bool allowAsync) -> OptionalResponse
 	{
 		typename M::Params params;
 		fromJson(std::move(json), params);
-		f(std::move(params));
+
+		if constexpr(IsCallbackResult<AsyncNotificationResult, typename M::Params, F>)
+		{
+			auto future = f(std::move(params));
+
+			if(allowAsync)
+			{
+				m_threadPool.addTask([result = std::move(future)]() mutable
+				{
+					result.get();
+				});
+			}
+			else
+			{
+				future.get();
+			}
+		}
+		else
+		{
+			(void)this;
+			(void)allowAsync;
+			f(std::move(params));
+		}
+
 		return std::nullopt;
 	});
 
@@ -128,9 +151,31 @@ template<typename M, typename F>
 MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsNotificationCallback<M, F>
 {
 	addHandler(M::Method,
-	[f = std::forward<F>(handlerFunc)](json::Any&&, bool) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Any&&, bool allowAsync) -> OptionalResponse
 	{
-		f();
+		if constexpr(IsNoParamsCallbackResult<AsyncNotificationResult, F>)
+		{
+			auto future = f();
+
+			if(allowAsync)
+			{
+				m_threadPool.addTask([result = std::move(future)]() mutable
+				{
+					result.get();
+				});
+			}
+			else
+			{
+				future.get();
+			}
+		}
+		else
+		{
+			(void)this;
+			(void)allowAsync;
+			f();
+		}
+
 		return std::nullopt;
 	});
 
