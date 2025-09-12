@@ -385,8 +385,11 @@ const char** requiredProperties()
 	return properties;
 }
 
+template<typename... Args>
+bool variantFromJson(json::Any& json, std::variant<Args...>& value);
+
 template<std::size_t Index, typename... Args, typename VariantType = std::variant<Args...>>
-bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyCount = 0)
+bool variantFromJson(json::Any& json, VariantType& value)
 {
 	using T = std::variant_alternative_t<Index, VariantType>;
 
@@ -438,6 +441,13 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 			return true;
 		}
 	}
+	else if constexpr(impl::IsVariant<T>{})
+	{
+		if(value.index() != Index)
+			value.template emplace<Index>();
+
+		return variantFromJson(json, std::get<Index>(value));
+	}
 	else if constexpr(std::is_class_v<T>)
 	{
 		if(json.isObject())
@@ -480,15 +490,21 @@ bool variantFromJson(json::Any&& json, VariantType& value, int requiredPropertyC
 	}
 
 	if constexpr(Index + 1 < sizeof...(Args))
-		return variantFromJson<Index + 1, Args...>(std::move(json), value, requiredPropertyCount);
+		return variantFromJson<Index + 1, Args...>(json, value);
 	else
 		return false;
 }
 
 template<typename... Args>
+bool variantFromJson(json::Any& json, std::variant<Args...>& value)
+{
+	return variantFromJson<0, Args...>(json, value);
+}
+
+template<typename... Args>
 void fromJson(json::Any&& json, std::variant<Args...>& value)
 {
-	if(!variantFromJson<0, Args...>(std::move(json), value))
+	if(!variantFromJson<0, Args...>(json, value))
 		throw json::TypeError();
 }
 
