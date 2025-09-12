@@ -446,9 +446,10 @@ bool variantFromJson(json::Any& json, VariantType& value)
 		if(value.index() != Index)
 			value.template emplace<Index>();
 
-		return variantFromJson(json, std::get<Index>(value));
+		if(variantFromJson(json, std::get<Index>(value)))
+			return true;
 	}
-	else if constexpr(std::is_class_v<T>)
+	else
 	{
 		if(json.isObject())
 		{
