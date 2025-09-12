@@ -81,10 +81,7 @@ void registerCallbacks(lsp::MessageHandler& messageHandler)
 					.change    = lsp::TextDocumentSyncKind::Full,
 					.save      = true
 				},
-				.hoverProvider      = true,
-				.diagnosticProvider = lsp::DiagnosticOptions{
-					.interFileDependencies = true
-				}
+				.hoverProvider = true,
 			},
 			.serverInfo = lsp::InitializeResultServerInfo{
 				.name    = "Language Server Example",
