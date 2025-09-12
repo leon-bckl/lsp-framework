@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS NO)
 
+option(LSP_BUILD_EXAMPLES "Build the examples" OFF)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -52,7 +54,8 @@ target_include_directories(lspgen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # liblsp
 
-set(LSP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lsp/)
+set(LSP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(LSP_SRC_DIR ${LSP_DIR}/lsp)
 
 set(LSP_HEADERS
 	# lsp
@@ -80,7 +83,7 @@ set(LSP_HEADERS
 	# jsonrpc
 	jsonrpc/jsonrpc.h
 )
-list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR})
+list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR}/)
 
 set(LSP_SOURCES
 	# lsp
@@ -98,7 +101,7 @@ set(LSP_SOURCES
 	# jsonrpc
 	jsonrpc/jsonrpc.cpp
 )
-list(TRANSFORM LSP_SOURCES PREPEND ${LSP_SRC_DIR})
+list(TRANSFORM LSP_SOURCES PREPEND ${LSP_SRC_DIR}/)
 
 set(LSP_GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp)
@@ -146,4 +149,13 @@ install(
 
 if(WIN32)
 	target_link_libraries(lsp PUBLIC Ws2_32)
+endif()
+
+if(LSP_BUILD_EXAMPLES)
+	# Server
+	add_executable(LspServerExample ${LSP_DIR}/examples/server.cpp)
+	target_link_libraries(LspServerExample lsp)
+	# Client
+	add_executable(LspClientExample ${LSP_DIR}/examples/client.cpp)
+	target_link_libraries(LspClientExample lsp)
 endif()

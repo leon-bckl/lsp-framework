@@ -2,6 +2,13 @@
 
 This is an implementation of the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/overviews/lsp/overview/) in C++. It can be used to implement both servers and clients that communicate using the LSP.
 
+## Overview
+
+The goal of this library is to make implementing LSP servers and clients easy and type safe.
+All LSP types and messages are proper C++ structs. There's no need to manually read or write JSON which is annyoing and error-prone. The framework handles serialization and deserialization automatically.
+
+All messages can be found in the generated `<lsp/messages.h>` header with requests inside the `lsp::requests` and notifications inside the `lsp::notifications` namespace respectively. All types like the message parameters or results can be found in `<lsp/types.h>`.
+
 ## Building
 
 There aren't any external dependencies except for `cmake` and a compiler that supports C++20.
@@ -10,16 +17,27 @@ The project is built as a static library. LSP type definitions, messages and ser
 
 `cmake -S . -B build && cmake --build build --parallel`
 
-## Overview
+## Examples
 
-The goal of this library is to make implementing LSP servers and clients easy and type safe.
-All LSP types and messages are proper C++ structs. There's no need to manually read or write JSON which is annyoing and error-prone. The framework handles serialization and deserialization automatically.
+An example server and client implementation can be found in [lsp-framework/examples](./examples/).
 
-All messages can be found in the generated `<lsp/messages.h>` header with requests inside the `lsp::requests` and notifications inside the `lsp::notifications` namespace respectively. All types like the message parameters or results can be found in `<lsp/types.h>`.
+They aren't built by default unless the cmake option `LSP_BUILD_EXAMPLES` is enabled.
 
-## Usage
+### Client
 
-First you need to establish a connection to the client or server you want to communicate with. The library provides communication via `stdio` and sockets. If you need another way of communicating with the other process (e.g. named pipes) you can extend `lsp::io::Stream` and implement the `read` and `write` methods.
+Launch with `LspClientExample --exe=<server_executable> <args>` to start the given server executable with optional arguments and use it via stdio.
+
+Alternatively `LspClientExample --port=<portnum>` to connect to an already launched server instance that is listening on the given port.
+
+### Server
+
+The server example can be launched with `LspServerExample --port=<portnum>` to start a server instance that listens on the given port for incoming client connections.
+
+Without arguments it will wait for input on stdin.
+
+## Basic Usage
+
+First you need to establish a connection to the client or server you want to communicate with. The library provides communication via stdio and sockets. If you need another way of communicating with the other process (e.g. named pipes) you can extend `lsp::io::Stream` and implement the `read` and `write` methods.
 
 Create an `lsp::Connection` using a stream and then an `lsp::MessageHandler` with the connection:
 
