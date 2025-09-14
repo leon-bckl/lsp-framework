@@ -29,9 +29,28 @@ struct Process::Impl final : public io::Stream{
 	{
 		int inPipe[2]; // Parent writes to child (stdin)
 		int outPipe[2]; // Parent reads from child (stdout)
+		int errPipe[2]; // Used to inform parent about exec errors
 
-		if(pipe(inPipe) == -1 || pipe(outPipe) == -1)
+		if(pipe(inPipe) == -1)
 			throw ProcessError(strerror(errno));
+
+		if(pipe(outPipe) == -1)
+		{
+			const auto error = errno;
+			close(inPipe[0]);
+			close(inPipe[1]);
+			throw ProcessError(strerror(error));
+		}
+
+		if(pipe(errPipe) == -1)
+		{
+			const auto error = errno;
+			close(inPipe[0]);
+			close(inPipe[1]);
+			close(outPipe[0]);
+			close(outPipe[1]);
+			throw ProcessError(strerror(error));
+		}
 
 		auto argList = std::vector<char*>({const_cast<char*>(executable.c_str())});
 
@@ -65,15 +84,36 @@ struct Process::Impl final : public io::Stream{
 			close(inPipe[1]);
 			close(outPipe[0]);
 			close(outPipe[1]);
+			close(errPipe[0]);
+			fcntl(errPipe[1], F_SETFD, FD_CLOEXEC);
 
 			execvp(file, argv);
-			perror("execvp");
+
+			const auto error = errno;
+			::write(errPipe[1], &error, sizeof(error));
+
+			close(errPipe[1]);
+
 			_exit(EXIT_FAILURE);
 		}
 		else // Parent process
 		{
 			close(inPipe[0]);
 			close(outPipe[1]);
+			close(errPipe[1]);
+
+			int error;
+			const auto bytesRead = ::read(errPipe[0], &error, sizeof(error));
+			close(errPipe[0]);
+
+			if(bytesRead > 0)
+			{
+				close(inPipe[1]);
+				close(outPipe[0]);
+				waitpid(m_pid, nullptr, 0);
+				throw ProcessError(strerror(error));
+			}
+
 			m_stdinWrite = inPipe[1];
 			m_stdoutRead = outPipe[0];
 		}
