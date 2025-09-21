@@ -65,62 +65,69 @@ thread_local bool g_running = false;
 
 void registerCallbacks(lsp::MessageHandler& messageHandler)
 {
-	messageHandler.add<lsp::requests::Initialize>([](lsp::requests::Initialize::Params&& params)
-	{
-		printMessage<lsp::requests::Initialize>(params);
-
-		/*
-		 * Respond with an InitializeResult containing some basic server info and capabilities
-		 */
-
-		return lsp::requests::Initialize::Result{
-			.capabilities = {
-				.positionEncoding = lsp::PositionEncodingKind::UTF16,
-				.textDocumentSync = lsp::TextDocumentSyncOptions{
-					.openClose = true,
-					.change    = lsp::TextDocumentSyncKind::Full,
-					.save      = true
-				},
-				.hoverProvider = true,
-			},
-			.serverInfo = lsp::InitializeResultServerInfo{
-				.name    = "Language Server Example",
-				.version = "1.0.0"
-			},
-		};
-	})
-	.add<lsp::requests::TextDocument_Hover>([](lsp::requests::TextDocument_Hover::Params&& params)
-	{
-		printMessage<lsp::requests::TextDocument_Hover>(params);
-
-		/*
-		 * Handle the request asynchronously.
-		 * It is executed in a worker thread by the message handler.
-		 * This means a deferred future can be used and it is not necessary to spawn extra threads.
-		 */
-		return std::async(std::launch::deferred, [params = std::move(params)]()
+	messageHandler.add<lsp::requests::Initialize>(
+		[](lsp::requests::Initialize::Params&& params)
 		{
-			// simulate longer running task
-			std::this_thread::sleep_for(std::chrono::seconds(2));
+			printMessage<lsp::requests::Initialize>(params);
 
-			// return the result
-			// TextDocument_Hover::Result is NullOr<Hover>
-			auto hover = lsp::Hover{
-				.contents = "Hover result"
+			/*
+			 * Respond with an InitializeResult containing some basic server info and capabilities
+			 */
+
+			return lsp::requests::Initialize::Result{
+				.capabilities = {
+					.positionEncoding = lsp::PositionEncodingKind::UTF16,
+					.textDocumentSync = lsp::TextDocumentSyncOptions{
+						.openClose = true,
+						.change    = lsp::TextDocumentSyncKind::Full,
+						.save      = true
+					},
+					.hoverProvider = true,
+				},
+				.serverInfo = lsp::InitializeResultServerInfo{
+					.name    = "Language Server Example",
+					.version = "1.0.0"
+				},
 			};
-			return lsp::requests::TextDocument_Hover::Result(std::move(hover));
-		});
-	})
-	.add<lsp::requests::Shutdown>([]()
-	{
-		printMessage<lsp::requests::Shutdown>();
-		return lsp::requests::Shutdown::Result();
-	})
-	.add<lsp::notifications::Exit>([]()
-	{
-		printMessage<lsp::notifications::Exit>();
-		g_running = false;
-	});
+		}
+	).add<lsp::requests::TextDocument_Hover>(
+		[](lsp::requests::TextDocument_Hover::Params&& params)
+		{
+			printMessage<lsp::requests::TextDocument_Hover>(params);
+
+			/*
+			 * Handle the request asynchronously.
+			 * It is executed in a worker thread by the message handler.
+			 * This means a deferred future can be used and it is not necessary to spawn extra threads.
+			 */
+			return std::async(std::launch::deferred,
+				[params = std::move(params)]()
+				{
+					// simulate longer running task
+					std::this_thread::sleep_for(std::chrono::seconds(2));
+
+					// return the result
+					// TextDocument_Hover::Result is NullOr<Hover>
+					auto hover = lsp::Hover{
+						.contents = "Hover result"
+					};
+					return lsp::requests::TextDocument_Hover::Result(std::move(hover));
+				}
+			);
+		}
+	).add<lsp::requests::Shutdown>(
+		[]()
+		{
+			printMessage<lsp::requests::Shutdown>();
+			return lsp::requests::Shutdown::Result();
+		}
+	).add<lsp::notifications::Exit>(
+		[]()
+		{
+			printMessage<lsp::notifications::Exit>();
+			g_running = false;
+		}
+	);
 }
 
 /*
@@ -129,14 +136,21 @@ void registerCallbacks(lsp::MessageHandler& messageHandler)
 
 void runLanguageServer(lsp::io::Stream& io)
 {
-	auto connection     = lsp::Connection(io);
-	auto messageHandler = lsp::MessageHandler(connection);
-	registerCallbacks(messageHandler);
+	try
+	{
+		auto connection     = lsp::Connection(io);
+		auto messageHandler = lsp::MessageHandler(connection);
+		registerCallbacks(messageHandler);
 
-	g_running = true;
+		g_running = true;
 
-	while(g_running)
-		messageHandler.processIncomingMessages();
+		while(g_running)
+			messageHandler.processIncomingMessages();
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "ERROR: " << e.what() << std::endl;
+	}
 }
 
 /*
@@ -158,17 +172,12 @@ void runSocketServer(unsigned short port)
 
 		std::cerr << "Accepted connection" << std::endl;
 
-		auto thread = std::thread([socket = std::move(socket)]() mutable
-		{
-			try
+		auto thread = std::thread(
+			[socket = std::move(socket)]() mutable
 			{
 				runLanguageServer(socket);
 			}
-			catch(const std::exception& e)
-			{
-				std::cerr << "ERROR: " << e.what() << std::endl;
-			}
-		});
+		);
 		thread.detach();
 	}
 }
