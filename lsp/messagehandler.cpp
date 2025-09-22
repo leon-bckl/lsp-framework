@@ -4,7 +4,8 @@
 namespace lsp{
 namespace{
 
-thread_local MessageId* t_currentRequestId  = nullptr;
+thread_local const MessageId* t_currentRequestId  = nullptr;
+const              MessageId  NullMessageId       = nullptr; // Used for notifications which don't have an id
 
 json::Integer nextUniqueRequestId()
 {
@@ -105,6 +106,8 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 		assert(!t_currentRequestId);
 		if(request.id.has_value())
 			t_currentRequestId = &request.id.value();
+		else
+			t_currentRequestId = &NullMessageId;
 
 		try
 		{
@@ -204,24 +207,96 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
+MessageHandler& MessageHandler::add(std::string_view method, GenericMessageCallback callback)
+{
+	addHandler(method,
+		[f = std::move(callback)](json::Any&& params, bool) -> OptionalResponse
+		{
+			const auto isNotification = std::holds_alternative<std::nullptr_t>(currentRequestId());
+			auto result = f(std::move(params));
+
+			if(!isNotification)
+				return jsonrpc::createResponse(currentRequestId(), std::move(result));
+
+			return std::nullopt;
+		}
+	);
+
+	return *this;
+}
+
+MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessageCallback callback)
+{
+	addHandler(method,
+		[this, f = std::move(callback)](json::Any&& params, bool allowAsync) -> OptionalResponse
+		{
+			const auto isNotification = std::holds_alternative<std::nullptr_t>(currentRequestId());
+			auto future = f(std::move(params));
+
+			if(allowAsync)
+			{
+				m_threadPool.addTask(
+					[this, future = std::move(future), isNotification = isNotification, requestId = currentRequestId()]() mutable
+					{
+						auto response = createResponseFromAsyncResult<GenericMessage>(requestId, future);
+
+						if(!isNotification)
+							sendResponse(std::move(response));
+					}
+				);
+				return std::nullopt;
+			}
+
+			auto result = future.get();
+
+			if(!isNotification)
+				return jsonrpc::createResponse(currentRequestId(), future.get());
+
+			return std::nullopt;
+		}
+	);
+
+	return *this;
+}
+
 void MessageHandler::sendResponse(jsonrpc::Response&& response)
 {
 	m_connection.writeMessage(jsonrpc::responseToJson(std::move(response)));
 }
 
-MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, const std::optional<json::Any>& params)
+MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Any>&& params)
 {
 	std::lock_guard lock{m_pendingRequestsMutex};
 	const auto messageId = nextUniqueRequestId();
 	m_pendingRequests[messageId] = std::move(result);
-	auto request = jsonrpc::createRequest(messageId, method, params);
+	auto request = jsonrpc::createRequest(messageId, method, std::move(params));
 	m_connection.writeMessage(jsonrpc::requestToJson(std::move(request)));
 	return messageId;
 }
 
-void MessageHandler::sendNotification(std::string_view method, const std::optional<json::Any>& params)
+MessageId MessageHandler::sendRequest(
+	std::string_view method,
+	std::optional<json::Any>&& params,
+	GenericResponseCallback then,
+	GenericErrorResponseCallback error)
 {
-	auto notification = jsonrpc::createNotification(method, params);
+	auto result = std::make_unique<CallbackRequestResult<json::Any, decltype(then), decltype(error)>>(
+		std::move(then), std::move(error));
+	return sendRequest(method, std::move(result), std::move(params));
+}
+
+FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::string_view method, std::optional<json::Any>&& params)
+{
+	auto result    = std::make_unique<FutureRequestResult<json::Any>>();
+	auto future    = result->future();
+	auto messageId = sendRequest(method, std::move(result), std::move(params));
+
+	return {std::move(messageId), std::move(future)};
+}
+
+void MessageHandler::sendNotification(std::string_view method, std::optional<json::Any>&& params)
+{
+	auto notification = jsonrpc::createNotification(method, std::move(params));
 	m_connection.writeMessage(jsonrpc::requestToJson(std::move(notification)));
 }
 

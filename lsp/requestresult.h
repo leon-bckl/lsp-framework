@@ -17,7 +17,7 @@ using AsyncNotificationResult = std::future<void>;
 
 /*
  * The return type of MessageHandler::sendRequest.
- * id can be used to send a cancel notification (if the requests supports it).
+ * id can be used to send a cancel notification (if the request supports it).
  * result will contain the result of the request once it is ready.
  * Do not call result.wait() on the same thread that handles incoming messages as that would result in infinte waiting.
  */
@@ -27,7 +27,7 @@ struct FutureResponse{
 
 	FutureResponse(MessageId _messageId, ResultFuture _result)
 		: messageId{std::move(_messageId)},
-		  result(std::move(_result))
+		  result{std::move(_result)}
 	{
 	}
 

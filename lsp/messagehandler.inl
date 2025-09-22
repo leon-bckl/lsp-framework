@@ -51,9 +51,9 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<
 
 			if(allowAsync)
 			{
-				m_threadPool.addTask([this, id = id, result = std::move(future)]() mutable
+				m_threadPool.addTask([this, id = id, future = std::move(future)]() mutable
 				{
-					auto response = createResponseFromAsyncResult<M>(id, result);
+					auto response = createResponseFromAsyncResult<M>(id, future);
 					sendResponse(std::move(response));
 				});
 

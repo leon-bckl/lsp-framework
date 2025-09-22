@@ -1,18 +1,18 @@
 #pragma once
 
-#include <mutex>
-#include <future>
-#include <utility>
 #include <functional>
-#include <lsp/error.h>
-#include <lsp/strmap.h>
+#include <future>
+#include <mutex>
+#include <utility>
 #include <lsp/concepts.h>
 #include <lsp/connection.h>
-#include <lsp/threadpool.h>
+#include <lsp/error.h>
+#include <lsp/jsonrpc/jsonrpc.h>
 #include <lsp/messagebase.h>
 #include <lsp/requestresult.h>
 #include <lsp/serialization.h>
-#include <lsp/jsonrpc/jsonrpc.h>
+#include <lsp/strmap.h>
+#include <lsp/threadpool.h>
 
 namespace lsp{
 
@@ -31,6 +31,16 @@ public:
 	// Throws std::logic_error if not called in that context.
 	[[nodiscard]] static const MessageId& currentRequestId();
 
+	struct GenericMessage{
+		using Params = json::Any;
+		using Result = json::Any;
+	};
+
+	using GenericMessageCallback       = std::function<json::Any(json::Any&&)>;
+	using GenericAsyncMessageCallback  = std::function<AsyncRequestResult<GenericMessage>(json::Any&&)>;
+	using GenericResponseCallback      = std::function<void(json::Any&&)>;
+	using GenericErrorResponseCallback = std::function<void(const ResponseError&)>;
+
 	/*
 	 * Callback registration
 	 */
@@ -46,6 +56,9 @@ public:
 
 	template<typename M, typename F>
 	MessageHandler& add(F&& handlerFunc) requires IsNoParamsNotificationCallback<M, F>;
+
+	MessageHandler& add(std::string_view method, GenericMessageCallback callback);
+	MessageHandler& add(std::string_view method, GenericAsyncMessageCallback callback);
 
 	void remove(std::string_view method);
 
@@ -67,6 +80,14 @@ public:
 	template<typename M>
 	[[nodiscard]] FutureResponse<M> sendRequest() requires message::IsRequest<M> && (!message::HasParams<M>);
 
+	FutureResponse<GenericMessage> sendRequest(std::string_view method, std::optional<json::Any>&& params = std::nullopt);
+
+	MessageId sendRequest(
+		std::string_view method,
+		std::optional<json::Any>&& params,
+		GenericResponseCallback then,
+		GenericErrorResponseCallback error);
+
 	/*
 	 * sendNotification
 	 */
@@ -76,6 +97,8 @@ public:
 
 	template<typename M>
 	void sendNotification() requires SendNoParamsNotification<M>;
+
+	void sendNotification(std::string_view method, std::optional<json::Any>&& params = std::nullopt);
 
 private:
 	class ResponseResultBase;
@@ -105,8 +128,7 @@ private:
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
 	void sendResponse(jsonrpc::Response&& response);
 	void processResponse(jsonrpc::Response&& response);
-	MessageId sendRequest(std::string_view method, RequestResultPtr result, const std::optional<json::Any>& params = std::nullopt);
-	void sendNotification(std::string_view method, const std::optional<json::Any>& params = std::nullopt);
+	MessageId sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Any>&& params = std::nullopt);
 
 	/*
 	 * Request result wrapper

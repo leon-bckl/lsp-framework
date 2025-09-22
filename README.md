@@ -86,6 +86,10 @@ The callback returns the result of the request (`MessageType::Result`) if it has
 
 The id of the current request can be obtained using `lsp::MessageHandler::currentRequestId`. However, this function can only be called from inside of a request callback. Otherwise a `std::logic_error` is thrown.
 
+It is also possible to send messages that do not have a generated c++ type. This option is not type-safe but allows for sending custom notifications and requests that are not part of the specification or are not yet contained in the meta model used for generating the code.
+
+In order to send these types of generic messages you need to call the non-template overload of `MessageHandler::add` which takes the message method string and a callback function that is invoked with the request payload and returns the response. Both are of type `lsp::json::Any`. There is an async overload as well that expects the result of the callback to be `std::future<lsp::json::Any>`.
+
 `MessageHandler::add` returns a reference to the handler itself in order to easily chain multiple callback registrations without repeating the handler instance over and over:
 
 ```cpp
@@ -160,6 +164,8 @@ auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnost
 ```
 
 `lsp::MessageHandler::currentRequestId` can be called from inside such a callback to obtain the id of the request.
+
+Just like with handling requests it is also possible to send generic json messages using the non-template overloads of `MessageHandler::sendRequest`.
 
 ### Sending Notifications
 
