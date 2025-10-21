@@ -9,13 +9,24 @@ All LSP types and messages are proper C++ structs. There's no need to manually r
 
 All messages can be found in the generated `<lsp/messages.h>` header with requests inside the `lsp::requests` and notifications inside the `lsp::notifications` namespace respectively. All types like the message parameters or results can be found in `<lsp/types.h>`.
 
-## Building
+## Building And Linking
 
 There aren't any external dependencies except for `cmake` and a compiler that supports C++20.
 
 The project is built as a static library. LSP type definitions, messages and serialization boilerplate are generated from the official [meta model](https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/metaModel/metaModel.json) during the build.
 
 `cmake -S . -B build && cmake --build build --parallel`
+
+If you use `lsp` as an external dependency, make sure the cmake config option `LSP_INSTALL` is enabled. Then install the `lsp` target:
+
+`cmake --build build --target install`
+
+In your project, you can link it by using `find_package`, like:
+
+```cmake
+find_package(lsp 1.2.0 EXACT REQUIRED)
+target_link_library(${CURRENT_TARGET} PUBLIC lsp::lsp)
+```
 
 ## Examples
 

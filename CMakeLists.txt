@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS NO)
 
 option(LSP_BUILD_EXAMPLES "Build the examples" OFF)
+option(LSP_INSTALL "Configure lsp install configuration" ON)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
@@ -132,20 +133,62 @@ add_library(lsp
 	${LSP_GENERATED_SOURCES}
 )
 target_include_directories(lsp PUBLIC
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${LSP_GENERATED_FILES_DIR}
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+	$<BUILD_INTERFACE:${LSP_GENERATED_FILES_DIR}>
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/lsp>
 )
-install(TARGETS lsp ARCHIVE LIBRARY)
-include(GNUInstallDirs)
-install(
-	FILES ${LSP_GENERATED_HEADERS}
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp
-)
-install(
-	DIRECTORY ${LSP_SRC_DIR}
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp
-	FILES_MATCHING REGEX ".*\.(h|inl)"
-)
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+	set_target_properties(
+		lsp PROPERTIES
+		DEBUG_POSTFIX d
+	)	
+endif()
+
+if (LSP_INSTALL)
+	include(cmake/utils.cmake)
+	lsp_read_version()
+
+	include(GNUInstallDirs)
+	include(CMakePackageConfigHelpers)
+	set(EXPORT_CMAKE_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/lsp/")
+
+	# write and install config files
+	write_basic_config_version_file(
+		"${CMAKE_CURRENT_BINARY_DIR}/lspConfigVersion.cmake"
+		VERSION ${LSP_VERSION}
+		COMPATIBILITY SameMajorVersion
+	)
+	configure_package_config_file(
+		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/lspConfig.cmake.in"
+		"${CMAKE_CURRENT_BINARY_DIR}/lspConfig.cmake"
+		INSTALL_DESTINATION 
+		${EXPORT_CMAKE_CONFIG_DIR}
+	)
+	install(
+		EXPORT lsp
+		DESTINATION ${EXPORT_CMAKE_CONFIG_DIR}
+		NAMESPACE lsp::
+		FILE "lspConfigTargets.cmake"
+	)
+	install(
+		FILES
+			"${CMAKE_CURRENT_BINARY_DIR}/lspConfigVersion.cmake"
+			"${CMAKE_CURRENT_BINARY_DIR}/lspConfig.cmake"
+		DESTINATION ${EXPORT_CMAKE_CONFIG_DIR}
+	)
+
+	install(TARGETS lsp EXPORT lsp ARCHIVE LIBRARY)
+	install(
+		FILES ${LSP_GENERATED_HEADERS}
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp
+	)
+	install(
+		DIRECTORY ${LSP_SRC_DIR}
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp
+		FILES_MATCHING REGEX ".*\.(h|inl)"
+	)
+endif()
 
 if(WIN32)
 	target_link_libraries(lsp PUBLIC Ws2_32)
