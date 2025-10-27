@@ -1,9 +1,10 @@
-#include <limits>
-#include <vector>
-#include <cassert>
-#include <string>
-#include <charconv>
 #include <algorithm>
+#include <cassert>
+#include <charconv>
+#include <iterator>
+#include <limits>
+#include <string>
+#include <vector>
 #include <lsp/json/json.h>
 
 namespace lsp::json{
@@ -460,6 +461,36 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 	}
 }
 
+void appendCodePointAsUtf8(std::string& str, unsigned int codepoint)
+{
+	if(codepoint < 0x80)
+	{
+		str += static_cast<char>(codepoint);
+	}
+	else if(codepoint < 0x800)
+	{
+		str += static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F));
+		str += static_cast<char>(0x80 | (codepoint & 0x3F));
+	}
+	else if(codepoint < 0x10000)
+	{
+		str += static_cast<char>(0xE0 | ((codepoint >> 12) & 0xF));
+		str += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+		str += static_cast<char>(0x80 | (codepoint & 0x3F));
+	}
+	else if(codepoint < 0x200000)
+	{
+		str += static_cast<char>(0xF0 | ((codepoint >> 18) & 0x7));
+		str += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+		str += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+		str += static_cast<char>(0x80 | (codepoint & 0x3F));
+	}
+	else
+	{
+		str += "?";
+	}
+}
+
 } // namespace
 
 Any& Object::get(std::string_view key)
@@ -584,6 +615,38 @@ std::string fromStringLiteral(std::string_view str)
 			case 'r':
 				result += '\r';
 				break;
+			case 'u':
+				{
+					const auto* first = str.data() + i + 1;
+					const auto* last  = first + 4;
+
+					if(last <= str.data() + str.size())
+					{
+						unsigned int codepoint;
+						const auto [ptr, ec] = std::from_chars(first, last, codepoint, 16);
+
+						if(ec == std::errc{} && ptr == last)
+						{
+							appendCodePointAsUtf8(result, codepoint);
+							i += 4;
+						}
+						else
+						{
+							const auto len = static_cast<std::size_t>(std::distance(first, ptr));
+							result += "\\u";
+							result += std::string_view(first, len);
+							i += len;
+						}
+					}
+					else
+					{
+						const auto len = static_cast<std::size_t>(std::distance(first, str.data() + str.size()));
+						result += "\\u";
+						result += std::string_view(first, len);
+						i += len;
+					}
+					break;
+				}
 			default:
 				result += str[i];
 			}
