@@ -376,14 +376,14 @@ std::string Uri::encode(std::string_view decoded, std::string_view exclude)
 		   c == '.' ||
 		   c == '-')
 		{
-			encoded.push_back(c);
+			encoded += c;
 		}
 		else
 		{
 			constexpr auto hexLookup = "0123456789ABCDEF";
-			encoded.push_back('%');
-			encoded.push_back(hexLookup[c >> 4]);
-			encoded.push_back(hexLookup[c & 0xF]);
+			encoded += '%';
+			encoded += hexLookup[c >> 4];
+			encoded += hexLookup[c & 0xF];
 		}
 	}
 
@@ -394,20 +394,20 @@ std::string Uri::decode(std::string_view encoded)
 {
 	std::string decoded;
 
-	for(size_t i = 0; i < encoded.size(); ++i)
+	for(std::size_t i = 0; i < encoded.size(); ++i)
 	{
 		if(encoded[i] == '%' && i + 2 < encoded.size())
 		{
 			const char* start = &encoded[i + 1];
 			const char* end   = &encoded[i + 3];
 
-			char c;
+			unsigned char c;
 			const auto [ptr, ec] = std::from_chars(start, end, c, 16);
 
 			if(ec != std::errc{} || ptr != end)
 				return {};
 
-			decoded += c;
+			decoded += static_cast<char>(c);
 			i += 2;
 		}
 		else
