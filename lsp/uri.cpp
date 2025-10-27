@@ -382,8 +382,8 @@ std::string Uri::encode(std::string_view decoded, std::string_view exclude)
 		{
 			constexpr auto hexLookup = "0123456789ABCDEF";
 			encoded += '%';
-			encoded += hexLookup[c >> 4];
-			encoded += hexLookup[c & 0xF];
+			encoded += hexLookup[static_cast<unsigned char>(c) >> 4];
+			encoded += hexLookup[static_cast<unsigned char>(c) & 0xF];
 		}
 	}
 
