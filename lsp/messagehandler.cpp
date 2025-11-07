@@ -131,7 +131,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 			if(!request.isNotification())
 			{
 				response = jsonrpc::createErrorResponse(
-					*request.id, Error::InvalidParams, e.what());
+					*request.id, MessageError::InvalidParams, e.what());
 			}
 		}
 		catch(const std::exception& e)
@@ -139,7 +139,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 			if(!request.isNotification())
 			{
 				response = jsonrpc::createErrorResponse(
-					*request.id, Error::InternalError, e.what());
+					*request.id, MessageError::InternalError, e.what());
 			}
 		}
 		catch(...)
@@ -153,7 +153,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	else
 	{
 		if(!request.isNotification())
-			response = jsonrpc::createErrorResponse(*request.id, Error::MethodNotFound, "Method not found");
+			response = jsonrpc::createErrorResponse(*request.id, MessageError::MethodNotFound, "Method not found");
 	}
 
 	return response;
@@ -185,11 +185,11 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 		{
 			result->setValueFromJson(std::move(*response.result));
 		}
-		else // Error response received. Create an exception.
+		else // Error response received.
 		{
 			assert(response.error.has_value());
-			const auto& error = *response.error;
-			result->setException(std::make_exception_ptr(ResponseError{error.code, error.message, error.data}));
+			auto& error = *response.error;
+			result->setError(ResponseError(error.code, std::move(error.message), std::move(error.data)));
 		}
 	}
 	catch(...)

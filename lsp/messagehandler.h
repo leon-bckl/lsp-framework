@@ -138,7 +138,7 @@ private:
 	public:
 		virtual ~RequestResultBase() = default;
 		virtual void setValueFromJson(json::Any&& json) = 0;
-		virtual void setException(std::exception_ptr e) = 0;
+		virtual void setError(ResponseError&& error) = 0;
 	};
 
 	template<typename T, typename F, typename E>
@@ -151,7 +151,7 @@ private:
 		}
 
 		void setValueFromJson(json::Any&& json) override;
-		void setException(std::exception_ptr e) override;
+		void setError(ResponseError&& error) override;
 
 	private:
 		F m_then;
@@ -164,7 +164,7 @@ private:
 		std::future<T> future(){ return m_promise.get_future(); }
 
 		void setValueFromJson(json::Any&& json) override;
-		void setException(std::exception_ptr e) override;
+		void setError(ResponseError&& error) override;
 
 	private:
 		std::promise<T> m_promise;

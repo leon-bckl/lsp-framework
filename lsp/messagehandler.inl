@@ -27,7 +27,7 @@ jsonrpc::Response MessageHandler::createResponseFromAsyncResult(const MessageId&
 	}
 	catch(std::exception& e)
 	{
-		return jsonrpc::createErrorResponse(id, Error::InternalError, e.what());
+		return jsonrpc::createErrorResponse(id, MessageError::InternalError, e.what());
 	}
 }
 
@@ -241,15 +241,22 @@ void MessageHandler::sendNotification() requires SendNoParamsNotification<M>
 template<typename T>
 void MessageHandler::FutureRequestResult<T>::setValueFromJson(json::Any&& json)
 {
-	T value{};
-	fromJson(std::move(json), value);
-	m_promise.set_value(std::move(value));
+	try
+	{
+		auto value = T();
+		fromJson(std::move(json), value);
+		m_promise.set_value(std::move(value));
+	}
+	catch(const Exception& e)
+	{
+		m_promise.set_exception(std::make_exception_ptr(e));
+	}
 }
 
 template<typename T>
-void MessageHandler::FutureRequestResult<T>::setException(std::exception_ptr e)
+void MessageHandler::FutureRequestResult<T>::setError(ResponseError&& error)
 {
-	m_promise.set_exception(e);
+	m_promise.set_exception(std::make_exception_ptr(std::move(error)));
 }
 
 /*
@@ -259,22 +266,22 @@ void MessageHandler::FutureRequestResult<T>::setException(std::exception_ptr e)
 template<typename T, typename F, typename E>
 void MessageHandler::CallbackRequestResult<T, F, E>::setValueFromJson(json::Any&& json)
 {
-	T value{};
-	fromJson(std::move(json), value);
-	m_then(std::move(value));
+	try
+	{
+		auto value = T();
+		fromJson(std::move(json), value);
+		m_then(std::move(value));
+	}
+	catch(const json::Error& error)
+	{
+		m_error(ResponseError(MessageError::ParseError, error.what()));
+	}
 }
 
 template<typename T, typename F, typename E>
-void MessageHandler::CallbackRequestResult<T, F, E>::setException(std::exception_ptr e)
+void MessageHandler::CallbackRequestResult<T, F, E>::setError(ResponseError&& error)
 {
-	try
-	{
-		std::rethrow_exception(e);
-	}
-	catch(ResponseError& error)
-	{
-		m_error(error);
-	}
+	m_error(std::move(error));
 }
 
 } // namespace lsp

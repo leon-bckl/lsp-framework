@@ -9,7 +9,7 @@ namespace lsp{
 /*
  * Generic base for request or response errors
  */
-class Error : public Exception{
+class MessageError : public Exception{
 public:
 	const char* message() const noexcept{ return what(); }
 	int code() const noexcept{ return m_code; }
@@ -30,7 +30,7 @@ public:
 	};
 
 protected:
-	Error(int code, const std::string& message, std::optional<json::Any> data = {})
+	MessageError(int code, const std::string& message, std::optional<json::Any> data = {})
 		: Exception{message},
 		  m_code{code},
 		  m_data{std::move(data)}
@@ -41,14 +41,15 @@ private:
 	int                      m_code;
 	std::optional<json::Any> m_data;
 };
+using Error [[deprecated]] = MessageError;
 
 /*
  * Thrown from inside of a request handler callback and sent back as an error response
  */
-class RequestError : public Error{
+class RequestError : public MessageError{
 public:
 	RequestError(int code, const std::string& message, std::optional<json::Any> data = {})
-		: Error{code, message, std::move(data)}
+		: MessageError{code, message, std::move(data)}
 	{
 	}
 };
@@ -56,10 +57,10 @@ public:
 /*
  * Thrown when attempting to get the result value of a request but an error response was received
  */
-class ResponseError : public Error{
+class ResponseError : public MessageError{
 public:
 	ResponseError(int code, const std::string& message, std::optional<json::Any> data = {})
-		: Error{code, message, std::move(data)}
+		: MessageError{code, message, std::move(data)}
 	{
 	}
 };

@@ -27,15 +27,20 @@ using Array   = std::vector<Any>;
  * Errors
  */
 
-class TypeError : public Exception{
-public:
-	TypeError(const std::string& message = "Unexpected json value") : Exception{message}{}
+class Error : public Exception{
+protected:
+	using Exception::Exception;
 };
 
-class ParseError : public Exception{
+class TypeError : public Error{
+public:
+	TypeError(const std::string& message = "Unexpected json value") : Error{message}{}
+};
+
+class ParseError : public Error{
 public:
 	ParseError(const std::string& message, std::size_t textPos)
-		: Exception{message}
+		: Error{message}
 	  , m_textPos{textPos}{}
 
 	std::size_t textPos() const noexcept{ return m_textPos; }
