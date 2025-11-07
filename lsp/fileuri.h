@@ -4,10 +4,6 @@
 
 namespace lsp{
 
-/*
- * DocumentUri
- */
-
 class FileUri : public Uri{
 public:
 	static constexpr auto Scheme = std::string_view("file");
@@ -36,7 +32,5 @@ private:
 };
 
 using DocumentUri = FileUri;
-
-using FileURI [[deprecated]] = FileUri;
 
 } // namespace lsp

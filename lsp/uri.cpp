@@ -157,42 +157,6 @@ Uri Uri::parse(std::string_view uriStr)
 	return uri;
 }
 
-std::string Uri::toString() const
-{
-	if(!isValid())
-		return {};
-
-	const auto encodedPath = encode(path(), "/");
-
-	auto result = std::string();
-	result.reserve(m_data.size() - path().size() + encodedPath.size() + 5); // ://?#
-
-	result += scheme();
-	result += ':';
-
-	if(hasAuthority())
-	{
-		result += "//";
-		result += authority();
-	}
-
-	result += encodedPath;
-
-	if(hasQuery())
-	{
-		result += '?';
-		result += query();
-	}
-
-	if(hasFragment())
-	{
-		result += '#';
-		result += fragment();
-	}
-
-	return result;
-}
-
 bool Uri::isValid() const
 {
 	return m_schemeLen > 0;
@@ -361,6 +325,42 @@ void Uri::insertFragment(std::string_view fragment)
 	m_fragmentLen = static_cast<std::uint16_t>(fragment.size());
 	normalizeEncodedCase(m_data, fragmentIdx, m_fragmentLen);
 	m_hasFragment = 1;
+}
+
+std::string Uri::toString() const
+{
+	if(!isValid())
+		return {};
+
+	const auto encodedPath = encode(path(), "/");
+
+	auto result = std::string();
+	result.reserve(m_data.size() - path().size() + encodedPath.size() + sizeof("://?#"));
+
+	result += scheme();
+	result += ':';
+
+	if(hasAuthority())
+	{
+		result += "//";
+		result += authority();
+	}
+
+	result += encodedPath;
+
+	if(hasQuery())
+	{
+		result += '?';
+		result += query();
+	}
+
+	if(hasFragment())
+	{
+		result += '#';
+		result += fragment();
+	}
+
+	return result;
 }
 
 std::string Uri::encode(std::string_view decoded, std::string_view exclude)

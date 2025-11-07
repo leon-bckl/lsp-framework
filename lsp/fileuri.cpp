@@ -34,13 +34,11 @@ bool FileUri::setPath(std::string_view path)
 #else
 	const auto u8Path = absolute.u8string();
 #endif
-	Uri::setPath(std::string_view((const char*)u8Path.data(), u8Path.size()));
-
-	return true;
+	return Uri::setPath(std::string_view((const char*)u8Path.data(), u8Path.size()));
 }
 
 FileUri::FileUri(const Uri& other)
-	: Uri(other.isValid() && other.scheme() == Scheme ? std::move(other) : Uri())
+	: Uri(other.isValid() && other.scheme() == Scheme ? other : Uri())
 {
 }
 

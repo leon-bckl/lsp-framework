@@ -5,17 +5,11 @@
 
 namespace lsp{
 
-/*
- * Uri
- */
-
 class Uri{
 public:
 	Uri() = default;
 
 	[[nodiscard]] static Uri parse(std::string_view uriStr);
-
-	[[nodiscard]] std::string toString() const;
 
 	[[nodiscard]] bool isValid() const;
 	[[nodiscard]] bool hasAuthority() const;
@@ -38,13 +32,14 @@ public:
 	void removeQuery();
 	void removeFragment();
 
+	[[nodiscard]] std::string toString() const;
+	[[nodiscard]] std::string_view data() const{ return m_data; }
+
 	[[nodiscard]] static std::string encode(std::string_view decoded, std::string_view exclude = {});
 	[[nodiscard]] static std::string decode(std::string_view encoded);
 
-	[[nodiscard]] const std::string& data() const{ return m_data; }
-
-	[[nodiscard]] bool operator==(const Uri& other) const{ return m_data == other.m_data; }
-	[[nodiscard]] bool operator!=(const Uri& other) const{ return m_data != other.m_data; }
+	[[nodiscard]] bool operator==(const Uri& other) const = default;
+	[[nodiscard]] bool operator!=(const Uri& other) const = default;
 	[[nodiscard]] bool operator<(const Uri& other) const{ return m_data < other.m_data; }
 
 private:
