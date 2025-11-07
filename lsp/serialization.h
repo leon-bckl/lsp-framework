@@ -1,20 +1,123 @@
 #pragma once
 
-#include <tuple>
-#include <limits>
-#include <memory>
+#include <algorithm>
 #include <cassert>
 #include <iterator>
-#include <algorithm>
+#include <limits>
+#include <memory>
+#include <tuple>
 #include <type_traits>
-#include <lsp/uri.h>
-#include <lsp/strmap.h>
-#include <lsp/fileuri.h>
-#include <lsp/nullable.h>
-#include <lsp/json/json.h>
 #include <lsp/enumeration.h>
+#include <lsp/fileuri.h>
+#include <lsp/json/json.h>
+#include <lsp/nullable.h>
+#include <lsp/strmap.h>
+#include <lsp/uri.h>
 
 namespace lsp{
+
+// toJson
+
+inline json::Any toJson(std::nullptr_t){ return {}; }
+inline json::Any toJson(bool v){ return v; }
+inline json::Any toJson(int i){ return i; }
+inline json::Any toJson(float i){ return i; }
+inline json::Any toJson(double i){ return i; }
+inline json::Any toJson(std::string&& v){ return std::move(v); }
+inline json::Any toJson(const std::string& v){ return json::String{v}; }
+inline json::Any toJson(std::string_view v){ return json::String{v}; }
+inline json::Any toJson(const Uri& uri){ return uri.toString(); }
+inline json::Any toJson(const FileUri& uri){ return uri.toString(); }
+inline json::Any toJson(json::Any&& v){ return std::move(v); }
+inline json::Any toJson(json::Object&& v){ return std::move(v); }
+inline json::Any toJson(json::Array&& v){ return std::move(v); }
+
+template<typename... Args>
+json::Any toJson(std::tuple<Args...>&& tuple);
+
+template<typename K, typename T>
+json::Any toJson(StrMap<K, T>&& map);
+
+template<typename T>
+json::Any toJson(std::vector<T>&& vector);
+
+template<typename... Args>
+json::Any toJson(std::variant<Args...>&& variant);
+
+template<typename EnumType, typename ValueType>
+json::Any toJson(Enumeration<EnumType, ValueType>&& enumeration);
+
+template<typename T>
+json::Any toJson(Nullable<T>&& nullable);
+
+template<typename... Args>
+json::Any toJson(NullableVariant<Args...>&& nullable);
+
+template<typename T>
+json::Any toJson(std::unique_ptr<T>&& v);
+
+template<typename T>
+json::Any toJson(std::optional<T>&& v);
+
+// fromJson
+
+template<typename T>
+const std::pair<const char*, json::Any>* literalProperties()
+{
+	static std::pair<const char*, json::Any> properties[] = {{nullptr, {}}};
+	return properties;
+}
+
+template<typename T>
+const char** requiredProperties()
+{
+	static const char* properties[] = {nullptr};
+	return properties;
+}
+
+inline void fromJson(json::Any&&, std::nullptr_t){}
+inline void fromJson(json::Any&& json, bool& value){ value = json.boolean(); }
+inline void fromJson(json::Any&& json, int& value){ value = static_cast<int>(json.number()); }
+inline void fromJson(json::Any&& json, unsigned int& value){ value = static_cast<unsigned int>(json.number()); }
+inline void fromJson(json::Any&& json, long& value){ value = static_cast<long>(json.number()); }
+inline void fromJson(json::Any&& json, unsigned long& value){ value = static_cast<unsigned long>(json.number()); }
+inline void fromJson(json::Any&& json, unsigned long long& value){ value = static_cast<unsigned long long>(json.number()); }
+inline void fromJson(json::Any&& json, float& value){ value = static_cast<float>(json.number()); }
+inline void fromJson(json::Any&& json, double& value){ value = static_cast<double>(json.number()); }
+inline void fromJson(json::Any&& json, std::string& value){ value = std::move(json.string()); }
+inline void fromJson(json::Any&& json, Uri& value){ value = Uri::parse(json.string()); }
+inline void fromJson(json::Any&& json, FileUri& value){ value = Uri::parse(json.string()); }
+inline void fromJson(json::Any&& json, json::Any& v){ v = std::move(json); }
+inline void fromJson(json::Any&& json, json::Object& v){ v = std::move(json.object()); }
+inline void fromJson(json::Any&& json, json::Array& v){ v = std::move(json.array()); }
+
+template<typename... Args>
+void fromJson(json::Any&& json, std::tuple<Args...>& value);
+
+template<typename K, typename T>
+void fromJson(json::Any&& json, StrMap<K, T>& value);
+
+template<typename T>
+void fromJson(json::Any&& json, std::vector<T>& value);
+
+template<typename... Args>
+void fromJson(json::Any&& json, std::variant<Args...>& value);
+
+template<typename EnumType, typename ValueType>
+void fromJson(json::Any&& json, Enumeration<EnumType, ValueType>& enumeration);
+
+template<typename T>
+void fromJson(json::Any&& json, Nullable<T>& nullable);
+
+template<typename... Args>
+void fromJson(json::Any&& json, NullableVariant<Args...>& nullable);
+
+template<typename T>
+void fromJson(json::Any&& json, std::unique_ptr<T>& value);
+
+template<typename T>
+void fromJson(json::Any&& json, std::optional<T>& value);
+
 namespace impl{
 
 // Helpers to treat FileURI as a string which can be used to look up values in a json::Object
@@ -52,30 +155,6 @@ inline std::string mapKey(const FileUri& uri)
 	return uri.toString();
 }
 
-template<typename T, typename F, std::size_t idx = std::tuple_size_v<typename std::decay<T>::type> - 1>
-struct TupleVisitor
-{
-	void visitTuple(T&& tuple, F&& f)
-	{
-		TupleVisitor<T, F, idx - 1> visitor;
-		visitor.visitTuple(std::forward<T>(tuple), std::forward<F>(f));
-		f(std::get<idx>(tuple), idx);
-	}
-};
-
-template<typename T, typename F>
-struct TupleVisitor<T, F, static_cast<std::size_t>(-1)>
-{
-	void visitTuple(T&&, F&&){}
-};
-
-template<typename T, typename F>
-void visitTuple(T&& tuple, F&& f)
-{
-	TupleVisitor<T, F> visitor;
-	visitor.visitTuple(std::forward<T>(tuple), std::forward<F>(f));
-}
-
 template<typename T>
 struct IsVector : std::false_type{};
 
@@ -100,13 +179,152 @@ struct IsEnumeration : std::false_type{};
 template<typename... Args>
 struct IsEnumeration<Enumeration<Args...>> : std::true_type{};
 
+template<std::size_t Index, typename VariantType>
+std::size_t deserializableVariantIndex(const json::Any& json);
+
+template<std::size_t Index, typename TupleType>
+bool canDeserializeTupleElementsFromJson(const json::Any& json);
+
+template<std::size_t Index, typename TupleType>
+bool canDeserializeTupleFromJson(const json::Array& array);
+
+template<typename T>
+bool canDeserializeTypeFromJson(const json::Any& json)
+{
+	if constexpr(std::is_null_pointer_v<T>)
+	{
+		return json.isNull();
+	}
+	else if constexpr(std::is_same_v<T, bool>)
+	{
+		return json.isBoolean();
+	}
+	else if constexpr(std::is_integral_v<T> || std::is_floating_point_v<T>)
+	{
+		return json.isNumber();
+	}
+	else if constexpr(std::is_same_v<T, std::string>)
+	{
+		return json.isString();
+	}
+	else if constexpr(IsVector<T>{})
+	{
+		if(json.isArray())
+		{
+			const auto& array = json.array();
+			return array.empty() || canDeserializeTypeFromJson<typename T::value_type>(array[0]);
+		}
+
+		return false;
+	}
+	else if constexpr(IsTuple<T>{})
+	{
+		return json.isArray() && canDeserializeTupleFromJson<0, T>(json.array());
+	}
+	else if constexpr(IsEnumeration<T>{})
+	{
+		return json.isNumber() || json.isString();
+	}
+	else if constexpr(IsVariant<T>{})
+	{
+		return deserializableVariantIndex<0, T>(json) != std::variant_npos;
+	}
+	else
+	{
+		if(json.isObject())
+		{
+			const auto& obj = json.object();
+			bool        hasLiteralProperties = true;
+
+			for(const auto* p = literalProperties<T>(); p->first; ++p)
+			{
+				if(const auto it = obj.find(p->first); it != obj.end())
+				{
+					if(it->second != p->second)
+					{
+						hasLiteralProperties = false;
+						break;
+					}
+				}
+			}
+
+			if(hasLiteralProperties)
+			{
+				bool hasRequiredProperties = true;
+
+				for(const auto* p = requiredProperties<T>(); *p; ++p)
+				{
+					if(!obj.contains(*p))
+					{
+						hasRequiredProperties = false;
+						break;
+					}
+				}
+
+				return hasRequiredProperties;
+			}
+		}
+
+		return false;
+	}
+}
+
+template<std::size_t Index, typename TupleType>
+bool canDeserializeTupleFromJson(const json::Array& array)
+{
+	if constexpr(Index == 0) // Only perform this check one time for the first element
+	{
+		if(array.size() != std::tuple_size_v<TupleType>)
+			return false;
+	}
+
+	using T = std::tuple_element_t<Index, TupleType>;
+
+	if(canDeserializeTypeFromJson<T>(array[Index]))
+		return true;
+
+	if constexpr(Index + 1 < std::tuple_size_v<TupleType>)
+		return canDeserializeTupleFromJson<Index + 1, TupleType>(array);
+	else
+		return false;
+}
+
+template<std::size_t Index, typename VariantType>
+std::size_t deserializableVariantIndex(const json::Any& json)
+{
+	using T = std::variant_alternative_t<Index, VariantType>;
+
+	if(canDeserializeTypeFromJson<T>(json))
+		return Index;
+
+	if constexpr(Index + 1 < std::variant_size_v<VariantType>)
+		return deserializableVariantIndex<Index + 1, VariantType>(json);
+	else
+		return std::variant_npos;
+}
+
+template<std::size_t Index, typename VariantType>
+void variantFromJson(json::Any&& json, VariantType& variant, const std::size_t idx)
+{
+	if(Index == idx)
+	{
+		if(variant.index() != Index)
+			variant.template emplace<Index>();
+
+		fromJson(std::move(json), std::get<Index>(variant));
+	}
+	else
+	{
+		if constexpr(Index + 1 < std::variant_size_v<VariantType>)
+			variantFromJson<Index + 1>(std::move(json), variant, idx);
+		else
+			throw json::TypeError("Json does not match any of the expected variant types");
+	}
+}
+
 } // namespace impl
 
 // toJson
-
-inline json::Any toJson(std::nullptr_t){ return {}; }
-inline json::Any toJson(bool v){ return v; }
-inline json::Any toJson(int i){ return i; }
 
 inline json::Any toJson(unsigned int i)
 {
@@ -148,53 +366,14 @@ inline json::Any toJson(unsigned long long i)
 	return static_cast<json::Decimal>(i);
 }
 
-inline json::Any toJson(float i){ return i; }
-inline json::Any toJson(double i){ return i; }
-inline json::Any toJson(std::string&& v){ return std::move(v); }
-inline json::Any toJson(const std::string& v){ return json::String{v}; }
-inline json::Any toJson(std::string_view v){ return json::String{v}; }
-inline json::Any toJson(const Uri& uri){ return uri.toString(); }
-inline json::Any toJson(const FileUri& uri){ return uri.toString(); }
-inline json::Any toJson(json::Any&& v){ return std::move(v); }
-inline json::Any toJson(json::Object&& v){ return std::move(v); }
-inline json::Any toJson(json::Array&& v){ return std::move(v); }
-
-template<typename... Args>
-json::Any toJson(std::tuple<Args...>&& tuple);
-
-template<typename K, typename T>
-json::Any toJson(StrMap<K, T>&& map);
-
-template<typename T>
-json::Any toJson(std::vector<T>&& vector);
-
-template<typename... Args>
-json::Any toJson(std::variant<Args...>&& variant);
-
-template<typename EnumType, typename ValueType>
-json::Any toJson(Enumeration<EnumType, ValueType>&& enumeration);
-
-template<typename T>
-json::Any toJson(Nullable<T>&& nullable);
-
-template<typename... Args>
-json::Any toJson(NullableVariant<Args...>&& nullable);
-
-template<typename T>
-json::Any toJson(std::unique_ptr<T>&& v);
-
-template<typename T>
-json::Any toJson(std::optional<T>&& v);
-
 template<typename... Args>
 json::Any toJson(std::tuple<Args...>&& tuple)
 {
 	json::Array result;
-	result.resize(sizeof...(Args));
-	impl::visitTuple(tuple, [&result](auto&& v, std::size_t idx)
-	{
-		result[idx] = toJson(std::forward<std::decay_t<decltype(v)>>(v));
-	});
+	result.reserve(sizeof...(Args));
+	std::apply([&result](auto&&... tupleArgs){
+		(result.push_back(toJson(std::forward<std::decay_t<decltype(tupleArgs)>>(tupleArgs))), ...);
+	}, tuple);
 
 	return result;
 }
@@ -264,63 +443,20 @@ json::Any toJson(std::optional<T>&& v)
 
 // fromJson
 
-inline void fromJson(json::Any&&, std::nullptr_t){}
-inline void fromJson(json::Any&& json, bool& value){ value = json.boolean(); }
-inline void fromJson(json::Any&& json, int& value){ value = static_cast<int>(json.number()); }
-inline void fromJson(json::Any&& json, unsigned int& value){ value = static_cast<unsigned int>(json.number()); }
-inline void fromJson(json::Any&& json, long& value){ value = static_cast<long>(json.number()); }
-inline void fromJson(json::Any&& json, unsigned long& value){ value = static_cast<unsigned long>(json.number()); }
-inline void fromJson(json::Any&& json, unsigned long long& value){ value = static_cast<unsigned long long>(json.number()); }
-inline void fromJson(json::Any&& json, float& value){ value = static_cast<float>(json.number()); }
-inline void fromJson(json::Any&& json, double& value){ value = static_cast<double>(json.number()); }
-inline void fromJson(json::Any&& json, std::string& value){ value = std::move(json.string()); }
-inline void fromJson(json::Any&& json, Uri& value){ value = Uri::parse(json.string()); }
-inline void fromJson(json::Any&& json, FileUri& value){ value = Uri::parse(json.string()); }
-inline void fromJson(json::Any&& json, json::Any& v){ v = std::move(json); }
-inline void fromJson(json::Any&& json, json::Object& v){ v = std::move(json.object()); }
-inline void fromJson(json::Any&& json, json::Array& v){ v = std::move(json.array()); }
-
-
-template<typename... Args>
-void fromJson(json::Any&& json, std::tuple<Args...>& value);
-
-template<typename K, typename T>
-void fromJson(json::Any&& json, StrMap<K, T>& value);
-
-template<typename T>
-void fromJson(json::Any&& json, std::vector<T>& value);
-
-template<typename... Args>
-void fromJson(json::Any&& json, std::variant<Args...>& value);
-
-template<typename EnumType, typename ValueType>
-void fromJson(json::Any&& json, Enumeration<EnumType, ValueType>& enumeration);
-
-template<typename T>
-void fromJson(json::Any&& json, Nullable<T>& nullable);
-
-template<typename... Args>
-void fromJson(json::Any&& json, NullableVariant<Args...>& nullable);
-
-template<typename T>
-void fromJson(json::Any&& json, std::unique_ptr<T>& value);
-
-template<typename T>
-void fromJson(json::Any&& json, std::optional<T>& value);
-
-// impl
-
 template<typename... Args>
 void fromJson(json::Any&& json, std::tuple<Args...>& value)
 {
 	auto& array = json.array();
-	impl::visitTuple(value, [&array](auto& v, std::size_t idx)
-	{
-		if(static_cast<std::size_t>(idx) >= array.size())
-			throw json::TypeError{};
 
-		fromJson(std::move(array[idx]), v);
-	});
+	if(sizeof...(Args) != array.size())
+		throw json::TypeError("Incorrect number of tuple elements");
+
+	std::apply(
+		[&array](auto&&... tupleArgs)
+		{
+			auto idx = 0u;
+			(fromJson(std::move(array[idx++]), tupleArgs), ...);
+		}, value);
 }
 
 template<typename K, typename T>
@@ -371,142 +507,11 @@ void fromJson(json::Any&& json, std::vector<T>& value)
 		fromJson(std::move(e), value.emplace_back());
 }
 
-template<typename T>
-const std::pair<const char*, json::Any>* literalProperties()
-{
-	static std::pair<const char*, json::Any> properties[] = {{nullptr, {}}};
-	return properties;
-}
-
-template<typename T>
-const char** requiredProperties()
-{
-	static const char* properties[] = {nullptr};
-	return properties;
-}
-
-template<typename... Args>
-bool variantFromJson(json::Any& json, std::variant<Args...>& value);
-
-template<std::size_t Index, typename... Args, typename VariantType = std::variant<Args...>>
-bool variantFromJson(json::Any& json, VariantType& value)
-{
-	using T = std::variant_alternative_t<Index, VariantType>;
-
-	if constexpr(std::is_null_pointer_v<T>)
-	{
-		if(json.isNull())
-		{
-			value.template emplace<Index>();
-			return true;
-		}
-	}
-	else if constexpr(std::is_same_v<T, bool>)
-	{
-		if(json.isBoolean())
-		{
-			fromJson(std::move(json), value.template emplace<Index>());
-			return true;
-		}
-	}
-	else if constexpr(std::is_integral_v<T> || std::is_floating_point_v<T>)
-	{
-		if(json.isNumber())
-		{
-			fromJson(std::move(json), value.template emplace<Index>());
-			return true;
-		}
-	}
-	else if constexpr(std::is_same_v<T, std::string>)
-	{
-		if(json.isString())
-		{
-			fromJson(std::move(json), value.template emplace<Index>());
-			return true;
-		}
-	}
-	else if constexpr(impl::IsVector<T>{} || impl::IsTuple<T>{})
-	{
-		if(json.isArray())
-		{
-			fromJson(std::move(json), value.template emplace<Index>());
-			return true;
-		}
-	}
-	else if constexpr(impl::IsEnumeration<T>{})
-	{
-		if(json.isNumber() || json.isString())
-		{
-			fromJson(std::move(json), value.template emplace<Index>());
-			return true;
-		}
-	}
-	else if constexpr(impl::IsVariant<T>{})
-	{
-		if(value.index() != Index)
-			value.template emplace<Index>();
-
-		if(variantFromJson(json, std::get<Index>(value)))
-			return true;
-	}
-	else
-	{
-		if(json.isObject())
-		{
-			const auto& obj = json.object();
-			bool        hasLiteralProperties = true;
-
-			for(const auto* p = literalProperties<T>(); p->first; ++p)
-			{
-				if(const auto it = obj.find(p->first); it != obj.end())
-				{
-					if(it->second != p->second)
-					{
-						hasLiteralProperties = false;
-						break;
-					}
-				}
-			}
-
-			if(hasLiteralProperties)
-			{
-				bool hasRequiredProperties = true;
-
-				for(const auto* p = requiredProperties<T>(); *p; ++p)
-				{
-					if(!obj.contains(*p))
-					{
-						hasRequiredProperties = false;
-						break;
-					}
-				}
-
-				if(hasRequiredProperties)
-				{
-					fromJson(std::move(json), value.template emplace<Index>());
-					return true;
-				}
-			}
-		}
-	}
-
-	if constexpr(Index + 1 < sizeof...(Args))
-		return variantFromJson<Index + 1, Args...>(json, value);
-	else
-		return false;
-}
-
-template<typename... Args>
-bool variantFromJson(json::Any& json, std::variant<Args...>& value)
-{
-	return variantFromJson<0, Args...>(json, value);
-}
-
 template<typename... Args>
 void fromJson(json::Any&& json, std::variant<Args...>& value)
 {
-	if(!variantFromJson<0, Args...>(json, value))
-		throw json::TypeError();
+	const auto idx = impl::deserializableVariantIndex<0, std::variant<Args...>>(json);
+	impl::variantFromJson<0>(std::move(json), value, idx);
 }
 
 template<typename EnumType, typename ValueType>
