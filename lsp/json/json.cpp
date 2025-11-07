@@ -53,7 +53,7 @@ public:
 		{
 			skipWhitespace();
 
-			if(m_pos >= m_end)
+			if(atEnd())
 				throw ParseError{"Unexpected end of input", currentTextOffset()};
 
 			switch(currentState())
@@ -241,7 +241,7 @@ private:
 
 	String parseString()
 	{
-		if(m_pos >= m_end || *m_pos != '\"')
+		if(atEnd() || *m_pos != '\"')
 			throw ParseError{"String expected", currentTextOffset()};
 
 		const char* stringStart = m_pos++;
@@ -249,14 +249,14 @@ private:
 		bool escaping = false;
 		while(*m_pos != '\"' || escaping)
 		{
-			if (!escaping && *m_pos == '\\')
+			if(!escaping && *m_pos == '\\')
 				escaping = true;
 			else // Already escaping or no '\'
 				escaping = false;
 
 			++m_pos;
 
-			if(m_pos >= m_end || *m_pos == '\n')
+			if(atEnd() || *m_pos == '\n')
 				throw ParseError{"Unmatched '\"'", currentTextOffset()};
 		}
 
