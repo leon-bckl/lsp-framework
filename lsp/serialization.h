@@ -223,7 +223,16 @@ bool canDeserializeTypeFromJson(const json::Any& json)
 	}
 	else if constexpr(IsEnumeration<T>{})
 	{
-		return json.isNumber() || json.isString();
+		if constexpr(std::is_integral_v<typename T::ValueType>)
+		{
+			return json.isNumber();
+		}
+		else
+		{
+			static_assert(std::same_as<typename T::ValueType, std::string>,
+				"Enumeration expected to either use integral or string type");
+			return json.isString();
+		}
 	}
 	else if constexpr(IsVariant<T>{})
 	{

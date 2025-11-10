@@ -14,10 +14,12 @@ struct EnumerationTypeHelper<std::string>{
 	using ConstInitType = std::string_view;
 };
 
-template<typename EnumType, typename ValueType>
+template<typename EnumType, typename ValueT>
 class Enumeration{
-	using ConstInitType = typename EnumerationTypeHelper<ValueType>::ConstInitType;
 public:
+	using ValueType     = ValueT;
+	using ConstInitType = typename EnumerationTypeHelper<ValueType>::ConstInitType;
+
 	Enumeration() = default;
 	Enumeration(EnumType index) : m_index{index}{}
 	explicit Enumeration(ValueType&& value){ *this = value; }
