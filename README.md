@@ -24,7 +24,7 @@ If you use `lsp` as an external dependency, make sure the cmake config option `L
 In your project, you can link it by using `find_package`, like:
 
 ```cmake
-find_package(lsp 1.2.0 EXACT REQUIRED)
+find_package(lsp 1.3.0 EXACT REQUIRED)
 target_link_library(${CURRENT_TARGET} PUBLIC lsp::lsp)
 ```
 
@@ -143,7 +143,7 @@ Notification callbacks can also be executed asynchronously. They must return a `
 If an error occurs while processing the request and no proper result can be provided an error response should be sent back. In order to do that simply throw an `lsp::RequestError` from inside of the callback (`#include <lsp/error.h>`):
 
 ```cpp
-throw lsp::RequestError(lsp::Error::InvalidParams, "Invalid parameters received");
+throw lsp::RequestError(lsp::MessageError::InvalidParams, "Invalid parameters received");
 ```
 
 ### Sending Requests

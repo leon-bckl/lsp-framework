@@ -1,7 +1,7 @@
 #pragma once
 
 #define LSP_VER_MAJOR 1
-#define LSP_VER_MINOR 2
+#define LSP_VER_MINOR 3
 #define LSP_VER_PATCH 0
 
 #define LSP_STR_INNER(v) #v
