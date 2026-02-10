@@ -5,7 +5,6 @@ namespace lsp{
 namespace{
 
 thread_local const MessageId* t_currentRequestId  = nullptr;
-const              MessageId  NullMessageId       = json::Null(); // Used for notifications which don't have an id
 
 json::Integer nextUniqueRequestId()
 {
@@ -105,9 +104,14 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	{
 		assert(!t_currentRequestId);
 		if(request.id.has_value())
+		{
 			t_currentRequestId = &request.id.value();
+		}
 		else
+		{
+			constexpr MessageId NullMessageId = json::Null();
 			t_currentRequestId = &NullMessageId;
+		}
 
 		try
 		{
@@ -210,7 +214,7 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 MessageHandler& MessageHandler::add(std::string_view method, GenericMessageCallback callback)
 {
 	addHandler(method,
-		[f = std::move(callback)](json::Any&& params, bool) -> OptionalResponse
+		[f = std::move(callback)](json::Value&& params, bool) -> OptionalResponse
 		{
 			const auto isNotification = std::holds_alternative<std::nullptr_t>(currentRequestId());
 			auto result = f(std::move(params));
@@ -228,7 +232,7 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericMessageCallb
 MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessageCallback callback)
 {
 	addHandler(method,
-		[this, f = std::move(callback)](json::Any&& params, bool allowAsync) -> OptionalResponse
+		[this, f = std::move(callback)](json::Value&& params, bool allowAsync) -> OptionalResponse
 		{
 			const auto isNotification = std::holds_alternative<std::nullptr_t>(currentRequestId());
 			auto future = f(std::move(params));
@@ -264,7 +268,7 @@ void MessageHandler::sendResponse(jsonrpc::Response&& response)
 	m_connection.writeMessage(jsonrpc::responseToJson(std::move(response)));
 }
 
-MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Any>&& params)
+MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Value>&& params)
 {
 	std::lock_guard lock{m_pendingRequestsMutex};
 	const auto messageId = nextUniqueRequestId();
@@ -276,25 +280,25 @@ MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr 
 
 MessageId MessageHandler::sendRequest(
 	std::string_view method,
-	std::optional<json::Any>&& params,
+	std::optional<json::Value>&& params,
 	GenericResponseCallback then,
 	GenericErrorResponseCallback error)
 {
-	auto result = std::make_unique<CallbackRequestResult<json::Any, decltype(then), decltype(error)>>(
+	auto result = std::make_unique<CallbackRequestResult<json::Value, decltype(then), decltype(error)>>(
 		std::move(then), std::move(error));
 	return sendRequest(method, std::move(result), std::move(params));
 }
 
-FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::string_view method, std::optional<json::Any>&& params)
+FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::string_view method, std::optional<json::Value>&& params)
 {
-	auto result    = std::make_unique<FutureRequestResult<json::Any>>();
+	auto result    = std::make_unique<FutureRequestResult<json::Value>>();
 	auto future    = result->future();
 	auto messageId = sendRequest(method, std::move(result), std::move(params));
 
 	return {std::move(messageId), std::move(future)};
 }
 
-void MessageHandler::sendNotification(std::string_view method, std::optional<json::Any>&& params)
+void MessageHandler::sendNotification(std::string_view method, std::optional<json::Value>&& params)
 {
 	auto notification = jsonrpc::createNotification(method, std::move(params));
 	m_connection.writeMessage(jsonrpc::requestToJson(std::move(notification)));

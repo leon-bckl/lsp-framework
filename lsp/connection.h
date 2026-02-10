@@ -6,7 +6,7 @@
 
 namespace lsp{
 namespace json{
-class Any;
+class Value;
 } // namespace json
 
 namespace io{
@@ -21,8 +21,8 @@ class Connection{
 public:
 	Connection(io::Stream& stream);
 
-	json::Any readMessage();
-	void writeMessage(const json::Any& content);
+	json::Value readMessage();
+	void writeMessage(const json::Value& content);
 
 private:
 	io::Stream& m_stream;

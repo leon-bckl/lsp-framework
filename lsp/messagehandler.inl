@@ -39,7 +39,7 @@ template<typename M, typename F>
 MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<M, F>
 {
 	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Any&& json, bool allowAsync) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Value&& json, bool allowAsync) -> OptionalResponse
 	{
 		typename M::Params params;
 		fromJson(std::move(json), params);
@@ -77,7 +77,7 @@ template<typename M, typename F>
 MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestCallback<M, F>
 {
 	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Any&&, bool allowAsync) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Value&&, bool allowAsync) -> OptionalResponse
 	{
 		const auto& id = currentRequestId();
 
@@ -113,7 +113,7 @@ template<typename M, typename F>
 MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNotificationCallback<M, F>
 {
 	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Any&& json, bool allowAsync) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Value&& json, bool allowAsync) -> OptionalResponse
 	{
 		typename M::Params params;
 		fromJson(std::move(json), params);
@@ -151,7 +151,7 @@ template<typename M, typename F>
 MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsNotificationCallback<M, F>
 {
 	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Any&&, bool allowAsync) -> OptionalResponse
+	[this, f = std::forward<F>(handlerFunc)](json::Value&&, bool allowAsync) -> OptionalResponse
 	{
 		if constexpr(IsNoParamsCallbackResult<AsyncNotificationResult, F>)
 		{
@@ -239,7 +239,7 @@ void MessageHandler::sendNotification() requires SendNoParamsNotification<M>
  */
 
 template<typename T>
-void MessageHandler::FutureRequestResult<T>::setValueFromJson(json::Any&& json)
+void MessageHandler::FutureRequestResult<T>::setValueFromJson(json::Value&& json)
 {
 	try
 	{
@@ -264,7 +264,7 @@ void MessageHandler::FutureRequestResult<T>::setError(ResponseError&& error)
  */
 
 template<typename T, typename F, typename E>
-void MessageHandler::CallbackRequestResult<T, F, E>::setValueFromJson(json::Any&& json)
+void MessageHandler::CallbackRequestResult<T, F, E>::setValueFromJson(json::Value&& json)
 {
 	try
 	{

@@ -22,7 +22,7 @@ void verifyProtocolVersion(const json::Object& json)
 		throw ProtocolError{"Invalid or unsupported jsonrpc version"};
 }
 
-MessageId messageIdFromJson(json::Any& json)
+MessageId messageIdFromJson(json::Value& json)
 {
 	if(json.isString())
 		return std::move(json.string());
@@ -131,7 +131,7 @@ std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& jso
 		RequestBatch batch;
 		batch.reserve(json.size());
 		batch.push_back(std::move(std::get<Request>(firstMessage)));
-		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Any& v){ return requestFromJson(v.object()); });
+		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Value& v){ return requestFromJson(v.object()); });
 
 		return batch;
 	}
@@ -140,7 +140,7 @@ std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& jso
 		ResponseBatch batch;
 		batch.reserve(json.size());
 		batch.push_back(std::move(std::get<Response>(firstMessage)));
-		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Any& v){ return responseFromJson(v.object()); });
+		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Value& v){ return responseFromJson(v.object()); });
 
 		return batch;
 	}
@@ -153,7 +153,7 @@ json::Object requestToJson(Request&& request)
 	json["jsonrpc"] = std::string{ProtocolVersion};
 
 	if(request.id.has_value())
-		std::visit([&json](const auto& v){ json["id"] = std::move(v); }, *request.id);
+		std::visit([&json](auto& v){ json["id"] = std::move(v); }, *request.id);
 
 	json["method"] = std::move(request.method);
 
@@ -169,7 +169,7 @@ json::Object responseToJson(Response&& response)
 
 	json::Object json;
 	json["jsonrpc"] = std::string{ProtocolVersion};
-	std::visit([&json](const auto& v){ json["id"] = std::move(v); }, response.id);
+	std::visit([&json](auto& v){ json["id"] = std::move(v); }, response.id);
 
 	if(response.result.has_value())
 		json["result"] = std::move(*response.result);
@@ -207,7 +207,7 @@ json::Array responseBatchToJson(ResponseBatch&& batch)
 	return result;
 }
 
-Request createRequest(MessageId id, std::string_view method, std::optional<json::Any> params)
+Request createRequest(MessageId id, std::string_view method, std::optional<json::Value> params)
 {
 	Request request;
 	request.id = std::move(id);
@@ -216,7 +216,7 @@ Request createRequest(MessageId id, std::string_view method, std::optional<json:
 	return request;
 }
 
-Request createNotification(std::string_view method, std::optional<json::Any> params)
+Request createNotification(std::string_view method, std::optional<json::Value> params)
 {
 	Request notification;
 	notification.method = method;
@@ -224,7 +224,7 @@ Request createNotification(std::string_view method, std::optional<json::Any> par
 	return notification;
 }
 
-Response createResponse(MessageId id, json::Any result)
+Response createResponse(MessageId id, json::Value result)
 {
 	Response response;
 	response.id = std::move(id);
@@ -232,7 +232,7 @@ Response createResponse(MessageId id, json::Any result)
 	return response;
 }
 
-Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Any> data)
+Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Value> data)
 {
 	Response response;
 	response.id = std::move(id);

@@ -32,13 +32,13 @@ public:
 	[[nodiscard]] static const MessageId& currentRequestId();
 
 	struct GenericMessage{
-		using Params = json::Any;
-		using Result = json::Any;
+		using Params = json::Value;
+		using Result = json::Value;
 	};
 
-	using GenericMessageCallback       = std::function<json::Any(json::Any&&)>;
-	using GenericAsyncMessageCallback  = std::function<AsyncRequestResult<GenericMessage>(json::Any&&)>;
-	using GenericResponseCallback      = std::function<void(json::Any&&)>;
+	using GenericMessageCallback       = std::function<json::Value(json::Value&&)>;
+	using GenericAsyncMessageCallback  = std::function<AsyncRequestResult<GenericMessage>(json::Value&&)>;
+	using GenericResponseCallback      = std::function<void(json::Value&&)>;
 	using GenericErrorResponseCallback = std::function<void(const ResponseError&)>;
 
 	/*
@@ -80,11 +80,11 @@ public:
 	template<typename M>
 	[[nodiscard]] FutureResponse<M> sendRequest() requires message::IsRequest<M> && (!message::HasParams<M>);
 
-	FutureResponse<GenericMessage> sendRequest(std::string_view method, std::optional<json::Any>&& params = std::nullopt);
+	FutureResponse<GenericMessage> sendRequest(std::string_view method, std::optional<json::Value>&& params = std::nullopt);
 
 	MessageId sendRequest(
 		std::string_view method,
-		std::optional<json::Any>&& params,
+		std::optional<json::Value>&& params,
 		GenericResponseCallback then,
 		GenericErrorResponseCallback error);
 
@@ -98,7 +98,7 @@ public:
 	template<typename M>
 	void sendNotification() requires SendNoParamsNotification<M>;
 
-	void sendNotification(std::string_view method, std::optional<json::Any>&& params = std::nullopt);
+	void sendNotification(std::string_view method, std::optional<json::Value>&& params = std::nullopt);
 
 private:
 	class ResponseResultBase;
@@ -106,7 +106,7 @@ private:
 	using RequestResultPtr  = std::unique_ptr<RequestResultBase>;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
 	using OptionalResponse  = std::optional<jsonrpc::Response>;
-	using HandlerWrapper    = std::function<OptionalResponse(json::Any&&, bool)>;
+	using HandlerWrapper    = std::function<OptionalResponse(json::Value&&, bool)>;
 
 	// General
 	Connection&                                      m_connection;
@@ -128,7 +128,7 @@ private:
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
 	void sendResponse(jsonrpc::Response&& response);
 	void processResponse(jsonrpc::Response&& response);
-	MessageId sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Any>&& params = std::nullopt);
+	MessageId sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Value>&& params = std::nullopt);
 
 	/*
 	 * Request result wrapper
@@ -137,7 +137,7 @@ private:
 	class RequestResultBase{
 	public:
 		virtual ~RequestResultBase() = default;
-		virtual void setValueFromJson(json::Any&& json) = 0;
+		virtual void setValueFromJson(json::Value&& json) = 0;
 		virtual void setError(ResponseError&& error) = 0;
 	};
 
@@ -150,7 +150,7 @@ private:
 		{
 		}
 
-		void setValueFromJson(json::Any&& json) override;
+		void setValueFromJson(json::Value&& json) override;
 		void setError(ResponseError&& error) override;
 
 	private:
@@ -163,7 +163,7 @@ private:
 	public:
 		std::future<T> future(){ return m_promise.get_future(); }
 
-		void setValueFromJson(json::Any&& json) override;
+		void setValueFromJson(json::Value&& json) override;
 		void setError(ResponseError&& error) override;
 
 	private:

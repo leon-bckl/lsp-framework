@@ -43,9 +43,9 @@ public:
 		return textOffset(m_pos);
 	}
 
-	Any parse()
+	Value parse()
 	{
-		Any result;
+		Value result;
 
 		pushState(State::Value, result);
 
@@ -96,8 +96,8 @@ private:
 	};
 
 	struct StateStackEntry{
-		State context;
-		Any*    value;
+		State  context;
+		Value* value;
 	};
 
 	std::vector<StateStackEntry> m_stateStack;
@@ -216,13 +216,13 @@ private:
 		return m_stateStack.back().context;
 	}
 
-	Any& currentValue()
+	Value& currentValue()
 	{
 		assert(!m_stateStack.empty());
 		return *m_stateStack.back().value;
 	}
 
-	void pushState(State state, Any& value)
+	void pushState(State state, Value& value)
 	{
 		m_stateStack.push_back({state, &value});
 	}
@@ -265,7 +265,7 @@ private:
 		return fromStringLiteral(std::string_view{stringStart, stringEnd});
 	}
 
-	Any parseNumber()
+	Value parseNumber()
 	{
 		const char* numberStart = m_pos;
 		bool isDecimal = false;
@@ -307,7 +307,7 @@ private:
 		return static_cast<json::Integer>(intValue);
 	}
 
-	Any parseIdentifier()
+	Value parseIdentifier()
 	{
 		const char* idStart = m_pos;
 
@@ -328,7 +328,7 @@ private:
 		throw ParseError{"Unexpected '" + std::string(identifier) + "'", currentTextOffset()};
 	}
 
-	Any parseSimpleValue()
+	Value parseSimpleValue()
 	{
 		if(*m_pos == '\"')
 			return parseString();
@@ -343,7 +343,7 @@ private:
 	}
 };
 
-void stringifyImplementation(const Any& json, std::string& str, std::size_t indentLevel, bool format)
+void stringifyImplementation(const Value& json, std::string& str, std::size_t indentLevel, bool format)
 {
 	const auto getIndent = [&indentLevel, format]()
 	{
@@ -399,11 +399,11 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 	}
 	else if(json.isObject())
 	{
-		const auto& obj = json.object();
+		const auto& objMap = json.object().keyValueMap();
 
 		str += '{';
 
-		if(auto it = obj.begin(); it != obj.end())
+		if(auto it = objMap.begin(); it != objMap.end())
 		{
 			str += listStart;
 			++indentLevel;
@@ -413,7 +413,7 @@ void stringifyImplementation(const Any& json, std::string& str, std::size_t inde
 			stringifyImplementation(it->second, str, indentLevel, format);
 			++it;
 
-			while(it != obj.end())
+			while(it != objMap.end())
 			{
 				str += valueSep;
 				str += getIndent();
@@ -493,30 +493,102 @@ void appendCodePointAsUtf8(std::string& str, unsigned int codepoint)
 
 } // namespace
 
-Any& Object::get(std::string_view key)
+Object::Object()
+	: m_map{std::make_unique<MapType>()}
 {
-	if(const auto it = find(key); it != end())
-		return it->second;
-
-	throw TypeError{"Missing key '" + std::string{key} + '\''};
 }
 
-const Any& Object::get(std::string_view key) const
+Object::Object(const Object& other)
+	: m_map{std::make_unique<MapType>(*other.m_map)}
 {
-	if(const auto it = find(key); it != end())
-		return it->second;
-
-	throw TypeError{"Missing key '" + std::string{key} + '\''};
 }
 
-Any parse(std::string_view text)
+Object::~Object() = default;
+
+Object& Object::operator=(const Object& other)
+{
+	*this->m_map = *other.m_map;
+	return *this;
+}
+
+bool Object::operator==(const Object& other) const
+{
+	return *this->m_map == *other.m_map;
+}
+
+std::size_t Object::size() const
+{
+	return m_map->size();
+}
+
+bool Object::empty() const
+{
+	return m_map->empty();
+}
+
+bool Object::contains(std::string_view key) const
+{
+	return m_map->contains(key);
+}
+
+Value& Object::operator[](std::string_view key)
+{
+	if(const auto it = m_map->find(key); it != m_map->end())
+		return it->second;
+
+	return m_map->insert({std::string(key), Value()}).first->second;
+}
+
+Value& Object::get(std::string_view key)
+{
+	if(const auto it = m_map->find(key); it != m_map->end())
+		return it->second;
+
+	throw TypeError("Missing key '" + std::string{key} + '\'');
+}
+
+const Value& Object::get(std::string_view key) const
+{
+	if(const auto it = m_map->find(key); it != m_map->end())
+		return it->second;
+
+	throw TypeError("Missing key '" + std::string{key} + '\'');
+}
+
+Value* Object::find(std::string_view key)
+{
+	if(const auto it = m_map->find(key); it != m_map->end())
+		return &it->second;
+
+	return nullptr;
+}
+
+const Value* Object::find(std::string_view key) const
+{
+	if(const auto it = m_map->find(key); it != m_map->end())
+		return &it->second;
+
+	return nullptr;
+}
+
+Object::MapType& Object::keyValueMap()
+{
+	return *m_map;
+}
+
+const Object::MapType& Object::keyValueMap() const
+{
+	return *m_map;
+}
+
+Value parse(std::string_view text)
 {
 	Parser parser{text};
 
 	return parser.parse();
 }
 
-std::string stringify(const Any& json, bool format)
+std::string stringify(const Value& json, bool format)
 {
 	std::string str;
 	stringifyImplementation(json, str, 0, format);
