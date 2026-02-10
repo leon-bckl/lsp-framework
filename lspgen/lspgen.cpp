@@ -891,18 +891,18 @@ R"(#pragma once
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
-#include <tuple>
 #include <string>
-#include <vector>
-#include <variant>
 #include <string_view>
-#include <lsp/uri.h>
-#include <lsp/strmap.h>
-#include <lsp/fileuri.h>
-#include <lsp/nullable.h>
-#include <lsp/json/json.h>
+#include <tuple>
+#include <variant>
+#include <vector>
 #include <lsp/enumeration.h>
+#include <lsp/fileuri.h>
+#include <lsp/json/json.h>
+#include <lsp/nullable.h>
 #include <lsp/serialization.h>
+#include <lsp/strmap.h>
+#include <lsp/uri.h>
 
 namespace lsp{
 
@@ -1552,7 +1552,7 @@ private:
 			if(p.isOptional)
 			{
 				toJson += "\tif(value." + p.name + ")\n\t";
-				fromJson += "\tif(const auto v = json.find(\"" + p.name + "\"))\n\t"
+				fromJson += "\tif(auto* const v = json.find(\"" + p.name + "\"))\n\t"
 				            "\tfromJson(std::move(*v), value." + p.name + ");\n";
 			}
 			else
