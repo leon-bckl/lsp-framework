@@ -20,6 +20,7 @@ public:
 	void waitUntilFinished();
 
 	template<typename F, typename ...Args>
+	requires std::invocable<F, Args...>
 	auto addTask(F&& f, Args&&... args) -> std::future<std::invoke_result_t<F, Args...>>
 	{
 		auto task   = std::make_unique<Task<F, Args...>>(std::forward<F>(f), std::forward<Args>(args)...);

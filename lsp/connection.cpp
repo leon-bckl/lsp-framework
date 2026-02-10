@@ -1,13 +1,13 @@
-#include <cctype>
-#include <cstring>
-#include <charconv>
-#include <optional>
 #include <algorithm>
+#include <cctype>
+#include <charconv>
+#include <cstring>
+#include <optional>
 #include <string_view>
 #include <system_error>
 #include <lsp/connection.h>
-#include <lsp/json/json.h>
 #include <lsp/io/stream.h>
+#include <lsp/json/json.h>
 
 #ifndef LSP_MESSAGE_DEBUG_LOG
 	#ifdef NDEBUG
@@ -34,7 +34,7 @@ namespace{
  */
 
 #if LSP_MESSAGE_DEBUG_LOG
-void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Any& json)
+void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Value& json)
 {
 #ifdef __APPLE__
 	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, true)).c_str());
@@ -151,7 +151,7 @@ Connection::Connection(io::Stream& stream)
 {
 }
 
-json::Any Connection::readMessage()
+json::Value Connection::readMessage()
 {
 	try
 	{
@@ -195,7 +195,7 @@ json::Any Connection::readMessage()
 	}
 }
 
-void Connection::writeMessage(const json::Any& content)
+void Connection::writeMessage(const json::Value& content)
 {
 	try
 	{
@@ -246,7 +246,7 @@ void Connection::parseHeaderValue(MessageHeader& header, std::string_view line)
 			const auto* last     = first + value.size();
 			const auto [ptr, ec] = std::from_chars(first, last, header.contentLength);
 
-			if(ec != std::error_code{} || ptr != last)
+			if(ec != std::errc{} || ptr != last)
 				throw ConnectionError("Protocol: Invalid value for Content-Length header field");
 		}
 		else if(equalCaseInsensitive(key, "Content-Type"))

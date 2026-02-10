@@ -1,12 +1,13 @@
 #pragma once
 
-#include <string>
-#include <vector>
+#include <cstddef>
 #include <cstdint>
-#include <variant>
+#include <string>
 #include <string_view>
-#include <lsp/strmap.h>
+#include <variant>
+#include <vector>
 #include <lsp/exception.h>
+#include <lsp/strmap.h>
 
 namespace lsp::json{
 
@@ -14,14 +15,15 @@ namespace lsp::json{
  * Types
  */
 
-class Any;
+class Value;
+class Object;
 
 using Null    = std::nullptr_t;
 using Boolean = bool;
-using Decimal = double;
 using Integer = std::int32_t;
+using Decimal = double;
 using String  = std::string;
-using Array   = std::vector<Any>;
+using Array   = std::vector<Value>;
 
 /*
  * Errors
@@ -53,45 +55,75 @@ private:
  * Object
  */
 
-using ObjectMap = StrMap<String, Any>;
-class Object : public ObjectMap{
+class Object{
 public:
-	using ObjectMap::ObjectMap;
+	using MapType = StrMap<String, Value>;
 
-	Any& get(std::string_view key);
-	const Any& get(std::string_view key) const;
+	Object();
+	Object(const Object& other);
+	Object(Object&&) = default;
+	~Object();
+
+	Object& operator=(const Object& other);
+	Object& operator=(Object&& other) = default;
+
+	[[nodiscard]] bool operator==(const Object& other) const;
+	[[nodiscard]] bool operator!=(const Object& other) const{ return !(*this == other); }
+
+	[[nodiscard]] Value& operator[](std::string_view key);
+
+	[[nodiscard]] std::size_t size() const;
+	[[nodiscard]] bool empty() const;
+	[[nodiscard]] bool contains(std::string_view key) const;
+	[[nodiscard]] Value& get(std::string_view key);
+	[[nodiscard]] const Value& get(std::string_view key) const;
+	[[nodiscard]] Value* find(std::string_view key);
+	[[nodiscard]] const Value* find(std::string_view key) const;
+
+	[[nodiscard]] MapType& keyValueMap();
+	[[nodiscard]] const MapType& keyValueMap() const;
+
+private:
+	std::unique_ptr<MapType> m_map;
 };
 
 /*
- * Any
+ * Value
  */
 
-using AnyVariant = std::variant<Null, Boolean, Integer, Decimal, String, Object, Array>;
-class Any : private AnyVariant{
-	using AnyVariant::AnyVariant;
+class Value{
 public:
-	Any() : AnyVariant{nullptr}{}
+	using VariantType = std::variant<Null, Boolean, Integer, Decimal, String, Array, Object>;
 
-	bool isNull() const{ return std::holds_alternative<Null>(*this); }
-	bool isBoolean() const{ return std::holds_alternative<Boolean>(*this); }
-	bool isInteger() const{ return std::holds_alternative<Integer>(*this); }
-	bool isDecimal() const{ return std::holds_alternative<Decimal>(*this); }
-	bool isNumber() const{ return isInteger() || isDecimal(); }
-	bool isString() const{ return std::holds_alternative<String>(*this); }
-	bool isObject() const{ return std::holds_alternative<Object>(*this); }
-	bool isArray() const{ return std::holds_alternative<Array>(*this); }
+	constexpr Value() = default;
+	constexpr Value(Null){}
+	constexpr Value(Boolean b) : m_variant{b}{}
+	constexpr Value(Integer i) : m_variant{i}{}
+	constexpr Value(Decimal d) : m_variant{d}{}
+	Value(String&& s) : m_variant{std::move(s)}{}
+	Value(Array&& a) : m_variant{std::move(a)}{}
+	Value(Object&& o) : m_variant{std::move(o)}{}
 
-	Boolean boolean() const{ return get<Boolean>(); }
-	Integer integer() const{ return get<Integer>(); }
-	Decimal decimal() const{ return get<Decimal>(); }
-	const String& string() const{ return get<String>(); }
-	String& string(){ return get<String>(); }
-	const Object& object() const{ return get<Object>(); }
-	Object& object(){ return get<Object>(); }
-	const Array& array() const{ return get<Array>(); }
-	Array& array(){ return get<Array>(); }
+	[[nodiscard]] constexpr bool isNull()    const{ return std::holds_alternative<Null>(m_variant); }
+	[[nodiscard]] constexpr bool isBoolean() const{ return std::holds_alternative<Boolean>(m_variant); }
+	[[nodiscard]] constexpr bool isInteger() const{ return std::holds_alternative<Integer>(m_variant); }
+	[[nodiscard]] constexpr bool isDecimal() const{ return std::holds_alternative<Decimal>(m_variant); }
+	[[nodiscard]] constexpr bool isNumber()  const{ return isInteger() || isDecimal(); }
+	[[nodiscard]] constexpr bool isString()  const{ return std::holds_alternative<String>(m_variant); }
+	[[nodiscard]] constexpr bool isObject()  const{ return std::holds_alternative<Object>(m_variant); }
+	[[nodiscard]] constexpr bool isArray()   const{ return std::holds_alternative<Array>(m_variant); }
 
-	Decimal number() const
+	[[nodiscard]] constexpr Boolean       boolean() const{ return get<Boolean>(); }
+	[[nodiscard]] constexpr Integer       integer() const{ return get<Integer>(); }
+	[[nodiscard]] constexpr Decimal       decimal() const{ return get<Decimal>(); }
+	[[nodiscard]]           const String& string()  const{ return get<String>(); }
+	[[nodiscard]]           const Object& object()  const{ return get<Object>(); }
+	[[nodiscard]]           const Array&  array()   const{ return get<Array>(); }
+	[[nodiscard]]           String&       string(){ return get<String>(); }
+	[[nodiscard]]           Object&       object(){ return get<Object>(); }
+	[[nodiscard]]           Array&        array(){ return get<Array>(); }
+
+	[[nodiscard]] Decimal number() const
 	{
 		if(isDecimal())
 			return get<Decimal>();
@@ -102,52 +134,42 @@ public:
 		throw TypeError{};
 	}
 
-	bool operator==(const Any& other) const
-	{
-		return static_cast<const AnyVariant&>(*this) == other;
-	}
+	[[nodiscard]] bool operator==(const Value& other) const = default;
+	[[nodiscard]] bool operator!=(const Value& other) const = default;
 
-	bool operator!=(const Any& other) const
-	{
-		return static_cast<const AnyVariant&>(*this) != other;
-	}
+	[[nodiscard]] const VariantType& variant() const{ return m_variant; }
+	[[nodiscard]] VariantType& variant(){ return m_variant; }
 
 private:
+	VariantType m_variant;
+
 	template<typename T>
 	T& get()
 	{
-		if(std::holds_alternative<T>(*this))
-			return std::get<T>(*this);
+		if(std::holds_alternative<T>(m_variant))
+			return std::get<T>(m_variant);
 
 		throw TypeError{};
-	}
-
-	Any& get()
-	{
-		return *this;
 	}
 
 	template<typename T>
 	const T& get() const
 	{
-		if(std::holds_alternative<T>(*this))
-			return std::get<T>(*this);
+		if(std::holds_alternative<T>(m_variant))
+			return std::get<T>(m_variant);
 
 		throw TypeError{};
 	}
-
-	const Any& get() const
-	{
-		return *this;
-	}
 };
+
+using Any [[deprecated("Use json::Value")]] = Value;
 
 /*
  * parse/stringify
  */
 
-Any         parse(std::string_view text);
-std::string stringify(const Any& json, bool format = false);
+Value       parse(std::string_view text);
+std::string stringify(const Value& json, bool format = false);
 std::string toStringLiteral(std::string_view str);
 std::string fromStringLiteral(std::string_view str);
 

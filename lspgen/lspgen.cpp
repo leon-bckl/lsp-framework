@@ -1,10 +1,10 @@
-#include <map>
-#include <memory>
+#include <algorithm>
 #include <cassert>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <algorithm>
+#include <map>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <lsp/json/json.h>
@@ -359,7 +359,7 @@ StructurePropertyList extractStructureProperties(const json::Array& json)
 		json.begin(),
 		json.end(),
 		std::back_inserter(result),
-		[](const json::Any& e)
+		[](const json::Value& e)
 		{
 			StructureProperty prop;
 			prop.extract(e.object());
@@ -536,7 +536,7 @@ struct Enumeration{
 
 	struct Value{
 		std::string name;
-		json::Any   value;
+		json::Value value;
 		std::string documentation;
 	};
 
@@ -913,7 +913,7 @@ using uint      = unsigned int;
 using String    = std::string;
 using LSPArray  = json::Array;
 using LSPObject = json::Object;
-using LSPAny    = json::Any;
+using LSPAny    = json::Value;
 
 template<typename T>
 using Opt = std::optional<T>;
@@ -1147,12 +1147,12 @@ private:
 
 	static std::string toJsonSig(const std::string& typeName)
 	{
-		return "json::Any toJson(" + typeName + "&& value)";
+		return "json::Value toJson(" + typeName + "&& value)";
 	}
 
 	static std::string fromJsonSig(const std::string& typeName)
 	{
-		return "void fromJson(json::Any&& json, " + typeName + "& value)";
+		return "void fromJson(json::Value&& json, " + typeName + "& value)";
 	}
 
 	static std::string documentationComment(const std::string& title, const std::string& documentation, std::size_t indentLevel = 0)
@@ -1552,8 +1552,8 @@ private:
 			if(p.isOptional)
 			{
 				toJson += "\tif(value." + p.name + ")\n\t";
-				fromJson += "\tif(const auto it = json.find(\"" + p.name + "\"); it != json.end())\n\t"
-				            "\tfromJson(std::move(it->second), value." + p.name + ");\n";
+				fromJson += "\tif(const auto v = json.find(\"" + p.name + "\"))\n\t"
+				            "\tfromJson(std::move(*v), value." + p.name + ");\n";
 			}
 			else
 			{
@@ -1611,11 +1611,11 @@ private:
 		std::string propertiesFromJson = "static void " + uncapitalizeString(structureCppName) + "FromJson("
 		                                 "json::Object& json, " + structureCppName + "& value)\n{\n";
 		const std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<" + structureCppName + ">()";
-		const std::string literalPropertiesSig = "template<>\nconst std::pair<const char*, json::Any>* literalProperties<" + structureCppName + ">()";
+		const std::string literalPropertiesSig = "template<>\nconst std::pair<const char*, json::Value>* literalProperties<" + structureCppName + ">()";
 		std::vector<std::string>                         requiredPropertiesList;
 		std::vector<std::pair<std::string, std::string>> literalPropertiesList;
 		std::string requiredProperties = requiredPropertiesSig + "\n{\n\tstatic const char* properties[] = {\n";
-		std::string literalProperties = literalPropertiesSig + "\n{\n\tstatic const std::pair<const char*, json::Any> properties[] = {\n";
+		std::string literalProperties = literalPropertiesSig + "\n{\n\tstatic const std::pair<const char*, json::Value> properties[] = {\n";
 
 		// Add base classes
 

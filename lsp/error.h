@@ -13,7 +13,7 @@ class MessageError : public Exception{
 public:
 	const char* message() const noexcept{ return what(); }
 	int code() const noexcept{ return m_code; }
-	const std::optional<json::Any>& data() const noexcept{ return m_data; }
+	const std::optional<json::Value>& data() const noexcept{ return m_data; }
 
 	enum : int{
 		ParseError           = -32700,
@@ -30,7 +30,7 @@ public:
 	};
 
 protected:
-	MessageError(int code, const std::string& message, std::optional<json::Any> data = {})
+	MessageError(int code, const std::string& message, std::optional<json::Value> data = {})
 		: Exception{message},
 		  m_code{code},
 		  m_data{std::move(data)}
@@ -38,8 +38,8 @@ protected:
 	}
 
 private:
-	int                      m_code;
-	std::optional<json::Any> m_data;
+	int                        m_code;
+	std::optional<json::Value> m_data;
 };
 using Error [[deprecated]] = MessageError;
 
@@ -48,7 +48,7 @@ using Error [[deprecated]] = MessageError;
  */
 class RequestError : public MessageError{
 public:
-	RequestError(int code, const std::string& message, std::optional<json::Any> data = {})
+	RequestError(int code, const std::string& message, std::optional<json::Value> data = {})
 		: MessageError{code, message, std::move(data)}
 	{
 	}
@@ -59,7 +59,7 @@ public:
  */
 class ResponseError : public MessageError{
 public:
-	ResponseError(int code, const std::string& message, std::optional<json::Any> data = {})
+	ResponseError(int code, const std::string& message, std::optional<json::Value> data = {})
 		: MessageError{code, message, std::move(data)}
 	{
 	}
