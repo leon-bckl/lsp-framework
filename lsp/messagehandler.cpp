@@ -109,7 +109,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 		}
 		else
 		{
-			constexpr MessageId NullMessageId = json::Null();
+			static constexpr MessageId NullMessageId = json::Null();
 			t_currentRequestId = &NullMessageId;
 		}
 
