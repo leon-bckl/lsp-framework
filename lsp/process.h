@@ -40,8 +40,8 @@ public:
 
 	Process();
 	Process(const std::string& executable, const ArgList& args = {});
-	Process(Process&&);
-	Process& operator=(Process&&);
+	Process(Process&&) noexcept;
+	Process& operator=(Process&&) noexcept;
 	~Process();
 
 	[[nodiscard]] static Process start(const std::string& executable, const ArgList& args = {});

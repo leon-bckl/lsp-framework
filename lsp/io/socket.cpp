@@ -229,8 +229,8 @@ struct Socket::Impl{
  */
 
 Socket::~Socket() = default;
-Socket::Socket(Socket&&) = default;
-Socket& Socket::operator=(Socket&&) = default;
+Socket::Socket(Socket&&) noexcept = default;
+Socket& Socket::operator=(Socket&&) noexcept = default;
 
 Socket::Socket(std::unique_ptr<Impl> impl)
 	: m_impl(std::move(impl))

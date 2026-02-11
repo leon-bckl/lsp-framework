@@ -24,8 +24,8 @@ class Socket : public Stream{
 public:
 	static constexpr auto Localhost = "127.0.0.1";
 
-	Socket(Socket&&);
-	Socket& operator=(Socket&&);
+	Socket(Socket&&) noexcept;
+	Socket& operator=(Socket&&) noexcept;
 	~Socket() override;
 
 	[[nodiscard]] static Socket connect(const std::string& address, unsigned short port);

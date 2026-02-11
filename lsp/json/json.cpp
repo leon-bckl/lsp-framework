@@ -244,25 +244,25 @@ private:
 		if(atEnd() || *m_pos != '\"')
 			throw ParseError{"String expected", currentTextOffset()};
 
-		const char* stringStart = m_pos++;
+		const char* const stringStart = m_pos++;
+		auto              hasEscape   = false;
 
-		bool escaping = false;
-		while(*m_pos != '\"' || escaping)
+		for(;;)
 		{
-			if(!escaping && *m_pos == '\\')
-				escaping = true;
-			else // Already escaping or no '\'
-				escaping = false;
-
-			++m_pos;
-
 			if(atEnd() || *m_pos == '\n')
-				throw ParseError{"Unmatched '\"'", currentTextOffset()};
+				throw ParseError("Unmatched '\"'", currentTextOffset());
+
+			if(!hasEscape && *m_pos == '"')
+			{
+				++m_pos;
+				break;
+			}
+
+			hasEscape = !hasEscape && *m_pos == '\\';
+			++m_pos;
 		}
 
-		const char* stringEnd = ++m_pos;
-
-		return fromStringLiteral(std::string_view{stringStart, stringEnd});
+		return fromStringLiteral(std::string_view(stringStart, m_pos));
 	}
 
 	Value parseNumber()
