@@ -381,7 +381,7 @@ json::Value toJson(std::tuple<Args...>&& tuple)
 	json::Array result;
 	result.reserve(sizeof...(Args));
 	std::apply([&result](auto&&... tupleArgs){
-		(result.push_back(toJson(std::forward<std::decay_t<decltype(tupleArgs)>>(tupleArgs))), ...);
+		(result.push_back(toJson(std::move(tupleArgs))), ...);
 	}, tuple);
 
 	return result;
@@ -402,14 +402,14 @@ json::Value toJson(std::vector<T>&& vector)
 {
 	json::Array result;
 	result.reserve(vector.size());
-	std::transform(vector.begin(), vector.end(), std::back_inserter(result), [](auto&& e){ return toJson(std::forward<T>(e)); });
+	std::transform(vector.begin(), vector.end(), std::back_inserter(result), [](auto&& v){ return toJson(std::move(v)); });
 	return result;
 }
 
 template<typename... Args>
 json::Value toJson(std::variant<Args...>&& variant)
 {
-	return std::visit([](auto&& v){ return toJson(std::forward<std::decay_t<decltype(v)>>(v)); }, variant);
+	return std::visit([](auto&& v){ return toJson(std::move(v)); }, variant);
 }
 
 template<typename EnumType, typename ValueType>

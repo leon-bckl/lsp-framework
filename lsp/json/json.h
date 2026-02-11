@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -61,11 +62,11 @@ public:
 
 	Object();
 	Object(const Object& other);
-	Object(Object&&) = default;
+	Object(Object&&) noexcept = default;
 	~Object();
 
 	Object& operator=(const Object& other);
-	Object& operator=(Object&& other) = default;
+	Object& operator=(Object&& other) noexcept = default;
 
 	[[nodiscard]] bool operator==(const Object& other) const;
 	[[nodiscard]] bool operator!=(const Object& other) const{ return !(*this == other); }
@@ -113,15 +114,15 @@ public:
 	[[nodiscard]] constexpr bool isObject()  const{ return std::holds_alternative<Object>(m_variant); }
 	[[nodiscard]] constexpr bool isArray()   const{ return std::holds_alternative<Array>(m_variant); }
 
-	[[nodiscard]] constexpr Boolean       boolean() const{ return get<Boolean>(); }
-	[[nodiscard]] constexpr Integer       integer() const{ return get<Integer>(); }
-	[[nodiscard]] constexpr Decimal       decimal() const{ return get<Decimal>(); }
-	[[nodiscard]]           const String& string()  const{ return get<String>(); }
-	[[nodiscard]]           const Object& object()  const{ return get<Object>(); }
-	[[nodiscard]]           const Array&  array()   const{ return get<Array>(); }
-	[[nodiscard]]           String&       string(){ return get<String>(); }
-	[[nodiscard]]           Object&       object(){ return get<Object>(); }
-	[[nodiscard]]           Array&        array(){ return get<Array>(); }
+	[[nodiscard]] Boolean       boolean() const{ return get<Boolean>(); }
+	[[nodiscard]] Integer       integer() const{ return get<Integer>(); }
+	[[nodiscard]] Decimal       decimal() const{ return get<Decimal>(); }
+	[[nodiscard]] const String& string()  const{ return get<String>(); }
+	[[nodiscard]] const Object& object()  const{ return get<Object>(); }
+	[[nodiscard]] const Array&  array()   const{ return get<Array>(); }
+	[[nodiscard]] String&       string(){ return get<String>(); }
+	[[nodiscard]] Object&       object(){ return get<Object>(); }
+	[[nodiscard]] Array&        array(){ return get<Array>(); }
 
 	[[nodiscard]] Decimal number() const
 	{
@@ -146,8 +147,8 @@ private:
 	template<typename T>
 	T& get()
 	{
-		if(std::holds_alternative<T>(m_variant))
-			return std::get<T>(m_variant);
+		if(auto* const v = std::get_if<T>(&m_variant))
+			return *v;
 
 		throw TypeError{};
 	}
@@ -155,8 +156,8 @@ private:
 	template<typename T>
 	const T& get() const
 	{
-		if(std::holds_alternative<T>(m_variant))
-			return std::get<T>(m_variant);
+		if(auto* const v = std::get_if<T>(&m_variant))
+			return *v;
 
 		throw TypeError{};
 	}

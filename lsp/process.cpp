@@ -314,6 +314,7 @@ struct Process::Impl final : public io::Stream{
 
 		auto cmdLine = buildCmdLine(executable, args);
 		auto startupInfo = STARTUPINFOW{};
+		startupInfo.cb         = sizeof(startupInfo);
 		startupInfo.dwFlags    = STARTF_USESTDHANDLES;
 		startupInfo.hStdInput  = m_stdinRead;
 		startupInfo.hStdOutput = m_stdoutWrite;
@@ -373,6 +374,8 @@ struct Process::Impl final : public io::Stream{
 		if(checkRunning())
 		{
 			TerminateProcess(m_processInfo.hProcess, 0);
+			CloseHandle(m_processInfo.hThread);
+			CloseHandle(m_processInfo.hProcess);
 			ZeroMemory(&m_processInfo, sizeof(m_processInfo));
 			closeStdHandles();
 		}
@@ -411,8 +414,8 @@ struct Process::Impl final : public io::Stream{
 };
 
 Process::Process() = default;
-Process::Process(Process&&) = default;
-Process& Process::operator=(Process&&) = default;
+Process::Process(Process&&) noexcept = default;
+Process& Process::operator=(Process&&) noexcept = default;
 
 Process::Process(const std::string& executable, const ArgList& args)
 {
