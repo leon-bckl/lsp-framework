@@ -2,7 +2,9 @@
 
 #include <mutex>
 #include <string>
+#include <variant>
 #include <lsp/exception.h>
+#include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
 namespace json{
@@ -19,10 +21,12 @@ class Stream;
  */
 class Connection{
 public:
+	using Message = std::variant<jsonrpc::Message, jsonrpc::MessageBatch>;
+
 	Connection(io::Stream& stream);
 
-	json::Value readMessage();
-	void writeMessage(const json::Value& content);
+	Message readMessage();
+	void writeMessage(Message&& message);
 
 private:
 	io::Stream& m_stream;

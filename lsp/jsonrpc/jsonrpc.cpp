@@ -1,6 +1,4 @@
 #include <cassert>
-#include <iterator>
-#include <algorithm>
 #include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp::jsonrpc{
@@ -75,8 +73,8 @@ Response responseFromJson(json::Object& json)
 
 	if(json.contains("error"))
 	{
-		auto& error = json.get("error");
-		auto& errorObj = error.object();
+		auto& error         = json.get("error");
+		auto& errorObj      = error.object();
 		auto& responseError = response.error.emplace();
 
 		if(!errorObj.contains("code"))
@@ -111,7 +109,7 @@ Response responseFromJson(json::Object& json)
 
 } // namespace
 
-std::variant<Request, Response> messageFromJson(json::Object&& json)
+Message messageFromJson(json::Object&& json)
 {
 	if(json.contains("method"))
 		return requestFromJson(json);
@@ -119,92 +117,72 @@ std::variant<Request, Response> messageFromJson(json::Object&& json)
 	return responseFromJson(json);
 }
 
-std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& json)
+MessageBatch messageBatchFromJson(json::Array&& json)
 {
 	if(json.empty())
 		throw ProtocolError{"Message batch must not be empty"};
 
-	auto firstMessage = messageFromJson(std::move(json[0].object()));
+	auto batch = MessageBatch();
+	batch.reserve(json.size());
 
-	if(std::holds_alternative<Request>(firstMessage))
+	for(auto& jsonMessage : json)
+		batch.push_back(messageFromJson(std::move(jsonMessage.object())));
+
+	return batch;
+}
+
+json::Object messageToJson(Message&& message)
+{
+	json::Object json;
+	json["jsonrpc"] = std::string{ProtocolVersion};
+
+	if(auto* const request = std::get_if<Request>(&message))
 	{
-		RequestBatch batch;
-		batch.reserve(json.size());
-		batch.push_back(std::move(std::get<Request>(firstMessage)));
-		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Value& v){ return requestFromJson(v.object()); });
+		if(request->id.has_value())
+			std::visit([&json](auto& v){ json["id"] = std::move(v); }, *request->id);
 
-		return batch;
+		json["method"] = std::move(request->method);
+
+		if(request->params.has_value())
+			json["params"] = std::move(*request->params);
 	}
 	else
 	{
-		ResponseBatch batch;
-		batch.reserve(json.size());
-		batch.push_back(std::move(std::get<Response>(firstMessage)));
-		std::transform(json.begin() + 1, json.end(), std::back_inserter(batch), [](json::Value& v){ return responseFromJson(v.object()); });
+		auto& response = std::get<Response>(message);
+		assert(response.result.has_value() != response.error.has_value());
 
-		return batch;
-	}
-}
+		std::visit([&json](auto& v){ json["id"] = std::move(v); }, response.id);
 
-json::Object requestToJson(Request&& request)
-{
-	json::Object json;
+		if(response.result.has_value())
+			json["result"] = std::move(*response.result);
 
-	json["jsonrpc"] = std::string{ProtocolVersion};
+		if(response.error.has_value())
+		{
+			auto& responseError = *response.error;
+			auto  errorJson     = json::Object();
 
-	if(request.id.has_value())
-		std::visit([&json](auto& v){ json["id"] = std::move(v); }, *request.id);
+			errorJson["code"]    = responseError.code;
+			errorJson["message"] = std::move(responseError.message);
 
-	json["method"] = std::move(request.method);
+			if(responseError.data.has_value())
+				json["data"] = std::move(*responseError.data);
 
-	if(request.params.has_value())
-		json["params"] = std::move(*request.params);
-
-	return json;
-}
-
-json::Object responseToJson(Response&& response)
-{
-	assert(response.result.has_value() != response.error.has_value());
-
-	json::Object json;
-	json["jsonrpc"] = std::string{ProtocolVersion};
-	std::visit([&json](auto& v){ json["id"] = std::move(v); }, response.id);
-
-	if(response.result.has_value())
-		json["result"] = std::move(*response.result);
-
-	if(response.error.has_value())
-	{
-		auto& responseError = *response.error;
-		json::Object errorJson;
-
-		errorJson["code"] = responseError.code;
-		errorJson["message"] = std::move(responseError.message);
-
-		if(responseError.data.has_value())
-			json["data"] = std::move(*responseError.data);
-
-		json["error"] = std::move(errorJson);
+			json["error"] = std::move(errorJson);
+		}
 	}
 
 	return json;
 }
 
-json::Array requestBatchToJson(RequestBatch&& batch)
+json::Array messageBatchToJson(MessageBatch&& batch)
 {
-	json::Array result;
-	result.reserve(batch.size());
-	std::transform(batch.begin(), batch.end(), std::back_inserter(result), [](auto& r){ return requestToJson(std::move(r)); });
-	return result;
-}
+	auto json = json::Array();
+	json.reserve(batch.size());
 
-json::Array responseBatchToJson(ResponseBatch&& batch)
-{
-	json::Array result;
-	result.reserve(batch.size());
-	std::transform(batch.begin(), batch.end(), std::back_inserter(result), [](auto& r){ return responseToJson(std::move(r)); });
-	return result;
+	for(auto& message : batch)
+		json.push_back(messageToJson(std::move(message)));
+
+	return json;
 }
 
 Request createRequest(MessageId id, std::string_view method, std::optional<json::Value> params)
