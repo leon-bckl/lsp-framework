@@ -125,9 +125,9 @@ private:
 	static jsonrpc::Response createResponseFromAsyncResult(const MessageId& id, AsyncRequestResult<M>& result);
 
 	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
+	void processResponse(jsonrpc::Response&& response);
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
 	void sendResponse(jsonrpc::Response&& response);
-	void processResponse(jsonrpc::Response&& response);
 	MessageId sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Value>&& params = std::nullopt);
 
 	/*

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <variant>
 #include <optional>
+#include <string>
+#include <variant>
+#include <vector>
 #include <lsp/exception.h>
 #include <lsp/json/json.h>
 
@@ -20,7 +20,7 @@ struct Request{
 	std::string                method;
 	std::optional<json::Value> params = {};
 
-	bool isNotification() const{ return !id.has_value(); }
+	[[nodiscard]] bool isNotification() const{ return !id.has_value(); }
 };
 
 using RequestBatch = std::vector<Request>;
@@ -56,6 +56,13 @@ using ResponseBatch = std::vector<Response>;
 using SingleResponseOrBatch = std::variant<Response, ResponseBatch>;
 
 /*
+ * Message
+ */
+
+using Message      = std::variant<Request, Response>;
+using MessageBatch = std::vector<Message>;
+
+/*
  * Error thrown when a message has an invalid structure
  */
 
@@ -68,17 +75,14 @@ public:
  * Creation/Parsing/Serialization
  */
 
-std::variant<Request, Response>           messageFromJson(json::Object&& json);
-std::variant<RequestBatch, ResponseBatch> messageBatchFromJson(json::Array&& json);
+[[nodiscard]] Message      messageFromJson(json::Object&& json);
+[[nodiscard]] MessageBatch messageBatchFromJson(json::Array&& json);
+[[nodiscard]] json::Object messageToJson(Message&& message);
+[[nodiscard]] json::Array  messageBatchToJson(MessageBatch&& batch);
 
-json::Object requestToJson(Request&& request);
-json::Object responseToJson(Response&& response);
-json::Array  requestBatchToJson(RequestBatch&& batch);
-json::Array  responseBatchToJson(ResponseBatch&& batch);
-
-Request  createRequest(MessageId id, std::string_view method, std::optional<json::Value> params = std::nullopt);
-Request  createNotification(std::string_view method, std::optional<json::Value> params = std::nullopt);
-Response createResponse(MessageId id, json::Value result);
-Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Value> data = std::nullopt);
+[[nodiscard]] Request  createRequest(MessageId id, std::string_view method, std::optional<json::Value> params = std::nullopt);
+[[nodiscard]] Request  createNotification(std::string_view method, std::optional<json::Value> params = std::nullopt);
+[[nodiscard]] Response createResponse(MessageId id, json::Value result);
+[[nodiscard]] Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Value> data = std::nullopt);
 
 } // namespace lsp::jsonrpc

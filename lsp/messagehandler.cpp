@@ -4,7 +4,7 @@
 namespace lsp{
 namespace{
 
-thread_local const MessageId* t_currentRequestId  = nullptr;
+thread_local const MessageId* t_currentRequestId = nullptr;
 
 json::Integer nextUniqueRequestId()
 {
@@ -22,58 +22,44 @@ MessageHandler::MessageHandler(Connection& connection, unsigned int maxResponseT
 
 void MessageHandler::processIncomingMessages()
 {
-	auto messageJson = m_connection.readMessage();
+	auto messageOrBatch = m_connection.readMessage();
 
-	if(messageJson.isObject())
+	if(auto* const message = std::get_if<jsonrpc::Message>(&messageOrBatch))
 	{
-		auto message = jsonrpc::messageFromJson(std::move(messageJson.object()));
-
-		if(auto* request = std::get_if<jsonrpc::Request>(&message); request)
+		if(auto* const request = std::get_if<jsonrpc::Request>(message))
 		{
-			auto response = processRequest(std::move(*request), true);
+			auto optionalResponse = processRequest(std::move(*request), true);
 
-			if(response.has_value())
-				m_connection.writeMessage(jsonrpc::responseToJson(std::move(*response)));
+			if(optionalResponse.has_value())
+				m_connection.writeMessage(std::move(*optionalResponse));
 		}
 		else
 		{
-			auto& response = std::get<jsonrpc::Response>(message);
-			processResponse(std::move(response));
-		}
-	}
-	else if(messageJson.isArray())
-	{
-		auto messageBatch = jsonrpc::messageBatchFromJson(std::move(messageJson.array()));
-
-		if(auto* requests = std::get_if<jsonrpc::RequestBatch>(&messageBatch))
-		{
-			jsonrpc::ResponseBatch responses;
-			responses.reserve(requests->size());
-
-			for(auto&& r : *requests)
-			{
-				// Notifications can always be async because they're not part of the response batch
-				const auto allowAsync = r.isNotification();
-				auto response = processRequest(std::move(r), allowAsync);
-
-				if(response.has_value())
-					responses.push_back(std::move(*response));
-			}
-
-			if(!responses.empty())
-				m_connection.writeMessage(jsonrpc::responseBatchToJson(std::move(responses)));
-		}
-		else
-		{
-			auto& responses = std::get<jsonrpc::ResponseBatch>(messageBatch);
-			// This should never be called as no batches are ever sent
-			for(auto&& r : responses)
-				processResponse(std::move(r));
+			processResponse(std::move(std::get<jsonrpc::Response>(*message)));
 		}
 	}
 	else
 	{
-		throw jsonrpc::ProtocolError{"Expected message to be a json object or array"};
+		auto& batch         = std::get<jsonrpc::MessageBatch>(messageOrBatch);
+		auto  responseBatch = jsonrpc::MessageBatch();
+
+		for(auto& message : batch)
+		{
+			if(auto* const request = std::get_if<jsonrpc::Request>(&message))
+			{
+				auto optionalResponse = processRequest(std::move(*request), false);
+
+				if(optionalResponse.has_value())
+					responseBatch.push_back(std::move(*optionalResponse));
+			}
+			else
+			{
+				processResponse(std::move(std::get<jsonrpc::Response>(message)));
+			}
+		}
+
+		if(!responseBatch.empty())
+			m_connection.writeMessage(std::move(responseBatch));
 	}
 }
 
@@ -109,7 +95,7 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 		}
 		else
 		{
-			static constexpr MessageId NullMessageId = json::Null();
+			static const MessageId NullMessageId = json::Null();
 			t_currentRequestId = &NullMessageId;
 		}
 
@@ -254,7 +240,7 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessage
 			auto result = future.get();
 
 			if(!isNotification)
-				return jsonrpc::createResponse(currentRequestId(), future.get());
+				return jsonrpc::createResponse(currentRequestId(), std::move(result));
 
 			return std::nullopt;
 		}
@@ -265,7 +251,7 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessage
 
 void MessageHandler::sendResponse(jsonrpc::Response&& response)
 {
-	m_connection.writeMessage(jsonrpc::responseToJson(std::move(response)));
+	m_connection.writeMessage(std::move(response));
 }
 
 MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Value>&& params)
@@ -274,7 +260,7 @@ MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr 
 	const auto messageId = nextUniqueRequestId();
 	m_pendingRequests[messageId] = std::move(result);
 	auto request = jsonrpc::createRequest(messageId, method, std::move(params));
-	m_connection.writeMessage(jsonrpc::requestToJson(std::move(request)));
+	m_connection.writeMessage(std::move(request));
 	return messageId;
 }
 
@@ -301,7 +287,7 @@ FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::
 void MessageHandler::sendNotification(std::string_view method, std::optional<json::Value>&& params)
 {
 	auto notification = jsonrpc::createNotification(method, std::move(params));
-	m_connection.writeMessage(jsonrpc::requestToJson(std::move(notification)));
+	m_connection.writeMessage(std::move(notification));
 }
 
 } // namespace lsp

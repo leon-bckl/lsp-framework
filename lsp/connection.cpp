@@ -6,6 +6,7 @@
 #include <string_view>
 #include <system_error>
 #include <lsp/connection.h>
+#include <lsp/error.h>
 #include <lsp/io/stream.h>
 #include <lsp/json/json.h>
 
@@ -151,12 +152,12 @@ Connection::Connection(io::Stream& stream)
 {
 }
 
-json::Value Connection::readMessage()
+Connection::Message Connection::readMessage()
 {
 	try
 	{
-		std::lock_guard lock{m_readMutex};
-		InputReader reader{m_stream};
+		auto readLock = std::unique_lock(m_readMutex);
+		auto reader   = InputReader(m_stream);
 
 		if(reader.peek() == io::Stream::Eof)
 			throw ConnectionError{"Connection lost"};
@@ -167,6 +168,8 @@ json::Value Connection::readMessage()
 		content.resize(header.contentLength);
 		reader.read(&content[0], header.contentLength);
 
+		readLock.unlock();
+
 		// Verify only after reading the entire message so no partially unread message is left in the stream
 		verifyContentType(header.contentType);
 
@@ -175,13 +178,25 @@ json::Value Connection::readMessage()
 		debugLogMessageJson("incoming", json);
 #endif
 
-		return json;
+		if(json.isObject())
+			return jsonrpc::messageFromJson(std::move(json.object()));
+
+		if(!json.isArray())
+			throw jsonrpc::ProtocolError("Message must be a json object or array");
+
+		return jsonrpc::messageBatchFromJson(std::move(json.array()));
+	}
+	catch(const json::ParseError& e)
+	{
+		writeMessage(jsonrpc::createErrorResponse(json::Null(), MessageError::ParseError, e.what()));
+		throw; // FIXME: This shouldn't abort the connection
+	}
+	catch(const jsonrpc::ProtocolError& e)
+	{
+		writeMessage(jsonrpc::createErrorResponse(json::Null(), MessageError::InvalidRequest, e.what()));
+		throw; // FIXME: This shouldn't abort the connection
 	}
 	catch(const ConnectionError&)
-	{
-		throw;
-	}
-	catch(const json::ParseError&)
 	{
 		throw;
 	}
@@ -195,18 +210,21 @@ json::Value Connection::readMessage()
 	}
 }
 
-void Connection::writeMessage(const json::Value& content)
+void Connection::writeMessage(Message&& message)
 {
 	try
 	{
+		auto json = json::Value();
+
+		if(auto* const msg = std::get_if<jsonrpc::Message>(&message))
+			json = jsonrpc::messageToJson(std::move(*msg));
+		else
+			json = jsonrpc::messageBatchToJson(std::move(std::get<jsonrpc::MessageBatch>(message)));
+
 #if LSP_MESSAGE_DEBUG_LOG
-		debugLogMessageJson("outgoing", content);
+		debugLogMessageJson("outgoing", json);
 #endif
-		writeMessageData(json::stringify(content));
-	}
-	catch(const ConnectionError&)
-	{
-		throw;
+		writeMessageData(json::stringify(json));
 	}
 	catch(const std::exception& e)
 	{
