@@ -43,9 +43,9 @@ void MessageHandler::processIncomingMessages()
 		auto& batch         = std::get<jsonrpc::MessageBatch>(messageOrBatch);
 		auto  responseBatch = jsonrpc::MessageBatch();
 
-		for(auto& message : batch)
+		for(auto& msg : batch)
 		{
-			if(auto* const request = std::get_if<jsonrpc::Request>(&message))
+			if(auto* const request = std::get_if<jsonrpc::Request>(&msg))
 			{
 				auto optionalResponse = processRequest(std::move(*request), false);
 
@@ -54,7 +54,7 @@ void MessageHandler::processIncomingMessages()
 			}
 			else
 			{
-				processResponse(std::move(std::get<jsonrpc::Response>(message)));
+				processResponse(std::move(std::get<jsonrpc::Response>(msg)));
 			}
 		}
 
