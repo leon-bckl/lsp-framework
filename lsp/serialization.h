@@ -21,7 +21,7 @@ namespace lsp{
 inline json::Value toJson(std::nullptr_t){ return {}; }
 inline json::Value toJson(bool v){ return v; }
 inline json::Value toJson(int i){ return i; }
-inline json::Value toJson(float i){ return i; }
+inline json::Value toJson(float i){ return static_cast<double>(i); }
 inline json::Value toJson(double i){ return i; }
 inline json::Value toJson(std::string&& v){ return std::move(v); }
 inline json::Value toJson(const std::string& v){ return json::String{v}; }
@@ -289,13 +289,14 @@ bool canDeserializeTupleFromJson(const json::Array& array)
 
 	using T = std::tuple_element_t<Index, TupleType>;
 
-	if(canDeserializeTypeFromJson<T>(array[Index]))
-		return true;
+	// All tuple elements must be deserializable; fail fast on first mismatch.
+	if(!canDeserializeTypeFromJson<T>(array[Index]))
+		return false;
 
 	if constexpr(Index + 1 < std::tuple_size_v<TupleType>)
 		return canDeserializeTupleFromJson<Index + 1, TupleType>(array);
 	else
-		return false;
+		return true;
 }
 
 template<std::size_t Index, typename VariantType>

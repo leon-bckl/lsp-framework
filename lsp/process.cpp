@@ -90,7 +90,7 @@ struct Process::Impl final : public io::Stream{
 			execvp(file, argv);
 
 			const auto error = errno;
-			::write(errPipe[1], &error, sizeof(error));
+			auto written [[maybe_unused]] = ::write(errPipe[1], &error, sizeof(error));
 
 			close(errPipe[1]);
 
@@ -199,6 +199,11 @@ struct Process::Impl final : public io::Stream{
 				throw io::Error(std::string("Failed to read from process stdout: ") + strerror(errno));
 			}
 
+			if(bytesRead == 0)
+			{
+				throw io::Error("Unexpected EOF while reading from process stdout");
+			}
+
 			totalBytesRead += static_cast<std::size_t>(bytesRead);
 		}
 	}
@@ -216,7 +221,15 @@ struct Process::Impl final : public io::Stream{
 				if(errno == EINTR)
 					continue;
 
+				if(errno == EPIPE)
+					throw io::Error("Failed to write to process stdin: broken pipe");
+
 				throw io::Error(std::string("Failed to write to process stdin: ") + strerror(errno));
+			}
+
+			if(bytesWritten == 0)
+			{
+				throw io::Error("Failed to write to process stdin: wrote 0 bytes");
 			}
 
 			totalBytesWritten += static_cast<std::size_t>(bytesWritten);

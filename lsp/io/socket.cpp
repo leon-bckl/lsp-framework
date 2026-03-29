@@ -143,7 +143,14 @@ struct Socket::Impl{
 		addrinfo* addrInfoList = nullptr;
 
 		if(auto status = getaddrinfo(address.c_str(), std::to_string(port).c_str(), &hints, &addrInfoList); status != 0)
-			throwError("getaddrinfo: " + std::to_string(status));
+		{
+#ifdef LSP_SOCKET_POSIX
+			const char* statusMsg = gai_strerror(status);
+#else
+			const char* statusMsg = "getaddrinfo failed";
+#endif
+			throwError(std::string("getaddrinfo failed: ") + statusMsg + " (" + std::to_string(status) + ")");
+		}
 
 		for(const auto* addr = addrInfoList; addr; addr = addr->ai_next)
 		{
@@ -198,7 +205,7 @@ struct Socket::Impl{
 			if(bytesRead <= 0)
 				throwError("Failed to read from socket");
 
-			totalBytesRead += bytesRead;
+			totalBytesRead += static_cast<SizeType>(bytesRead);
 		}
 	}
 
@@ -219,7 +226,7 @@ struct Socket::Impl{
 			if(bytesWritten <= 0)
 				throwError("Failed to write to socket");
 
-			totalBytesWritten += bytesWritten;
+			totalBytesWritten += static_cast<SizeType>(bytesWritten);
 		}
 	}
 };

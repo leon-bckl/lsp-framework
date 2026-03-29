@@ -174,6 +174,12 @@ json::Object messageToJson(Message&& message)
 	return json;
 }
 
+// GCC 13/14 false-positive -Wmaybe-uninitialized on std::variant internals
+// when pushing json::Value into a vector.  GCC bugzilla #106247.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 json::Array messageBatchToJson(MessageBatch&& batch)
 {
 	auto json = json::Array();
@@ -184,6 +190,9 @@ json::Array messageBatchToJson(MessageBatch&& batch)
 
 	return json;
 }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 Request createRequest(MessageId id, std::string_view method, std::optional<json::Value> params)
 {
