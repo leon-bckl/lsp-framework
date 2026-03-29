@@ -33,17 +33,6 @@
 namespace{
 
 /*
- * Thread that auto joins on destruction because std::jthread is not available on Apple clang
- */
-class JThread{
-public:
-	JThread(std::thread&& thread) : m_thread{std::move(thread)}{}
-	~JThread(){ m_thread.join(); }
-private:
-	 std::thread m_thread;
-};
-
-/*
  * Helpers to print the message method and payload
  */
 
@@ -84,9 +73,9 @@ void printError(const lsp::ResponseError& error)
 
 bool g_running = false; // This is only changed inside of the shutdown callback on the message processing thread
 
-JThread startMessageProcessingThread(lsp::MessageHandler& messageHandler)
+std::jthread startMessageProcessingThread(lsp::MessageHandler& messageHandler)
 {
-	return std::thread([&messageHandler]()
+	return std::jthread([&messageHandler]()
 	{
 		g_running = true;
 		while(g_running)
@@ -125,7 +114,23 @@ void runLanguageClient(lsp::io::Stream& io)
 	/*
 	 * Send the 'initialized' notification to let the server know that the client is ready
 	 */
-	messageHandler.sendNotification<lsp::notifications::Initialized>(lsp::notifications::Initialized::Params{});
+	messageHandler.sendNotification<lsp::notifications::Initialized>({});
+
+	/*
+	 * Send a 'textDocument/didOpen' notification
+	 */
+
+	const auto documentUri = lsp::DocumentUri::fromPath("some_file.txt");
+
+	messageHandler.sendNotification<lsp::notifications::TextDocument_DidOpen>(
+		{
+			.textDocument = {
+				.uri        = documentUri,
+				.languageId = "txt",
+				.version    = 1,
+				.text       = "foo"
+			}
+		});
 
 	/*
 	 * Send a hover request to the server if it has the capabilitiy.
@@ -137,8 +142,8 @@ void runLanguageClient(lsp::io::Stream& io)
 		try
 		{
 			auto hoverParams             = lsp::requests::TextDocument_Hover::Params();
-			hoverParams.textDocument.uri = lsp::DocumentUri::fromPath("some_file.txt");
-			hoverParams.position         = {.line = 2, .character = 5};
+			hoverParams.textDocument.uri = documentUri;
+			hoverParams.position         = {.line = 1, .character = 1};
 
 			auto hoverRequest =
 				messageHandler.sendRequest<lsp::requests::TextDocument_Hover>(std::move(hoverParams));
