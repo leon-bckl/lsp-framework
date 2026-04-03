@@ -1,12 +1,13 @@
+#include <atomic>
 #include <charconv>
 #include <iostream>
+#include <thread>
 #include <lsp/connection.h>
-#include <lsp/io/socket.h>
-#include <lsp/io/standardio.h>
 #include <lsp/messagehandler.h>
 #include <lsp/messages.h>
 #include <lsp/process.h>
-#include <thread>
+#include <lsp/io/socket.h>
+#include <lsp/io/standardio.h>
 
 /*
  * This is an example implementation of a simple client using the lsp-framework.
@@ -50,7 +51,7 @@ void printMessagePayload(const typename MessageType::Result& result)
 }
 
 template<typename MessageType>
-void printMessage(const typename MessageType::Result& result)
+void printResponse(const typename MessageType::Result& result)
 {
 	printMessageMethod<MessageType>();
 	printMessagePayload<MessageType>(result);
@@ -68,114 +69,185 @@ void printError(const lsp::ResponseError& error)
 }
 
 /*
- * Message processing
+ * LanguageClient
  */
 
-bool g_running = false; // This is only changed inside of the shutdown callback on the message processing thread
-
-std::jthread startMessageProcessingThread(lsp::MessageHandler& messageHandler)
-{
-	return std::jthread([&messageHandler]()
+class LanguageClient{
+public:
+	LanguageClient(lsp::io::Stream& io)
+		: m_connection{io}
+		, m_messageHandler{m_connection}
 	{
-		g_running = true;
-		while(g_running)
-			messageHandler.processIncomingMessages();
-	});
-}
+	}
 
-/*
- * Actual client implementation
- */
+	~LanguageClient()
+	{
+		if(isRunning())
+			shutdown();
+	}
 
-void runLanguageClient(lsp::io::Stream& io)
-{
-	auto connection     = lsp::Connection(io);
-	auto messageHandler = lsp::MessageHandler(connection);
-	auto thread         = startMessageProcessingThread(messageHandler);
+	bool isRunning() const
+	{
+		return m_running.load();
+	}
 
-	/*
-	 * Send initialize request to the server and wait for the response
-	 */
-	auto initializeParams = lsp::requests::Initialize::Params();
-	initializeParams.rootUri = lsp::DocumentUri::fromPath(".");
-	initializeParams.capabilities = {
-		.textDocument = lsp::TextDocumentClientCapabilities{
-			.hover = lsp::HoverClientCapabilities{
-				.contentFormat = {{lsp::MarkupKind::PlainText}}
+	void startup()
+	{
+		m_running.store(true);
+		m_messageThread = std::thread([this](){ messageLoop(); });
+
+		/*
+		 * Setup initialize params with client capabilities
+		 */
+		auto initializeParams = lsp::requests::Initialize::Params();
+		initializeParams.processId    = lsp::Process::currentProcessId(),
+		initializeParams.rootUri      = lsp::DocumentUri::fromPath(".");
+		initializeParams.capabilities = {
+			.textDocument = lsp::TextDocumentClientCapabilities{
+				.hover = lsp::HoverClientCapabilities{
+					.contentFormat = {{lsp::MarkupKind::PlainText}}
+				}
 			}
-		}
-	};
-	auto initializeRequest =
-		messageHandler.sendRequest<lsp::requests::Initialize>(std::move(initializeParams));
-	const auto initializeResult = initializeRequest.result.get();
+		};
 
-	printMessage<lsp::requests::Initialize>(initializeResult);
+		/*
+		 * Send initialize request to the server and wait for the response
+		 */
+		auto initializeRequest =
+			m_messageHandler.sendRequest<lsp::requests::Initialize>(std::move(initializeParams));
+		auto initializeResult = initializeRequest.result.get();
 
-	/*
-	 * Send the 'initialized' notification to let the server know that the client is ready
-	 */
-	messageHandler.sendNotification<lsp::notifications::Initialized>({});
+		printResponse<lsp::requests::Initialize>(initializeResult);
+		m_serverCapabilities = std::move(initializeResult.capabilities);
 
-	/*
-	 * Send a 'textDocument/didOpen' notification
-	 */
+		/*
+		 * Send the 'initialized' notification to let the server know that the client is ready
+		 */
+		m_messageHandler.sendNotification<lsp::notifications::Initialized>({});
+	}
 
-	const auto documentUri = lsp::DocumentUri::fromPath("some_file.txt");
+	void shutdown()
+	{
+		if(!isRunning())
+			return;
 
-	messageHandler.sendNotification<lsp::notifications::TextDocument_DidOpen>(
-		{
-			.textDocument = {
-				.uri        = documentUri,
-				.languageId = "txt",
-				.version    = 1,
-				.text       = "foo"
-			}
-		});
+		/*
+		 * Shut down the server by:
+		 *   1. Sending a shutdown request
+		 *   2. Waiting for the response
+		 *   3. Sending an exit notification
+		 * The callbacks are executed by the message handling thread
+		 */
+		m_messageHandler.sendRequest<lsp::requests::Shutdown>(
+			[this](const lsp::requests::Shutdown::Result&)
+			{
+				m_messageHandler.sendNotification<lsp::notifications::Exit>();
+				m_running.store(false);
+			},
+			[](const lsp::ResponseError& error)
+			{
+				printError(error);
+			});
 
-	/*
-	 * Send a hover request to the server if it has the capabilitiy.
-	 * This check would not be sufficient to verify that the server supports hover requests
-	 * in a real client implementation because hoverProvider can be a bool or lsp::HoverOptions.
-	 */
-	if(initializeResult.capabilities.hoverProvider.has_value())
+		if(m_messageThread.joinable())
+			m_messageThread.join();
+	}
+
+	void openDocument(lsp::DocumentUri uri, std::string text, std::string languageId)
+	{
+		m_messageHandler.sendNotification<lsp::notifications::TextDocument_DidOpen>(
+			{
+				.textDocument = {
+					.uri = std::move(uri),
+					.languageId = std::move(languageId),
+					.version = 1,
+					.text = std::move(text)
+				}
+			});
+	}
+
+	lsp::requests::TextDocument_Hover::Result hover(lsp::DocumentUri uri, const lsp::Position& position)
 	{
 		try
 		{
 			auto hoverParams             = lsp::requests::TextDocument_Hover::Params();
-			hoverParams.textDocument.uri = documentUri;
-			hoverParams.position         = {.line = 1, .character = 1};
+			hoverParams.textDocument.uri = std::move(uri);
+			hoverParams.position         = position;
 
 			auto hoverRequest =
-				messageHandler.sendRequest<lsp::requests::TextDocument_Hover>(std::move(hoverParams));
+				m_messageHandler.sendRequest<lsp::requests::TextDocument_Hover>(std::move(hoverParams));
 
 			const auto hoverResult = hoverRequest.result.get();
-			printMessage<lsp::requests::TextDocument_Hover>(hoverResult);
+
+			printResponse<lsp::requests::TextDocument_Hover>(hoverResult);
+
+			return hoverResult;
 		}
 		catch(const lsp::ResponseError& error)
 		{
 			printError(error);
+			return {};
 		}
 	}
 
-	/*
-	 * Shut down the server by:
-	 *   1. Sending a shutdown request
-	 *   2. Waiting for the response
-	 *   3. Sending an exit notification
-	 * The callbacks are executed by the message handling thread
-	 */
-	messageHandler.sendRequest<lsp::requests::Shutdown>(
-		[&messageHandler](lsp::requests::Shutdown::Result&& result)
+private:
+	lsp::Connection         m_connection;
+	lsp::MessageHandler     m_messageHandler;
+	std::atomic_bool        m_running = false;
+	std::thread             m_messageThread;
+	lsp::ServerCapabilities m_serverCapabilities;
+
+	void messageLoop()
+	{
+		try
 		{
-			printMessage<lsp::requests::Shutdown>(result);
-			messageHandler.sendNotification<lsp::notifications::Exit>();
-			g_running = false;
-		},
-		[](const lsp::ResponseError& error)
+			while(isRunning())
+				m_messageHandler.processIncomingMessages();
+		}
+		catch(const std::exception& e)
 		{
-			printError(error);
-			g_running = false;
-		});
+			m_running.store(false);
+			std::cerr << "ERROR: " << e.what() << std::endl;
+		}
+	}
+};
+
+/*
+ * Run a language client with the given io
+ */
+
+void runLanguageClient(lsp::io::Stream& io)
+{
+	auto client = LanguageClient(io);
+	client.startup();
+
+	// Open a document and send a hover request
+
+	const auto documentUri = lsp::DocumentUri::fromPath("foo.txt");
+	client.openDocument(documentUri, "bar", "txt");
+	const auto hoverResult = client.hover(documentUri, {1, 1});
+
+	if(hoverResult.isNull())
+	{
+		std::cerr << "No hover available" << std::endl;
+	}
+	else
+	{
+		if(const auto* contents = std::get_if<lsp::MarkupContent>(&hoverResult->contents))
+		{
+			std::cerr << "Hover contents: "
+				<< lsp::MarkupKindEnum::value(contents->kind)
+				<< ", "
+				<< contents->value
+				<< std::endl;
+		}
+		else
+		{
+			std::cerr << "Unsupported hover content" << std::endl;
+		}
+	}
+
+	client.shutdown();
 }
 
 /*
@@ -201,7 +273,7 @@ Args parseArgs(int argc, char** argv)
 
 		if(!args.executable.empty())
 		{
-			// Executable arg was found so add all remaning args are the command line
+			// Executable arg was found so add all remaning args to the command line
 			args.executableArgs.push_back(std::string(arg));
 		}
 		else if(arg.starts_with(PortArg))
@@ -236,19 +308,17 @@ Args parseArgs(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
-	const auto args = parseArgs(argc, argv);
-
-	if(!args.port.has_value() && args.executable.empty())
-	{
-		std::cerr << R"(Available arguments:
-    --port=<portnum>          Connect to a language server via socket on port <portnum>
-    --exe=<executable> <args> Launch language server <executable> and connect to it via stdio)" << std::endl;
-		return 1;
-	}
-
 	try
 	{
-		if(args.port.has_value())
+		const auto args = parseArgs(argc, argv);
+
+		if(!args.executable.empty())
+		{
+			std::cerr << "Launching language server executable '" << args.executable << '\'' << std::endl;
+			auto proc = lsp::Process(args.executable, args.executableArgs);
+			runLanguageClient(proc.stdIO());
+		}
+		else if(args.port.has_value())
 		{
 			std::cerr << "Connecting to language server on port " << *args.port << std::endl;
 			auto socket = lsp::io::Socket::connect(lsp::io::Socket::Localhost, *args.port);
@@ -256,16 +326,17 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			std::cerr << "Launching language server executable '" << args.executable << '\'' << std::endl;
-			auto proc = lsp::Process(args.executable, args.executableArgs);
-			runLanguageClient(proc.stdIO());
+			std::cerr << R"(Available arguments:
+    --port=<portnum>          Connect to a language server via socket on port <portnum>
+    --exe=<executable> <args> Launch language server <executable> and connect to it via stdio)" << std::endl;
+			return EXIT_FAILURE;
 		}
 	}
 	catch(const std::exception& e)
 	{
 		std::cerr << "ERROR: " << e.what() << std::endl;
-		return 1;
+		return EXIT_FAILURE;
 	}
 
-	return 0;
+	return EXIT_SUCCESS;
 }
