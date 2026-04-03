@@ -48,8 +48,12 @@ public:
 
 	[[nodiscard]] bool isRunning() const;
 	[[nodiscard]] io::Stream& stdIO();
+	[[nodiscard]] int id();
 	void wait();
 	void terminate();
+
+	[[nodiscard]] static int currentProcessId();
+	[[nodiscard]] static bool exists(int id);
 
 private:
 	struct Impl;
