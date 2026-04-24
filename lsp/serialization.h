@@ -579,6 +579,14 @@ void fromJson(json::Value&& json, NullableVariant<Args...>& nullable)
 template<typename T>
 void fromJson(json::Value&& json, std::unique_ptr<T>& value)
 {
+	// Be lenient and allow null for optional values.
+	// If the optional holds a value that can be null it is still set.
+	if(json.isNull() && !impl::canDeserializeTypeFromJson<T>(json))
+	{
+		value.reset();
+		return;
+	}
+
 	if(!value)
 		value = std::make_unique<T>();
 
