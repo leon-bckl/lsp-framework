@@ -13,6 +13,8 @@ namespace lsp{
 template<typename T>
 class Nullable{
 public:
+	using value_type = T;
+
 	Nullable() = default;
 	Nullable(std::nullptr_t) : Nullable{}{}
 	Nullable(const T& t){ *this = t; }
@@ -59,6 +61,7 @@ template<typename... Args>
 class NullableVariant{
 public:
 	using VariantType = std::variant<Args...>;
+	using value_type  = VariantType;
 
 	NullableVariant() = default;
 	NullableVariant(std::nullptr_t) : NullableVariant{}{}

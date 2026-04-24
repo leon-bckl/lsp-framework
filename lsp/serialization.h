@@ -156,6 +156,15 @@ inline std::string mapKey(const FileUri& uri)
 }
 
 template<typename T>
+struct IsNullable : std::false_type{};
+
+template<typename... Args>
+struct IsNullable<Nullable<Args...>> : std::true_type{};
+
+template<typename... Args>
+struct IsNullable<NullableVariant<Args...>> : std::true_type{};
+
+template<typename T>
 struct IsVector : std::false_type{};
 
 template<typename... Args>
@@ -206,6 +215,10 @@ bool canDeserializeTypeFromJson(const json::Value& json)
 	else if constexpr(std::is_same_v<T, std::string>)
 	{
 		return json.isString();
+	}
+	else if constexpr(IsNullable<T>{})
+	{
+		return json.isNull() || canDeserializeTypeFromJson<typename T::value_type>(json);
 	}
 	else if constexpr(IsVector<T>{})
 	{
@@ -575,6 +588,11 @@ void fromJson(json::Value&& json, std::unique_ptr<T>& value)
 template<typename T>
 void fromJson(json::Value&& json, std::optional<T>& value)
 {
+	// Be lenient and allow null for optional values.
+	// If the optional holds a value that can be null it is still set.
+	if(json.isNull() && !impl::canDeserializeTypeFromJson<T>(json))
+		return;
+
 	if(!value.has_value())
 		value = T{};
 
