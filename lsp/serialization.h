@@ -591,7 +591,10 @@ void fromJson(json::Value&& json, std::optional<T>& value)
 	// Be lenient and allow null for optional values.
 	// If the optional holds a value that can be null it is still set.
 	if(json.isNull() && !impl::canDeserializeTypeFromJson<T>(json))
+	{
+		value.reset();
 		return;
+	}
 
 	if(!value.has_value())
 		value = T{};
