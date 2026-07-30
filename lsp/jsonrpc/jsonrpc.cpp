@@ -52,7 +52,7 @@ Request requestFromJson(json::Object& json)
 			request.params = std::move(params.object());
 		else if(params.isArray())
 			request.params = std::move(params.array());
-		else
+		else if(!params.isNull()) // Be lenient and allow null params even though it is not allowed by jsonrpc 2.0
 			throw ProtocolError{"Params type must be object or array"};
 	}
 

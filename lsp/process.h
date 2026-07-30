@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__APPLE__) || defined(__linux__)
+#if defined(__APPLE__) || defined(__linux__) || defined(__HAIKU__)
 	#define LSP_PROCESS_POSIX
 #elif defined(_WIN32)
 	#define LSP_PROCESS_WIN32
@@ -48,8 +48,12 @@ public:
 
 	[[nodiscard]] bool isRunning() const;
 	[[nodiscard]] io::Stream& stdIO();
+	[[nodiscard]] int id();
 	void wait();
 	void terminate();
+
+	[[nodiscard]] static int currentProcessId();
+	[[nodiscard]] static bool exists(int id);
 
 private:
 	struct Impl;

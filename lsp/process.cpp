@@ -183,6 +183,24 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
+	[[nodiscard]]
+	int id() const
+	{
+		return static_cast<int>(m_pid);
+	}
+
+	[[nodiscard]]
+	static int currentProcessId()
+	{
+		return static_cast<int>(getpid());
+	}
+
+	[[nodiscard]]
+	static bool exists(int id)
+	{
+		return id > 0 && kill(static_cast<pid_t>(id), 0) == 0;
+	}
+
 	void read(char* buffer, std::size_t size) override
 	{
 		std::size_t totalBytesRead = 0;
@@ -381,6 +399,35 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
+	[[nodiscard]]
+	int id() const
+	{
+		return static_cast<int>(m_processInfo.dwProcessId);
+	}
+
+	[[nodiscard]]
+	static int currentProcessId()
+	{
+		return static_cast<int>(GetCurrentProcessId());
+	}
+
+	[[nodiscard]]
+	static bool exists(int id)
+	{
+		if(id > 0)
+		{
+			const auto handle = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(id));
+
+			if(handle)
+			{
+				CloseHandle(handle);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	void read(char* buffer, std::size_t size) override
 	{
 		std::size_t totalBytesRead = 0;
@@ -450,6 +497,14 @@ io::Stream& Process::stdIO()
 	return *m_impl;
 }
 
+int Process::id()
+{
+	if(!isRunning())
+		return -1;
+
+	return m_impl->id();
+}
+
 void Process::wait()
 {
 	if(m_impl)
@@ -466,6 +521,16 @@ void Process::terminate()
 		m_impl->terminate();
 		m_impl.reset();
 	}
+}
+
+int Process::currentProcessId()
+{
+	return Impl::currentProcessId();
+}
+
+bool Process::exists(int id)
+{
+	return Impl::exists(id);
 }
 
 } // namespace lsp

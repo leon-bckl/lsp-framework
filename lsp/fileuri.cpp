@@ -28,12 +28,17 @@ std::string_view FileUri::path() const
 
 bool FileUri::setPath(std::string_view path)
 {
-	const auto absolute = std::filesystem::absolute(std::u8string_view((const char8_t*)(path.data()), path.size()));
+	auto fsPath = std::filesystem::absolute(std::u8string_view((const char8_t*)(path.data()), path.size()));
+
+	if(std::filesystem::exists(fsPath))
+		fsPath = std::filesystem::canonical(fsPath);
+
 #ifdef _WIN32
-	const auto u8Path = u8'/' + absolute.u8string();
+	const auto u8Path = u8'/' + fsPath.u8string();
 #else
-	const auto u8Path = absolute.u8string();
+	const auto u8Path = fsPath.u8string();
 #endif
+
 	return Uri::setPath(std::string_view((const char*)u8Path.data(), u8Path.size()));
 }
 

@@ -41,6 +41,8 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, true)).c_str());
 #elif defined(_WIN32)
 	OutputDebugStringA((messageType + ": " + lsp::json::stringify(json, true) + '\n').c_str());
+#elif defined(__linux__) || defined(__HAIKU__)
+    fprintf(stderr, "%s\n",  (messageType + ": " + lsp::json::stringify(json, true)).c_str());
 #endif
 }
 #endif

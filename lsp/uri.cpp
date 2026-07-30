@@ -398,8 +398,8 @@ std::string Uri::decode(std::string_view encoded)
 	{
 		if(encoded[i] == '%' && i + 2 < encoded.size())
 		{
-			const char* start = &encoded[i + 1];
-			const char* end   = &encoded[i + 3];
+			const char* start = encoded.data() + i + 1;
+			const char* end   = start + 2;
 
 			unsigned char c;
 			const auto [ptr, ec] = std::from_chars(start, end, c, 16);

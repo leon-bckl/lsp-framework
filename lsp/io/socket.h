@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__APPLE__) || defined(__linux__)
+#if defined(__APPLE__) || defined(__linux__) || defined(__HAIKU__)
 	#define LSP_SOCKET_POSIX
 #elif defined(_WIN32)
 	#define LSP_SOCKET_WIN32

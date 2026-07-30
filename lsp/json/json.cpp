@@ -605,12 +605,6 @@ std::string toStringLiteral(std::string_view str)
 	{
 		switch(c)
 		{
-		case '\0':
-			result += "\\0";
-			break;
-		case '\a':
-			result += "\\a";
-			break;
 		case '\b':
 			result += "\\b";
 			break;
@@ -619,9 +613,6 @@ std::string toStringLiteral(std::string_view str)
 			break;
 		case '\n':
 			result += "\\n";
-			break;
-		case '\v':
-			result += "\\v";
 			break;
 		case '\f':
 			result += "\\f";
@@ -636,7 +627,17 @@ std::string toStringLiteral(std::string_view str)
 			result += "\\\\";
 			break;
 		default:
-			result += c;
+			if(static_cast<unsigned char>(c) < 0x20)
+			{
+				constexpr auto hexLookup = "0123456789ABCDEF";
+				result += "\\u00";
+				result += hexLookup[c >> 4];
+				result += hexLookup[c & 0xF];
+			}
+			else
+			{
+				result += c;
+			}
 		}
 	}
 
