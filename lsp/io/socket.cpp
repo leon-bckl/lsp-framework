@@ -61,6 +61,25 @@ struct Socket::Impl{
 		closeSocketHandle(m_socketFd);
 	}
 
+	/*
+	 * The port this socket is bound to, asked of the socket rather than
+	 * remembered from the bind call -- when the caller passed 0 the kernel chose
+	 * it, so the socket is the only thing that knows.
+	 */
+	[[nodiscard]] unsigned short boundPort() const
+	{
+		if(m_socketFd == InvalidSocket)
+			return 0;
+
+		auto addr = sockaddr_in{};
+		auto size = static_cast<SizeType>(sizeof(addr));
+
+		if(getsockname(m_socketFd, reinterpret_cast<sockaddr*>(&addr), &size) != 0)
+			return 0;
+
+		return ntohs(addr.sin_port);
+	}
+
 	static void closeSocketHandle(SocketHandle handle)
 	{
 		if(handle == InvalidSocket)
@@ -279,6 +298,14 @@ Socket SocketListener::listen()
 		throw Error("Server socket is not open for listening");
 
 	return Socket(m_socket.m_impl->listen());
+}
+
+unsigned short SocketListener::port() const
+{
+	if(!isReady())
+		return 0;
+
+	return m_socket.m_impl->boundPort();
 }
 
 } // namespace lsp::io
