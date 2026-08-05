@@ -50,10 +50,23 @@ private:
 
 class SocketListener{
 public:
+	/*
+	 * Pass 0 as the port to have the operating system choose a free one, then
+	 * ask port() which it was. That is the only way to take a port without a
+	 * race: choosing a number first and binding it afterwards leaves a window in
+	 * which something else can take it.
+	 */
 	SocketListener(unsigned short port, unsigned short maxConnections = 32);
 
 	[[nodiscard]] Socket listen();
 	[[nodiscard]] bool isReady() const{ return m_socket.isOpen(); }
+
+	/*
+	 * The port that was actually bound. Equal to the one passed to the
+	 * constructor unless that was 0. Returns 0 if the socket is not open.
+	 */
+	[[nodiscard]] unsigned short port() const;
+
 	void shutdown(){ m_socket.close(); }
 
 private:

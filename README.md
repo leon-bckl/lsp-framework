@@ -120,7 +120,7 @@ messageHandler.add<lsp::notifications::Exit>([](){ ... });
 
 Some requests might take a longer time to process than others. In order to not stall the handling of other incoming messages, it is possible to do the processing asynchronously.
 
-Asynchronous callbacks work exactly the same as regular request callbacks with the only difference being that they return a `std::future<MessageType::Result>`. Processing happens in a worker thread inside of the message handler. Worker threads are only created if there are asynchronous request handlers. Otherwise the handler will not create any extra threads. 
+Asynchronous callbacks work exactly the same as regular request callbacks with the only difference being that they return a `std::future<MessageType::Result>`. Processing happens in a worker thread inside of the message handler. Worker threads are only created if there are asynchronous request handlers. Otherwise the handler will not create any extra threads.
 
 ```cpp
 messageHandler.add<lsp::requests::TextDocument_Hover>(
@@ -238,6 +238,85 @@ while(socketListener.isReady())
     }).detach();
 }
 ```
+
+## Augmenting the LSP Meta Model
+You can extend or augment the built-in meta model used to generate the LSP C++ types and messages by providing a custom JSON file that contains only the additions you want to add.
+
+How it works
+- The project uses the official meta model at `lspgen/metaModel.json` as the baseline. If you supply a second JSON file with additional definitions, the `lspgen` tool will be invoked with both files and merge the additions into the generated output.
+- The CMake option `CUSTOM_METAMODEL_JSON` can be used to pass your custom file to the build. See [CMakeLists.txt](CMakeLists.txt#L119-L130) for details.
+- Generated headers are written to the build output directory (for example `build/generated/lsp/messages.h` and `build/generated/lsp/types.h`).
+
+What you can add
+- `requests`: additional request method entries (method -> params/result schema)
+- `notifications`: additional notification method entries (method -> params schema)
+- `structures`: new named object types
+- `enumerations`: new enums
+- `typeAliases`: simple alias / primitive mappings
+
+File format
+The custom JSON file must follow the same high-level shape used in `lspgen/metaModel.json` but only needs to contain the keys you want to add. Example minimal file:
+
+```json
+{
+    "requests": {
+        "my/customRequest": {
+            "params": {
+                "type": "object",
+                "properties": { "text": { "type": "string" } },
+                "additionalProperties": false
+            },
+            "result": {
+                "type": "object",
+                "properties": { "ok": { "type": "boolean" } }
+            }
+        }
+    },
+    "notifications": {
+        "my/customNotification": {
+            "params": { "type": "object", "properties": { "uri": { "type": "string" } } }
+        }
+    },
+    "structures": {
+        "MyCustomType": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "count": { "type": "integer" }
+            }
+        }
+    },
+    "enumerations": {
+        "MyEnum": { "values": ["One", "Two", "Three"] }
+    },
+    "typeAliases": {
+        "MyString": { "type": "string" }
+    }
+}
+```
+
+Usage
+
+- With CMake (recommended): pass the custom file at configure time. Example (from project root):
+
+```
+cmake -S . -B build -DCUSTOM_METAMODEL_JSON=path/to/customMeta.json
+cmake --build build --parallel
+```
+
+If `CUSTOM_METAMODEL_JSON` is set, CMake will invoke `lspgen` with both the official `lspgen/metaModel.json` and your custom file so the generated headers include your additions.
+
+- Manually invoking `lspgen`: run the `lspgen` executable with one or more meta model files. Example (binary built by the project):
+
+```
+./build/lspgen lspgen/metaModel.json path/to/customMeta.json
+```
+
+Notes and tips
+- Keep your custom file focused on additions. Avoid duplicating or conflicting definitions from the official meta model.
+- Use method strings for `requests`/`notifications` (e.g. `my/customRequest`). These will be generated as C++ message types under the usual namespaces for requests/notifications.
+- Generated files are overwritten by the build step — keep your custom JSON in source control and re-run the build when you change it.
+
 
 ## License
 

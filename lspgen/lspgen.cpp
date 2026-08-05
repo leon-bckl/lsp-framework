@@ -743,6 +743,7 @@ private:
 
 	void extractMetaData(const json::Object& json)
 	{
+		if (m_metaData.version != "") return;
 		const auto& metaDataJson = json.get("metaData").object();
 		m_metaData.version = metaDataJson.get("version").string();
 	}
@@ -804,26 +805,28 @@ private:
 	void extractEnumerations(const json::Object& json)
 	{
 		const auto& enumerations = json.get("enumerations").array();
+		auto prevSize = m_enumerations.size();
+		m_enumerations.resize(prevSize+enumerations.size());
 
-		m_enumerations.resize(enumerations.size());
-
-		for(std::size_t i = 0; i < enumerations.size(); ++i)
+		std::size_t j = prevSize;
+		for(std::size_t i = 0; i < enumerations.size(); ++i, ++j)
 		{
-			m_enumerations[i].extract(enumerations[i].object());
-			insertType(m_enumerations[i].name, Type::Enumeration, i);
+			m_enumerations[j].extract(enumerations[i].object());
+			insertType(m_enumerations[j].name, Type::Enumeration, j);
 		}
 	}
 
 	void extractStructures(const json::Object& json)
 	{
 		const auto& structures = json.get("structures").array();
+		auto prevSize = m_structures.size();
+		m_structures.resize(prevSize+structures.size());
 
-		m_structures.resize(structures.size());
-
-		for(std::size_t i = 0; i < structures.size(); ++i)
+		std::size_t j = prevSize;
+		for(std::size_t i = 0; i < structures.size(); ++i, ++j)
 		{
-			m_structures[i].extract(structures[i].object());
-			insertType(m_structures[i].name, Type::Structure, i);
+			m_structures[j].extract(structures[i].object());
+			insertType(m_structures[j].name, Type::Structure, j);
 		}
 	}
 
@@ -847,13 +850,14 @@ private:
 	void extractTypeAliases(const json::Object& json)
 	{
 		const auto& typeAliases = json.get("typeAliases").array();
+		auto prevSize = m_typeAliases.size();
+		m_typeAliases.resize(prevSize+typeAliases.size());
 
-		m_typeAliases.resize(typeAliases.size());
-
-		for(std::size_t i = 0; i < typeAliases.size(); ++i)
+		std::size_t j = prevSize;
+		for(std::size_t i = 0; i < typeAliases.size(); ++i, ++j)
 		{
-			m_typeAliases[i].extract(typeAliases[i].object());
-			insertType(m_typeAliases[i].name, Type::TypeAlias, i);
+			m_typeAliases[j].extract(typeAliases[i].object());
+			insertType(m_typeAliases[j].name, Type::TypeAlias, j);
 		}
 
 		// Extract message and notification parameter and result types
@@ -1760,52 +1764,49 @@ const CppGenerator::CppBaseType CppGenerator::s_baseTypeMapping[] =
 
 int main(int argc, char** argv)
 {
-	if(argc != 2)
-	{
-		std::cerr << "Expected the input file name as the first and only argument" << std::endl;
-		return EXIT_FAILURE;
-	}
-
 	int ExitCode = EXIT_SUCCESS;
-	const char* inputFileName = argv[1];
 
-	if(std::ifstream in{inputFileName, std::ios::binary})
+	try
 	{
-		try
+		MetaModel metaModel;
+		for (int i = 1; i < argc; ++i)
 		{
-			in.seekg(0, std::ios::end);
-			std::streamsize size = in.tellg();
-			in.seekg(0, std::ios::beg);
-			std::string jsonText;
-			jsonText.resize(static_cast<std::string::size_type>(size));
-			in.read(&jsonText[0], size);
-			in.close();
-			auto json = json::parse(jsonText).object();
-			MetaModel metaModel;
-			metaModel.extract(json);
-			CppGenerator generator{&metaModel};
-			generator.generate();
-			generator.writeFiles();
+			const char* inputFileName = argv[i];
+			if(std::ifstream in{inputFileName, std::ios::binary})
+			{
+				in.seekg(0, std::ios::end);
+				std::streamsize size = in.tellg();
+				in.seekg(0, std::ios::beg);
+				std::string jsonText;
+				jsonText.resize(static_cast<std::string::size_type>(size));
+				in.read(&jsonText[0], size);
+				in.close();
+				auto json = json::parse(jsonText).object();
+				metaModel.extract(json);
+			}
+			else
+			{
+				std::cerr << "Failed to open " << inputFileName << std::endl;
+				ExitCode = EXIT_FAILURE;
+			}
 		}
-		catch(const json::ParseError& e)
-		{
-			std::cerr << "JSON parse error at offset " << e.textPos() << ": " << e.what() << std::endl;
-			ExitCode = EXIT_FAILURE;
-		}
-		catch(const std::exception& e)
-		{
-			std::cerr << "Error: " << e.what() << std::endl;
-			ExitCode = EXIT_FAILURE;
-		}
-		catch(...)
-		{
-			std::cerr << "Unknown error" << std::endl;
-			ExitCode = EXIT_FAILURE;
-		}
+		CppGenerator generator{&metaModel};
+		generator.generate();
+		generator.writeFiles();
 	}
-	else
+	catch(const json::ParseError& e)
 	{
-		std::cerr << "Failed to open " << inputFileName << std::endl;
+		std::cerr << "JSON parse error at offset " << e.textPos() << ": " << e.what() << std::endl;
+		ExitCode = EXIT_FAILURE;
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "Error: " << e.what() << std::endl;
+		ExitCode = EXIT_FAILURE;
+	}
+	catch(...)
+	{
+		std::cerr << "Unknown error" << std::endl;
 		ExitCode = EXIT_FAILURE;
 	}
 

@@ -117,12 +117,24 @@ set(LSP_GENERATED_SOURCES
 )
 
 set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel.json)
+set(CUSTOM_METAMODEL_JSON "" CACHE STRING "Path to custom metamodel json file to extend the default metamodel")
+# If a custom metamodel was provided, convert it to an absolute path
+if (NOT CUSTOM_METAMODEL_JSON STREQUAL "")
+	get_filename_component(CUSTOM_METAMODEL_JSON_ABS ${CUSTOM_METAMODEL_JSON} ABSOLUTE BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+if (CUSTOM_METAMODEL_JSON STREQUAL "")
+	set(LSPGEN_FILES ${LSP_METAMODEL_JSON})
+else()
+	set(LSPGEN_FILES
+		${LSP_METAMODEL_JSON}
+		${CUSTOM_METAMODEL_JSON_ABS})
+endif()
 
 add_custom_command(
-	COMMAND lspgen ${LSP_METAMODEL_JSON}
+	COMMAND $<TARGET_FILE:lspgen> ${LSPGEN_FILES}
 	WORKING_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp
 	OUTPUT ${LSP_GENERATED_HEADERS} ${LSP_GENERATED_SOURCES}
-	DEPENDS lspgen ${LSP_METAMODEL_JSON}
+	DEPENDS lspgen ${LSPGEN_FILES}
 	COMMENT "Generating lsp types from meta model..."
 )
 
@@ -143,7 +155,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 	set_target_properties(
 		lsp PROPERTIES
 		DEBUG_POSTFIX d
-	)	
+	)
 endif()
 
 if (LSP_INSTALL)
@@ -162,7 +174,7 @@ if (LSP_INSTALL)
 	configure_package_config_file(
 		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/lspConfig.cmake.in"
 		"${CMAKE_CURRENT_BINARY_DIR}/lspConfig.cmake"
-		INSTALL_DESTINATION 
+		INSTALL_DESTINATION
 		${EXPORT_CMAKE_CONFIG_DIR}
 	)
 	install(
@@ -179,15 +191,15 @@ if (LSP_INSTALL)
 	)
 
 	install(TARGETS lsp EXPORT lsp ARCHIVE LIBRARY)
-	install(
-		FILES ${LSP_GENERATED_HEADERS}
-		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp
-	)
-	install(
-		DIRECTORY ${LSP_SRC_DIR}
+install(
+	FILES ${LSP_GENERATED_HEADERS}
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lsp
+)
+install(
+	DIRECTORY ${LSP_SRC_DIR}
 		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 		FILES_MATCHING REGEX ".*\\.(h|inl)"
-	)
+)
 endif()
 
 if(WIN32)
