@@ -22,7 +22,7 @@ public:
 
 	Enumeration() = default;
 	Enumeration(EnumType index) : m_index{index}{}
-	explicit Enumeration(ValueType&& value){ *this = value; }
+	Enumeration(ValueType&& value){ *this = std::move(value); }
 
 	Enumeration& operator=(EnumType other){ m_index = other; return *this; }
 

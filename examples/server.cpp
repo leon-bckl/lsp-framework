@@ -119,7 +119,7 @@ public:
 				},
 				.hoverProvider = true,
 			},
-			.serverInfo = lsp::InitializeResultServerInfo{
+			.serverInfo = lsp::ServerInfo{
 				.name    = "Language Server Example",
 				.version = "1.0.0"
 			},
