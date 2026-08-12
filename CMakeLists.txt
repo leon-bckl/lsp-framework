@@ -10,6 +10,8 @@ set(CMAKE_CXX_EXTENSIONS NO)
 
 option(LSP_BUILD_EXAMPLES "Build the examples" OFF)
 option(LSP_INSTALL "Configure lsp install configuration" ON)
+set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel.json CACHE FILEPATH "Path to the LSP meta model json passed to lspgen")
+
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	add_compile_options(/W4 /bigobj)
@@ -116,8 +118,6 @@ set(LSP_GENERATED_SOURCES
 	${LSP_GENERATED_FILES_DIR}/lsp/types.cpp
 )
 
-set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel.json)
-
 add_custom_command(
 	COMMAND lspgen ${LSP_METAMODEL_JSON}
 	WORKING_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp
@@ -143,7 +143,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 	set_target_properties(
 		lsp PROPERTIES
 		DEBUG_POSTFIX d
-	)	
+	)
 endif()
 
 if (LSP_INSTALL)
@@ -162,7 +162,7 @@ if (LSP_INSTALL)
 	configure_package_config_file(
 		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/lspConfig.cmake.in"
 		"${CMAKE_CURRENT_BINARY_DIR}/lspConfig.cmake"
-		INSTALL_DESTINATION 
+		INSTALL_DESTINATION
 		${EXPORT_CMAKE_CONFIG_DIR}
 	)
 	install(
