@@ -1,17 +1,23 @@
 #pragma once
 
-#include <string>
 #include <cstdint>
+#include <string>
 
 namespace lsp{
 
 class Uri{
 public:
+	static constexpr auto FileScheme = std::string_view("file");
+
 	Uri() = default;
 
 	[[nodiscard]] static Uri parse(std::string_view uriStr);
+	[[nodiscard]] static Uri fileUriFromPath(std::string_view path);
+
+	[[nodiscard]] std::string fsPath() const;
 
 	[[nodiscard]] bool isValid() const;
+	[[nodiscard]] bool isFileUri() const;
 	[[nodiscard]] bool hasAuthority() const;
 	[[nodiscard]] bool hasQuery() const;
 	[[nodiscard]] bool hasFragment() const;
@@ -59,5 +65,7 @@ private:
 	void insertQuery(std::string_view query);
 	void insertFragment(std::string_view fragment);
 };
+
+using DocumentUri = Uri;
 
 } // namespace lsp

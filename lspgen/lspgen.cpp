@@ -897,7 +897,6 @@ R"(#pragma once
 #include <variant>
 #include <vector>
 #include <lsp/enumeration.h>
-#include <lsp/fileuri.h>
 #include <lsp/json/json.h>
 #include <lsp/nullable.h>
 #include <lsp/serialization.h>

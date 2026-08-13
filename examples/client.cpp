@@ -101,7 +101,7 @@ public:
 		 */
 		auto initializeParams = lsp::requests::Initialize::Params();
 		initializeParams.processId    = lsp::Process::currentProcessId(),
-		initializeParams.rootUri      = lsp::DocumentUri::fromPath(".");
+		initializeParams.rootUri      = lsp::Uri::fileUriFromPath(".");
 		initializeParams.capabilities = {
 			.textDocument = lsp::TextDocumentClientCapabilities{
 				.hover = lsp::HoverClientCapabilities{
@@ -223,7 +223,7 @@ void runLanguageClient(lsp::io::Stream& io)
 
 	// Open a document and send a hover request
 
-	const auto documentUri = lsp::DocumentUri::fromPath("foo.txt");
+	const auto documentUri = lsp::Uri::fileUriFromPath("foo.txt");
 	client.openDocument(documentUri, "bar", "txt");
 	const auto hoverResult = client.hover(documentUri, {1, 1});
 

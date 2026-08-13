@@ -138,7 +138,7 @@ public:
 		verifyInitialized();
 
 		// Verify that the server actually knows the document from the request
-		if(params.textDocument.uri != lsp::DocumentUri::fromPath("foo.txt"))
+		if(params.textDocument.uri != lsp::Uri::fileUriFromPath("foo.txt"))
 		{
 			throw lsp::RequestError(lsp::MessageError::InvalidParams,
 			                        "Unknown document: " + params.textDocument.uri.toString());

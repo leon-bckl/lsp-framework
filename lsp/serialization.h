@@ -8,7 +8,6 @@
 #include <tuple>
 #include <type_traits>
 #include <lsp/enumeration.h>
-#include <lsp/fileuri.h>
 #include <lsp/json/json.h>
 #include <lsp/nullable.h>
 #include <lsp/strmap.h>
@@ -27,7 +26,6 @@ inline json::Value toJson(std::string&& v){ return std::move(v); }
 inline json::Value toJson(const std::string& v){ return json::String{v}; }
 inline json::Value toJson(std::string_view v){ return json::String{v}; }
 inline json::Value toJson(const Uri& uri){ return uri.toString(); }
-inline json::Value toJson(const FileUri& uri){ return uri.toString(); }
 inline json::Value toJson(json::Value&& v){ return std::move(v); }
 inline json::Value toJson(json::Object&& v){ return std::move(v); }
 inline json::Value toJson(json::Array&& v){ return std::move(v); }
@@ -86,7 +84,6 @@ inline void fromJson(json::Value&& json, float& value){ value = static_cast<floa
 inline void fromJson(json::Value&& json, double& value){ value = static_cast<double>(json.number()); }
 inline void fromJson(json::Value&& json, std::string& value){ value = std::move(json.string()); }
 inline void fromJson(json::Value&& json, Uri& value){ value = Uri::parse(json.string()); }
-inline void fromJson(json::Value&& json, FileUri& value){ value = Uri::parse(json.string()); }
 inline void fromJson(json::Value&& json, json::Value& v){ v = std::move(json); }
 inline void fromJson(json::Value&& json, json::Object& v){ v = std::move(json.object()); }
 inline void fromJson(json::Value&& json, json::Array& v){ v = std::move(json.array()); }
@@ -132,11 +129,6 @@ struct MapKeyType<Uri>{
 	using Type = std::string;
 };
 
-template<>
-struct MapKeyType<FileUri>{
-	using Type = std::string;
-};
-
 template<typename T>
 typename MapKeyType<T>::Type mapKey(const T& u)
 {
@@ -145,12 +137,6 @@ typename MapKeyType<T>::Type mapKey(const T& u)
 
 template<>
 inline std::string mapKey(const Uri& uri)
-{
-	return uri.toString();
-}
-
-template<>
-inline std::string mapKey(const FileUri& uri)
 {
 	return uri.toString();
 }
@@ -501,21 +487,6 @@ void fromJson(json::Value&& json, StrMap<Uri, T>& value)
 
 		if(uri.isValid())
 			fromJson(std::move(v), value[Uri::parse(k)]);
-	}
-}
-
-template<typename T>
-void fromJson(json::Value&& json, StrMap<FileUri, T>& value)
-{
-	auto& obj = json.object();
-	value.reserve(obj.size());
-
-	for(auto&& [k, v] : obj.keyValueMap())
-	{
-		auto fileUri = FileUri(Uri::parse(k));
-
-		if(fileUri.isValid())
-			fromJson(std::move(v), value[std::move(fileUri)]);
 	}
 }
 

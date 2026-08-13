@@ -1,10 +1,30 @@
-#include <cctype>
 #include <cassert>
 #include <charconv>
+#include <filesystem>
 #include <lsp/uri.h>
 
 namespace lsp{
 namespace{
+
+bool isDigit(char c) {
+	return c >= '0' && c <= '9';
+}
+
+bool isAlpha(char c) {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+bool isAlphanumeric(char c) {
+	return isAlpha(c) || isDigit(c);
+}
+
+char toLower(char c) {
+	return c >= 'A' && c <= 'Z' ? c - 32 : c;
+}
+
+char toUpper(char c) {
+	return c >= 'a' && c <= 'z' ? c + 32 : c;
+}
 
 std::uint16_t parseUriScheme(std::string_view uriStr)
 {
@@ -12,7 +32,7 @@ std::uint16_t parseUriScheme(std::string_view uriStr)
 
 	for(const char c : uriStr)
 	{
-		if(!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '.' && c != '+')
+		if(!isAlphanumeric(c) && c != '-' && c != '.' && c != '+')
 			break;
 
 		++len;
@@ -80,9 +100,9 @@ void normalizeEncodedCase(std::string& str, std::size_t first, std::size_t count
 		if(str[i] == '%' && i + 2 < end)
 		{
 			auto j = i + 1;
-			str[j] = static_cast<char>(std::toupper(static_cast<unsigned char>(str[j])));
+			str[j] = toUpper(str[j]);
 			++j;
-			str[j] = static_cast<char>(std::toupper(static_cast<unsigned char>(str[j])));
+			str[j] = toUpper(str[j]);
 
 			i += 2;
 		}
@@ -157,9 +177,45 @@ Uri Uri::parse(std::string_view uriStr)
 	return uri;
 }
 
+Uri Uri::fileUriFromPath(std::string_view path)
+{
+	const auto absPath = std::filesystem::absolute(
+		std::u8string_view(reinterpret_cast<const char8_t*>(path.data()), path.size()));
+	auto u8Path = absPath.u8string();
+
+#ifdef _WIN32
+	u8Path.insert(0, 1, '/');
+#endif
+
+	auto uri = Uri();
+	uri.setScheme(FileScheme);
+	uri.setAuthority({});
+	uri.setPath(std::string_view(reinterpret_cast<const char*>(u8Path.data()), u8Path.size()));
+
+	return uri;
+}
+
+std::string Uri::fsPath() const
+{
+	assert(isFileUri());
+	auto p = path();
+
+#ifdef _WIN32
+	if(p.starts_with('/'))
+		p.remove_prefix(1);
+#endif
+
+	return std::string(p);
+}
+
 bool Uri::isValid() const
 {
 	return m_schemeLen > 0;
+}
+
+bool Uri::isFileUri() const
+{
+	return scheme() == FileScheme;
 }
 
 bool Uri::hasAuthority() const
@@ -290,7 +346,7 @@ void Uri::insertScheme(std::string_view scheme)
 	m_schemeLen = static_cast<std::uint16_t>(scheme.size());
 
 	for(std::uint16_t i = 0; i < m_schemeLen; ++i)
-		m_data[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(m_data[i])));
+		m_data[i] = toLower(m_data[i]);
 }
 
 void Uri::insertAuthority(std::string_view authority)
@@ -371,7 +427,7 @@ std::string Uri::encode(std::string_view decoded, std::string_view exclude)
 	for(const char c : decoded)
 	{
 		if(exclude.find(c) != std::string_view::npos ||
-		   std::isalnum(static_cast<unsigned char>(c)) ||
+		   isAlphanumeric(c) ||
 		   c == '_' ||
 		   c == '.' ||
 		   c == '-')
