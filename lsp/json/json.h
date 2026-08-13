@@ -3,6 +3,7 @@
 #include <utility>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -70,6 +71,7 @@ public:
 	class KeyValuePair;
 
 	Object();
+	Object(std::initializer_list<KeyValuePair> pairs);
 	Object(const Object& other);
 	Object(Object&&) noexcept;
 	~Object();
