@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS NO)
 
 option(LSP_BUILD_EXAMPLES "Build the examples" OFF)
+option(LSP_BUILD_TESTS "Build the tests" OFF)
 option(LSP_INSTALL "Configure lsp install configuration" ON)
 set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel.json CACHE FILEPATH "Path to the LSP meta model json passed to lspgen")
 
@@ -201,4 +202,8 @@ if(LSP_BUILD_EXAMPLES)
 	# Client
 	add_executable(LspClientExample ${LSP_DIR}/examples/client.cpp)
 	target_link_libraries(LspClientExample lsp)
+endif()
+
+if(LSP_BUILD_TESTS)
+	add_subdirectory(test)
 endif()
