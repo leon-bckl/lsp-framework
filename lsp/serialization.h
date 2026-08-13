@@ -241,14 +241,14 @@ bool canDeserializeTypeFromJson(const json::Value& json)
 	{
 		if(json.isObject())
 		{
-			const auto& objMap               = json.object().keyValueMap();
+			const auto& obj                  = json.object();
 			bool        hasLiteralProperties = true;
 
 			for(const auto* p = literalProperties<T>(); p->first; ++p)
 			{
-				if(const auto it = objMap.find(p->first); it != objMap.end())
+				if(const auto* val = obj.find(p->first); val != nullptr)
 				{
-					if(it->second != p->second)
+					if(*val != p->second)
 					{
 						hasLiteralProperties = false;
 						break;
@@ -262,7 +262,7 @@ bool canDeserializeTypeFromJson(const json::Value& json)
 
 				for(const auto* p = requiredProperties<T>(); *p; ++p)
 				{
-					if(!objMap.contains(*p))
+					if(!obj.contains(*p))
 					{
 						hasRequiredProperties = false;
 						break;
@@ -471,7 +471,7 @@ template<typename K, typename T>
 void fromJson(json::Value&& json, StrMap<K, T>& value)
 {
 	auto& obj = json.object();
-	for(auto&& [k, v] : obj.keyValueMap())
+	for(auto&& [k, v] : obj)
 		fromJson(std::move(v), value[k]);
 }
 
@@ -481,7 +481,7 @@ void fromJson(json::Value&& json, StrMap<Uri, T>& value)
 	auto& obj = json.object();
 	value.reserve(obj.size());
 
-	for(auto&& [k, v] : obj.keyValueMap())
+	for(auto&& [k, v] : obj)
 	{
 		auto uri = Uri::parse(k);
 

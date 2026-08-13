@@ -138,7 +138,7 @@ private:
 		}
 		else
 		{
-			if(!currentValue().object().empty())
+			if(!currentValue().object().isEmpty())
 			{
 				if(*m_pos != ',')
 					throw ParseError("Expected ','", currentTextOffset());
