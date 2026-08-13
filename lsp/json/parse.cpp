@@ -248,7 +248,7 @@ private:
 		for(;;)
 		{
 			if(atEnd() || *m_pos == '\n')
-				throw ParseError("Unmatched '\"'", currentTextOffset());
+				throw ParseError("Unmatched '\"'", textOffset(stringStart));
 
 			if(!hasEscape && *m_pos == '"')
 			{
@@ -270,6 +270,7 @@ private:
 
 		while(!atEnd() && (
 		      isAlphanumeric(*m_pos) ||
+		      *m_pos == '+' ||
 		      *m_pos == '-' ||
 		      *m_pos == '.' ||
 		      *m_pos == 'e' ||
@@ -322,7 +323,7 @@ private:
 		if(identifier == NullValueString)
 			return Null();
 
-		throw ParseError("Unexpected '" + std::string(identifier) + "'", currentTextOffset());
+		throw ParseError("Unexpected '" + std::string(identifier) + "'", textOffset(idStart));
 	}
 
 	Value parseSimpleValue()
