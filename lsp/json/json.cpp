@@ -9,6 +9,12 @@ namespace{
  * Object
  */
 
+Object::Object(std::initializer_list<KeyValuePair> pairs)
+	: m_keyValuePairs{pairs}
+{
+	// TODO: Check for duplicates?
+}
+
 Object::SizeType Object::size() const
 {
 	return m_keyValuePairs.size();
