@@ -205,5 +205,6 @@ if(LSP_BUILD_EXAMPLES)
 endif()
 
 if(LSP_BUILD_TESTS)
+	include(CTest)
 	add_subdirectory(test)
 endif()
