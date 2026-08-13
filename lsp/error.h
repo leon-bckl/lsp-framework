@@ -41,7 +41,6 @@ private:
 	int                        m_code;
 	std::optional<json::Value> m_data;
 };
-using Error [[deprecated]] = MessageError;
 
 /*
  * Thrown from inside of a request handler callback and sent back as an error response

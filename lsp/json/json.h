@@ -163,8 +163,6 @@ private:
 	}
 };
 
-using Any [[deprecated("Use json::Value")]] = Value;
-
 /*
  * parse/stringify
  */

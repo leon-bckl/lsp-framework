@@ -117,7 +117,7 @@ void fromJson(json::Value&& json, std::optional<T>& value);
 
 namespace impl{
 
-// Helpers to treat FileURI as a string which can be used to look up values in a json::Object
+// Helpers to treat Uri as a string which can be used to look up values in a json::Object
 
 template<typename T>
 struct MapKeyType{
