@@ -52,7 +52,7 @@ endif()
 
 # lspgen
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp)
+add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/json/parse.cpp lsp/json/stringify.cpp)
 target_include_directories(lspgen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # liblsp
@@ -99,6 +99,8 @@ set(LSP_SOURCES
 	io/standardio.cpp
 	# json
 	json/json.cpp
+	json/parse.cpp
+	json/stringify.cpp
 	# jsonrpc
 	jsonrpc/jsonrpc.cpp
 )
