@@ -64,27 +64,27 @@ void stringifyImplementation(const Value& json, std::string& str, std::size_t in
 	}
 	else if(json.isObject())
 	{
-		const auto& objMap = json.object().keyValueMap();
+		const auto& obj = json.object();
 
 		str += '{';
 
-		if(auto it = objMap.begin(); it != objMap.end())
+		if(auto it = obj.begin(); it != obj.end())
 		{
 			str += listStart;
 			++indentLevel;
 			str += getIndent();
-			str += toStringLiteral(it->first);
+			str += toStringLiteral(it->key());
 			str += keySep;
-			stringifyImplementation(it->second, str, indentLevel, format);
+			stringifyImplementation(it->value(), str, indentLevel, format);
 			++it;
 
-			while(it != objMap.end())
+			while(it != obj.end())
 			{
 				str += valueSep;
 				str += getIndent();
-				str += toStringLiteral(it->first);
+				str += toStringLiteral(it->key());
 				str += keySep;
-				stringifyImplementation(it->second, str, indentLevel, format);
+				stringifyImplementation(it->value(), str, indentLevel, format);
 				++it;
 			}
 

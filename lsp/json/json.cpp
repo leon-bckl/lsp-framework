@@ -5,92 +5,93 @@ namespace{
 
 } // namespace
 
-Object::Object()
-	: m_map{std::make_unique<MapType>()}
+/*
+ * Object
+ */
+
+Object::SizeType Object::size() const
 {
+	return m_keyValuePairs.size();
 }
 
-Object::Object(const Object& other)
-	: m_map{std::make_unique<MapType>(*other.m_map)}
+Value& Object::insert(String key, Value value)
 {
+	Value* existingValue = find(key);
+
+	if(existingValue)
+	{
+		*existingValue = std::move(value);
+		return *existingValue;
+	}
+
+	return m_keyValuePairs.emplace_back(std::move(key), std::move(value)).value();
 }
 
-Object::~Object() = default;
-
-Object& Object::operator=(const Object& other)
+void Object::remove(std::string_view key)
 {
-	*this->m_map = *other.m_map;
-	return *this;
+	for(auto it = m_keyValuePairs.begin(); it != m_keyValuePairs.end(); ++it)
+	{
+		if(it->key() == key)
+		{
+			m_keyValuePairs.erase(it);
+			break;
+		}
+	}
 }
 
-bool Object::operator==(const Object& other) const
+void Object::clear()
 {
-	return *this->m_map == *other.m_map;
-}
-
-std::size_t Object::size() const
-{
-	return m_map->size();
-}
-
-bool Object::empty() const
-{
-	return m_map->empty();
-}
-
-bool Object::contains(std::string_view key) const
-{
-	return m_map->contains(key);
-}
-
-Value& Object::operator[](std::string_view key)
-{
-	if(const auto it = m_map->find(key); it != m_map->end())
-		return it->second;
-
-	return m_map->insert({std::string(key), Value()}).first->second;
-}
-
-Value& Object::get(std::string_view key)
-{
-	if(const auto it = m_map->find(key); it != m_map->end())
-		return it->second;
-
-	throw TypeError("Missing key '" + std::string{key} + '\'');
-}
-
-const Value& Object::get(std::string_view key) const
-{
-	if(const auto it = m_map->find(key); it != m_map->end())
-		return it->second;
-
-	throw TypeError("Missing key '" + std::string{key} + '\'');
+	m_keyValuePairs.clear();
 }
 
 Value* Object::find(std::string_view key)
 {
-	if(const auto it = m_map->find(key); it != m_map->end())
-		return &it->second;
+	for(auto& [objKey, value] : m_keyValuePairs)
+	{
+		if(objKey == key)
+			return &value;
+	}
 
 	return nullptr;
 }
 
-const Value* Object::find(std::string_view key) const
+Value& Object::get(std::string_view key)
 {
-	if(const auto it = m_map->find(key); it != m_map->end())
-		return &it->second;
+	auto* value = find(key);
 
-	return nullptr;
+	if(value)
+		return *value;
+
+	throw TypeError("JSON object does not contain key '" + std::string(key) + '\'');
 }
 
-Object::MapType& Object::keyValueMap()
+Value& Object::operator[](std::string_view key)
 {
-	return *m_map;
+	auto* value = find(key);
+
+	if(value)
+		return *value;
+
+	return m_keyValuePairs.emplace_back(String(key), Value()).value();
 }
 
-const Object::MapType& Object::keyValueMap() const
+bool Object::operator==(const Object& other) const
 {
-	return *m_map;
+	if(size() != other.size())
+		return false;
+
+	for(const auto& [key, value] : m_keyValuePairs)
+	{
+		const auto* otherVal = other.find(key);
+
+		if(!otherVal)
+			return false;
+
+		if(value != *otherVal)
+			return false;
+	}
+
+	return true;
 }
 
 } // namespace lsp::json
