@@ -364,6 +364,11 @@ struct Process::Impl final : public io::Stream{
 
 			throw ProcessError("Failed to start process");
 		}
+
+		CloseHandle(m_stdinRead);
+		CloseHandle(m_stdoutWrite);
+		m_stdinRead   = nullptr;
+		m_stdoutWrite = nullptr;
 	}
 
 	~Impl()
@@ -373,14 +378,29 @@ struct Process::Impl final : public io::Stream{
 
 	void closeStdHandles()
 	{
-		CloseHandle(m_stdinRead);
-		CloseHandle(m_stdinWrite);
-		CloseHandle(m_stdoutRead);
-		CloseHandle(m_stdoutWrite);
-		m_stdinRead   = nullptr;
-		m_stdinWrite  = nullptr;
-		m_stdoutRead  = nullptr;
-		m_stdoutWrite = nullptr;
+		if(m_stdinRead)
+		{
+			CloseHandle(m_stdinRead);
+			m_stdinRead = nullptr;
+		}
+
+		if(m_stdinWrite)
+		{
+			CloseHandle(m_stdinWrite);
+			m_stdinWrite = nullptr;
+		}
+
+		if(m_stdoutRead)
+		{
+			CloseHandle(m_stdoutRead);
+			m_stdoutRead = nullptr;
+		}
+
+		if(m_stdoutWrite)
+		{
+			CloseHandle(m_stdoutWrite);
+			m_stdoutWrite = nullptr;
+		}
 	}
 
 	[[nodiscard]]
