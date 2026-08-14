@@ -263,7 +263,7 @@ struct Process::Impl final : public io::Stream{
 
 	static std::string escapeArg(const std::string& arg)
 	{
-		if(arg.find_first_of(" \t\n\v\\\",") == std::string::npos)
+		if(!arg.empty() && arg.find_first_of(" \t\n\v\\\",") == std::string::npos)
 			return arg;
 
 		std::string escaped;
@@ -391,19 +391,23 @@ struct Process::Impl final : public io::Stream{
 			return true;
 
 		m_exitCode = static_cast<int>(exitCode);
+		CloseHandle(m_processInfo.hThread);
+		CloseHandle(m_processInfo.hProcess);
 		ZeroMemory(&m_processInfo, sizeof(m_processInfo));
 
 		return false;
 	}
 
-	void wait()
+	int wait()
 	{
 		if(checkRunning())
+		{
+			closeStdHandles();
 			WaitForSingleObject(m_processInfo.hProcess, INFINITE);
+			(void)checkRunning();
+		}
 
-		DWORD exitCode;
-		if(GetExitCodeProcess(m_processInfo.hProcess, &exitCode))
-			m_exitCode = static_cast<int>(exitCode);
+		return m_exitCode;
 	}
 
 	void terminate()
@@ -411,6 +415,7 @@ struct Process::Impl final : public io::Stream{
 		if(checkRunning())
 		{
 			TerminateProcess(m_processInfo.hProcess, 0);
+			WaitForSingleObject(m_processInfo.hProcess, INFINITE);
 			CloseHandle(m_processInfo.hThread);
 			CloseHandle(m_processInfo.hProcess);
 			ZeroMemory(&m_processInfo, sizeof(m_processInfo));
@@ -435,12 +440,15 @@ struct Process::Impl final : public io::Stream{
 	{
 		if(id > 0)
 		{
-			const auto handle = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(id));
+			const auto handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(id));
 
 			if(handle)
 			{
+				DWORD exitCode;
+				const auto running = GetExitCodeProcess(handle, &exitCode) && exitCode == STILL_ACTIVE;
 				CloseHandle(handle);
-				return true;
+
+				return running;
 			}
 		}
 
