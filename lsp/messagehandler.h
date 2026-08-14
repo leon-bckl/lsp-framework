@@ -4,6 +4,7 @@
 #include <future>
 #include <mutex>
 #include <utility>
+#include <unordered_map>
 #include <lsp/concepts.h>
 #include <lsp/connection.h>
 #include <lsp/error.h>
@@ -11,7 +12,6 @@
 #include <lsp/messagebase.h>
 #include <lsp/requestresult.h>
 #include <lsp/serialization.h>
-#include <lsp/strmap.h>
 #include <lsp/threadpool.h>
 
 namespace lsp{
@@ -60,7 +60,7 @@ public:
 	MessageHandler& add(std::string_view method, GenericMessageCallback callback);
 	MessageHandler& add(std::string_view method, GenericAsyncMessageCallback callback);
 
-	void remove(std::string_view method);
+	void remove(const std::string& method);
 
 	/*
 	 * sendRequest
@@ -112,7 +112,7 @@ private:
 	Connection&                                      m_connection;
 	ThreadPool                                       m_threadPool;
 	// Incoming requests
-	StrMap<std::string, HandlerWrapper>              m_requestHandlersByMethod;
+	std::unordered_map<std::string, HandlerWrapper>  m_requestHandlersByMethod;
 	std::mutex                                       m_requestHandlersMutex;
 	// Outgoing requests
 	std::mutex                                       m_pendingRequestsMutex;

@@ -5,12 +5,15 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 #include <lsp/enumeration.h>
 #include <lsp/json/json.h>
 #include <lsp/nullable.h>
-#include <lsp/strmap.h>
 #include <lsp/uri.h>
 
 namespace lsp{
@@ -34,7 +37,7 @@ template<typename... Args>
 json::Value toJson(std::tuple<Args...>&& tuple);
 
 template<typename K, typename T>
-json::Value toJson(StrMap<K, T>&& map);
+json::Value toJson(std::unordered_map<K, T>&& map);
 
 template<typename T>
 json::Value toJson(std::vector<T>&& vector);
@@ -92,7 +95,7 @@ template<typename... Args>
 void fromJson(json::Value&& json, std::tuple<Args...>& value);
 
 template<typename K, typename T>
-void fromJson(json::Value&& json, StrMap<K, T>& value);
+void fromJson(json::Value&& json, std::unordered_map<K, T>& value);
 
 template<typename T>
 void fromJson(json::Value&& json, std::vector<T>& value);
@@ -387,7 +390,7 @@ json::Value toJson(std::tuple<Args...>&& tuple)
 }
 
 template<typename K, typename T>
-json::Value toJson(StrMap<K, T>&& map)
+json::Value toJson(std::unordered_map<K, T>&& map)
 {
 	json::Object result;
 	for(auto&& [k, v] : map)
@@ -468,7 +471,7 @@ void fromJson(json::Value&& json, std::tuple<Args...>& value)
 }
 
 template<typename K, typename T>
-void fromJson(json::Value&& json, StrMap<K, T>& value)
+void fromJson(json::Value&& json, std::unordered_map<K, T>& value)
 {
 	auto& obj = json.object();
 	for(auto&& [k, v] : obj)
@@ -476,7 +479,7 @@ void fromJson(json::Value&& json, StrMap<K, T>& value)
 }
 
 template<typename T>
-void fromJson(json::Value&& json, StrMap<Uri, T>& value)
+void fromJson(json::Value&& json, std::unordered_map<Uri, T>& value)
 {
 	auto& obj = json.object();
 	value.reserve(obj.size());
