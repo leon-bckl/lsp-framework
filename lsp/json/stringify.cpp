@@ -50,14 +50,14 @@ void stringifyImplementation(const Value& json, std::string& str, std::size_t in
 	}
 	else if(json.isDecimal())
 	{
-		const auto value    = json.decimal();
-		const auto absValue = std::abs(value);
-		const auto format   = (absValue != 0.0 && (absValue < 1e-6 || absValue >= 1e21))
+		const auto value        = json.decimal();
+		const auto absValue     = std::abs(value);
+		const auto numberFormat = (absValue != 0.0 && (absValue < 1e-6 || absValue >= 1e21))
 			? std::chars_format::scientific
 			: std::chars_format::fixed;
 
 		char buffer[32];
-		const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value, format);
+		const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value, numberFormat);
 		const auto numberStr = std::string_view(buffer, ptr);
 		str += numberStr;
 

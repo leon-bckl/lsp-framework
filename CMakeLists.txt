@@ -15,7 +15,7 @@ set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel.json CACHE F
 
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-	add_compile_options(/W4 /bigobj)
+	add_compile_options(/W4 /bigobj /utf-8)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers for Debug builds" OFF)
 
