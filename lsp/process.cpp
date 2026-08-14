@@ -229,6 +229,10 @@ struct Process::Impl final : public io::Stream{
 
 				throw io::Error(std::string("Failed to read from process stdout: ") + strerror(errno));
 			}
+			else if(bytesRead == 0)
+			{
+				throw io::Error(std::string("Reached EOF"));
+			}
 
 			totalBytesRead += static_cast<std::size_t>(bytesRead);
 		}
@@ -463,7 +467,12 @@ struct Process::Impl final : public io::Stream{
 		{
 			DWORD bytesRead;
 			if(!ReadFile(m_stdoutRead, buffer + totalBytesRead, static_cast<DWORD>(size - totalBytesRead), &bytesRead, nullptr))
+			{
+				if(GetLastError() == ERROR_BROKEN_PIPE)
+					throw io::Error("Reached EOF");
+
 				throw io::Error(std::string("Failed to read from process stdout"));
+			}
 
 			totalBytesRead += bytesRead;
 		}
