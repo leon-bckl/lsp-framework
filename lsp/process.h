@@ -44,22 +44,19 @@ public:
 	Process& operator=(Process&&) noexcept;
 	~Process();
 
-	[[nodiscard]] static Process start(const std::string& executable, const ArgList& args = {});
-
-	[[nodiscard]] bool isRunning() const;
+	[[nodiscard]] bool        isRunning() const;
+	[[nodiscard]] int         id();
 	[[nodiscard]] io::Stream& stdIO();
-	[[nodiscard]] int id();
-	void wait();
+
+	int  wait();
 	void terminate();
 
-	[[nodiscard]] static int currentProcessId();
+	[[nodiscard]] static int  currentProcessId();
 	[[nodiscard]] static bool exists(int id);
 
 private:
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
-
-	Process(std::unique_ptr<Impl> impl);
 };
 
 } // namespace lsp
