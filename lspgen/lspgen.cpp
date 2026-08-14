@@ -893,11 +893,11 @@ R"(#pragma once
 #include <tuple>
 #include <variant>
 #include <vector>
+#include <unordered_map>
 #include <lsp/enumeration.h>
 #include <lsp/json/json.h>
 #include <lsp/nullable.h>
 #include <lsp/serialization.h>
-#include <lsp/strmap.h>
 #include <lsp/uri.h>
 #include <lsp/version.h>
 
@@ -935,7 +935,7 @@ template<typename T>
 using Array = std::vector<T>;
 
 template<typename K, typename T>
-using Map = StrMap<K, T>;
+using Map = std::unordered_map<K, T>;
 
 )";
 

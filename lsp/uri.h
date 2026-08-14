@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
+#include <string_view>
 
 namespace lsp{
 
@@ -69,3 +71,23 @@ private:
 using DocumentUri = Uri;
 
 } // namespace lsp
+
+namespace std{
+
+template<>
+struct hash<lsp::Uri>{
+	using is_transparent = void;
+
+	size_t operator()(const lsp::Uri& uri) const{ return hash<string_view>{}(uri.data()); }
+	size_t operator()(string_view uriStr) const{ return hash<string_view>{}(lsp::Uri::parse(uriStr).data()); }
+};
+
+template<>
+struct equal_to<lsp::Uri>{
+	using is_transparent = void;
+
+	bool operator()(const lsp::Uri& lhs, const lsp::Uri& rhs) const{ return lhs == rhs; }
+	bool operator()(const lsp::Uri& lhs, string_view rhs) const{ return lhs == lsp::Uri::parse(rhs); }
+};
+
+} // namespace std

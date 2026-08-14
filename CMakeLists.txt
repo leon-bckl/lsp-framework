@@ -74,7 +74,6 @@ set(LSP_HEADERS
 	process.h
 	requestresult.h
 	serialization.h
-	strmap.h
 	threadpool.h
 	uri.h
 	# io
