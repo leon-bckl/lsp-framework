@@ -19,11 +19,11 @@ bool isAlphanumeric(char c) {
 }
 
 char toLower(char c) {
-	return c >= 'A' && c <= 'Z' ? c - 32 : c;
+	return c >= 'A' && c <= 'Z' ? c + 32 : c;
 }
 
 char toUpper(char c) {
-	return c >= 'a' && c <= 'z' ? c + 32 : c;
+	return c >= 'a' && c <= 'z' ? c - 32 : c;
 }
 
 std::uint16_t parseUriScheme(std::string_view uriStr)
@@ -290,6 +290,9 @@ bool Uri::setAuthority(std::string_view authority)
 
 	if(len == authority.size())
 	{
+		if(path().starts_with("//"))
+			return false;
+
 		insertAuthority(authority);
 		return true;
 	}
@@ -299,6 +302,9 @@ bool Uri::setAuthority(std::string_view authority)
 
 bool Uri::setPath(std::string_view path)
 {
+	if(hasAuthority() && path.starts_with("//"))
+		return false;
+
 	insertPath(path);
 	return true;
 }
@@ -400,6 +406,9 @@ std::string Uri::toString() const
 	{
 		result += "//";
 		result += authority();
+
+		if(!encodedPath.starts_with('/'))
+			result += '/';
 	}
 
 	result += encodedPath;
@@ -473,6 +482,59 @@ std::string Uri::decode(std::string_view encoded)
 	}
 
 	return decoded;
+}
+
+bool Uri::operator==(const Uri& other) const
+{
+	if(data().size() != other.data().size())
+		return false;
+
+	if(scheme() != other.scheme())
+		return false;
+
+	if(hasAuthority())
+	{
+		if(!other.hasAuthority())
+			return false;
+
+		if(authority() != other.authority())
+			return false;
+	}
+	else if(other.hasAuthority())
+	{
+		return false;
+	}
+
+	if(path() != other.path())
+		return false;
+
+	if(hasQuery())
+	{
+		if(!other.hasQuery())
+			return false;
+
+		if(query() != other.query())
+			return false;
+	}
+	else if(other.hasQuery())
+	{
+		return false;
+	}
+
+	if(hasFragment())
+	{
+		if(!other.hasFragment())
+			return false;
+
+		if(fragment() != other.fragment())
+			return false;
+	}
+	else if(other.hasFragment())
+	{
+		return false;
+	}
+
+	return true;
 }
 
 } // namespace lsp
