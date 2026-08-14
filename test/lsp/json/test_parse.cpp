@@ -5,6 +5,18 @@
 using namespace lsp;
 using namespace lsp::json;
 
+namespace test{
+
+template<>
+auto toString<Value>(const Value& v) -> std::string
+{
+	return std::visit([](const auto& actualValue){
+		return test::toString(actualValue);
+	}, v.variant());
+}
+
+} // namespace test
+
 int main(int argc, char** argv)
 {
 	auto app = test::TestApp();
