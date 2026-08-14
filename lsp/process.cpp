@@ -23,6 +23,7 @@ struct Process::Impl final : public io::Stream{
 #ifdef LSP_PROCESS_POSIX
 	int   m_stdinWrite = -1;
 	int   m_stdoutRead = -1;
+	int   m_exitCode   = -1;
 	pid_t m_pid        = -1;
 
 	Impl(const std::string& executable, const ArgList& args)
@@ -150,7 +151,11 @@ struct Process::Impl final : public io::Stream{
 	{
 		if(m_pid != -1)
 		{
-			const auto pid = waitpid(m_pid, nullptr, WNOHANG);
+			int status;
+			const auto pid = waitpid(m_pid, &status, WNOHANG);
+
+			if(WIFEXITED(status))
+				m_exitCode = WEXITSTATUS(status);
 
 			if(pid != 0)
 			{
@@ -162,14 +167,22 @@ struct Process::Impl final : public io::Stream{
 		return m_pid != -1;
 	}
 
-	void wait()
+	int wait()
 	{
 		if(checkRunning())
 		{
 			closeStdHandles();
-			waitpid(m_pid, nullptr, 0);
+			int status;
+			waitpid(m_pid, &status, 0);
 			m_pid = -1;
+
+			if(WIFEXITED(status))
+				m_exitCode = WEXITSTATUS(status);
+			else if(WIFSIGNALED(status))
+				m_exitCode = 128 + WTERMSIG(status);
 		}
+
+		return m_exitCode;
 	}
 
 	void terminate()
@@ -246,6 +259,7 @@ struct Process::Impl final : public io::Stream{
 	HANDLE              m_stdoutRead   = nullptr;
 	HANDLE              m_stdoutWrite  = nullptr;
 	PROCESS_INFORMATION m_processInfo  = {};
+	int                 m_exitCode     = -1;
 
 	static std::string escapeArg(const std::string& arg)
 	{
@@ -376,6 +390,7 @@ struct Process::Impl final : public io::Stream{
 		if(GetExitCodeProcess(m_processInfo.hProcess, &exitCode) && exitCode == STILL_ACTIVE)
 			return true;
 
+		m_exitCode = static_cast<int>(exitCode);
 		ZeroMemory(&m_processInfo, sizeof(m_processInfo));
 
 		return false;
@@ -385,6 +400,10 @@ struct Process::Impl final : public io::Stream{
 	{
 		if(checkRunning())
 			WaitForSingleObject(m_processInfo.hProcess, INFINITE);
+
+		DWORD exitCode;
+		if(GetExitCodeProcess(m_processInfo.hProcess, &exitCode))
+			m_exitCode = static_cast<int>(exitCode);
 	}
 
 	void terminate()
@@ -465,12 +484,7 @@ Process::Process(Process&&) noexcept = default;
 Process& Process::operator=(Process&&) noexcept = default;
 
 Process::Process(const std::string& executable, const ArgList& args)
-{
-	*this = start(executable, args);
-}
-
-Process::Process(std::unique_ptr<Impl> impl)
-	: m_impl(std::move(impl))
+	: m_impl{std::make_unique<Process::Impl>(executable, args)}
 {
 }
 
@@ -479,22 +493,9 @@ Process::~Process()
 	wait();
 }
 
-Process Process::start(const std::string& executable, const ArgList& args)
-{
-	return Process(std::make_unique<Process::Impl>(executable, args));
-}
-
 bool Process::isRunning() const
 {
 	return m_impl && m_impl->checkRunning();
-}
-
-io::Stream& Process::stdIO()
-{
-	if(!isRunning())
-		throw ProcessError("Process is not running - Cannot get stdio");
-
-	return *m_impl;
 }
 
 int Process::id()
@@ -505,13 +506,25 @@ int Process::id()
 	return m_impl->id();
 }
 
-void Process::wait()
+io::Stream& Process::stdIO()
 {
+	if(!isRunning())
+		throw ProcessError("Process is not running - Cannot get stdio");
+
+	return *m_impl;
+}
+
+int Process::wait()
+{
+	int exitCode = -1;
+
 	if(m_impl)
 	{
-		m_impl->wait();
+		exitCode = m_impl->wait();
 		m_impl.reset();
 	}
+
+	return exitCode;
 }
 
 void Process::terminate()
