@@ -96,7 +96,9 @@ int main(int argc, char** argv)
 
 #else
 
+#include <chrono>
 #include <string>
+#include <thread>
 #include <test/test.h>
 #include <lsp/process.h>
 #include <lsp/io/stream.h>
@@ -121,34 +123,24 @@ int main(int argc, char** argv)
 		proc.terminate(); // Should be a noop and not throw or crash...
 	});
 
+	app.addTest("InvalidExecutable", [](){
+		test::expectException<ProcessError>([]()
+		{
+			Process("DoesNotExist");
+		});
+	});
+
 	app.addTest("NoArgs", [](){
 		auto proc = Process(LSP_TEST_PROCESS_EXE);
 		test::compare(proc.wait(), 0);
 	});
 
-	app.addTest("MoveConstructed", [](){
-		auto proc     = Process(LSP_TEST_PROCESS_EXE);
-		const auto id = proc.id();
-		auto proc2    = Process(std::move(proc));
-
-		test::check(id != -1, "validId");
-		test::compare(proc.id(), -1);
-		test::compare(proc2.id(), id);
-		test::compare(proc.wait(), -1);
-		test::compare(proc2.wait(), 0);
-	});
-
-	app.addTest("MoveAssigned", [](){
-		auto       proc  = Process(LSP_TEST_PROCESS_EXE);
-		const auto id    = proc.id();
-		auto       proc2 = Process();
-
-		proc2 = std::move(proc);
-		test::check(id != -1, "validId");
-		test::compare(proc.id(), -1);
-		test::compare(proc2.id(), id);
-		test::compare(proc.wait(), -1);
-		test::compare(proc2.wait(), 0);
+	app.addTest("NaturalExit", [](){
+		auto proc = Process(LSP_TEST_PROCESS_EXE);
+		std::this_thread::sleep_for(std::chrono::seconds(1)); // Not 100% reliable but after a second the process should have finished...
+		test::check(!proc.isRunning(), "!isRunning");
+		proc.terminate();
+		test::compare(proc.wait(), -1); // Terminate reset the internal state even if called after process finish, so the exit code is not valid
 	});
 
 	app.addTest("SingleArg", [](){
@@ -211,6 +203,16 @@ int main(int argc, char** argv)
 		test::compare(proc.wait(), 6);
 	});
 
+	app.addTest("StdInReadPastEOF", [](){
+		auto  proc       = Process(LSP_TEST_PROCESS_EXE);
+		auto& stdIO      = proc.stdIO();
+
+		test::expectException<io::Error>([&stdIO](){
+			char buf[1];
+			stdIO.read(buf, sizeof(buf));
+		}, "Reached EOF");
+	});
+
 	app.addTest("ProcessId", [](){
 		auto       proc  = Process(LSP_TEST_PROCESS_EXE, {"ProcessId"});
 		auto&      stdIO = proc.stdIO();
@@ -237,6 +239,31 @@ int main(int argc, char** argv)
 	app.addTest("CurrentProcessIdExists", [](){
 		const auto id = Process::currentProcessId();
 		test::check(Process::exists(id));
+	});
+
+	app.addTest("MoveConstructed", [](){
+		auto proc     = Process(LSP_TEST_PROCESS_EXE);
+		const auto id = proc.id();
+		auto proc2    = Process(std::move(proc));
+
+		test::check(id != -1, "validId");
+		test::compare(proc.id(), -1);
+		test::compare(proc2.id(), id);
+		test::compare(proc.wait(), -1);
+		test::compare(proc2.wait(), 0);
+	});
+
+	app.addTest("MoveAssigned", [](){
+		auto       proc  = Process(LSP_TEST_PROCESS_EXE);
+		const auto id    = proc.id();
+		auto       proc2 = Process();
+
+		proc2 = std::move(proc);
+		test::check(id != -1, "validId");
+		test::compare(proc.id(), -1);
+		test::compare(proc2.id(), id);
+		test::compare(proc.wait(), -1);
+		test::compare(proc2.wait(), 0);
 	});
 
 	return app.main(argc, argv);
