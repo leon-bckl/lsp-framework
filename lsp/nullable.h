@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <utility>
 #include <variant>
 #include <optional>
 
@@ -45,13 +46,14 @@ public:
 	}
 
 	void reset(){ m_value.reset(); }
-	bool isNull() const{ return !m_value.has_value(); }
-	T& value(){ return m_value.value(); }
-	const T& value() const{ return m_value.value(); }
-	T& operator*(){ return *m_value; }
-	const T& operator*() const{ return *m_value; }
-	T* operator->(){ return std::addressof(value()); }
-	const T* operator->() const{ return std::addressof(value()); }
+
+	[[nodiscard]] bool isNull() const{ return !m_value.has_value(); }
+	[[nodiscard]] T& value(){ return m_value.value(); }
+	[[nodiscard]] const T& value() const{ return m_value.value(); }
+	[[nodiscard]] T& operator*(){ return *m_value; }
+	[[nodiscard]] const T& operator*() const{ return *m_value; }
+	[[nodiscard]] T* operator->(){ return std::addressof(value()); }
+	[[nodiscard]] const T* operator->() const{ return std::addressof(value()); }
 
 private:
 	std::optional<T> m_value;
@@ -93,7 +95,7 @@ public:
 	}
 
 	template<typename T>
-	bool holdsAlternative()
+	[[nodiscard]] bool holdsAlternative()
 	{
 		return !isNull() && std::holds_alternative<T>(value());
 	}
@@ -111,21 +113,22 @@ public:
 	template<typename T, typename... Params>
 	T& emplace(Params&&... params)
 	{
-		return m_value.emplace(std::forward<Params>(params)...);
+		m_value.emplace(std::in_place_type<T>, std::forward<Params>(params)...);
+		return get<T>();
 	}
 
 	void reset(){ m_value.reset(); }
-	bool isNull() const{ return !m_value.has_value(); }
+	[[nodiscard]] bool isNull() const{ return !m_value.has_value(); }
 
 	template<typename T>
-	T& get(){ return std::get<T>(*m_value); }
+	[[nodiscard]] T& get(){ return std::get<T>(*m_value); }
 	template<typename T>
-	const T& get() const{ return std::get<T>(*m_value); }
+	[[nodiscard]] const T& get() const{ return std::get<T>(*m_value); }
 
-	VariantType& value(){ return *m_value; }
-	const VariantType& value() const{ return *m_value; }
-	VariantType& operator*(){ return *m_value; }
-	const VariantType& operator*() const{ return *m_value; }
+	[[nodiscard]] VariantType& value(){ return *m_value; }
+	[[nodiscard]] const VariantType& value() const{ return *m_value; }
+	[[nodiscard]] VariantType& operator*(){ return *m_value; }
+	[[nodiscard]] const VariantType& operator*() const{ return *m_value; }
 
 private:
 	std::optional<VariantType> m_value;
