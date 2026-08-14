@@ -109,6 +109,12 @@ public:
 		 * Respond with an InitializeResult containing some basic server info and capabilities
 		 */
 
+#if LSP_PROTOCOL_VERSION < LSP_INT_VERSION(3, 18, 0)
+		using ServerInfo = lsp::InitializeResultServerInfo;
+#else
+		using ServerInfo = lsp::ServerInfo;
+#endif
+
 		return {
 			.capabilities = {
 				.positionEncoding = lsp::PositionEncodingKind::UTF16,
@@ -119,7 +125,7 @@ public:
 				},
 				.hoverProvider = true,
 			},
-			.serverInfo = lsp::ServerInfo{
+			.serverInfo = ServerInfo{
 				.name    = "Language Server Example",
 				.version = "1.0.0"
 			},
