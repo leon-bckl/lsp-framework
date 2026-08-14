@@ -19,11 +19,11 @@ bool isAlphanumeric(char c) {
 }
 
 char toLower(char c) {
-	return c >= 'A' && c <= 'Z' ? c - 32 : c;
+	return c >= 'A' && c <= 'Z' ? c + 32 : c;
 }
 
 char toUpper(char c) {
-	return c >= 'a' && c <= 'z' ? c + 32 : c;
+	return c >= 'a' && c <= 'z' ? c - 32 : c;
 }
 
 std::uint16_t parseUriScheme(std::string_view uriStr)
