@@ -242,3 +242,6 @@ while(socketListener.isReady())
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+Third-party material included in this repository (the LSP meta model) is
+covered by a separate license — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
