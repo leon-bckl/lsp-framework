@@ -44,8 +44,8 @@ public:
 	[[nodiscard]] static std::string encode(std::string_view decoded, std::string_view exclude = {});
 	[[nodiscard]] static std::string decode(std::string_view encoded);
 
-	[[nodiscard]] bool operator==(const Uri& other) const = default;
-	[[nodiscard]] bool operator!=(const Uri& other) const = default;
+	[[nodiscard]] bool operator==(const Uri& other) const;
+	[[nodiscard]] bool operator!=(const Uri& other) const{ return !(*this == other); }
 	[[nodiscard]] bool operator<(const Uri& other) const{ return m_data < other.m_data; }
 
 private:
