@@ -2,6 +2,7 @@
 #include <cctype>
 #include <charconv>
 #include <cstring>
+#include <mutex>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -144,22 +145,34 @@ private:
  * Connection
  */
 
+struct Connection::Internal{
+	io::Stream& stream;
+	std::mutex  readMutex;
+	std::mutex  writeMutex;
+
+	Internal(io::Stream& _stream) : stream{_stream}{}
+};
+
 struct Connection::MessageHeader{
 	std::size_t contentLength = 0;
 	std::string contentType   = "application/vscode-jsonrpc; charset=utf-8";
 };
 
 Connection::Connection(io::Stream& stream)
-	: m_stream{stream}
+	: m{std::make_unique<Internal>(stream)}
 {
 }
+
+Connection::~Connection()                                = default;
+Connection::Connection(Connection&&) noexcept            = default;
+Connection& Connection::operator=(Connection&&) noexcept = default;
 
 Connection::Message Connection::readMessage()
 {
 	try
 	{
-		auto readLock = std::unique_lock(m_readMutex);
-		auto reader   = InputReader(m_stream);
+		auto readLock = std::unique_lock(m->readMutex);
+		auto reader   = InputReader(m->stream);
 
 		if(reader.peek() == io::Stream::Eof)
 			throw ConnectionError{"Connection lost"};
@@ -301,10 +314,10 @@ void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& 
 
 void Connection::writeMessageData(const std::string& content)
 {
-	std::lock_guard lock{m_writeMutex};
+	std::lock_guard lock{m->writeMutex};
 	MessageHeader header{content.size()};
 	const auto messageStr = messageHeaderString(header) + content;
-	m_stream.write(messageStr.data(), messageStr.size());
+	m->stream.write(messageStr.data(), messageStr.size());
 }
 
 std::string Connection::messageHeaderString(const MessageHeader& header)

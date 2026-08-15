@@ -14,13 +14,13 @@ json::Integer nextUniqueRequestId()
 
 }
 
-MessageHandler::MessageHandler(Connection& connection, unsigned int maxResponseThreads)
-	: m_connection{connection}
+MessageHandler::MessageHandler(Connection connection, unsigned int maxResponseThreads)
+	: m_connection{std::move(connection)}
 	, m_threadPool(0, maxResponseThreads)
 {
 }
 
-void MessageHandler::processIncomingMessages()
+void MessageHandler::processNextMessage()
 {
 	auto messageOrBatch = m_connection.readMessage();
 
@@ -61,6 +61,11 @@ void MessageHandler::processIncomingMessages()
 		if(!responseBatch.empty())
 			m_connection.writeMessage(std::move(responseBatch));
 	}
+}
+
+void MessageHandler::setConnection(Connection connection)
+{
+	m_connection = std::move(connection);
 }
 
 const MessageId& MessageHandler::currentRequestId()
