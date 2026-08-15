@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #include <string>
 #include <variant>
 #include <lsp/exception.h>
@@ -24,14 +23,19 @@ public:
 	using Message = std::variant<jsonrpc::Message, jsonrpc::MessageBatch>;
 
 	Connection(io::Stream& stream);
+	~Connection();
+
+	Connection(Connection&&) noexcept;
+	Connection& operator=(Connection&&) noexcept;
+	Connection(const Connection&)            = delete;
+	Connection& operator=(const Connection&) = delete;
 
 	Message readMessage();
 	void writeMessage(Message&& message);
 
 private:
-	io::Stream& m_stream;
-	std::mutex  m_readMutex;
-	std::mutex  m_writeMutex;
+	struct Internal;
+	std::unique_ptr<Internal> m;
 
 	struct MessageHeader;
 	class InputReader;

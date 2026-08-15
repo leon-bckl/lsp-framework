@@ -65,8 +65,7 @@ void printMessage()
 class LanguageServer{
 public:
 	LanguageServer(lsp::io::Stream& io)
-		: m_connection{io}
-		, m_messageHandler{m_connection}
+		: m_messageHandler{lsp::Connection(io)}
 	{
 		registerCallbacks();
 		m_state.store(State::Uninitialized);
@@ -83,7 +82,7 @@ public:
 		try
 		{
 			while(isRunning())
-				m_messageHandler.processIncomingMessages();
+				m_messageHandler.processNextMessage();
 		}
 		catch(const std::exception& e)
 		{
@@ -188,7 +187,6 @@ public:
 	}
 
 private:
-	lsp::Connection     m_connection;
 	lsp::MessageHandler m_messageHandler;
 	lsp::NullOr<int>    m_parentProcessId;
 

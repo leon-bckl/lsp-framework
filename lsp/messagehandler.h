@@ -23,10 +23,12 @@ using MessageId = jsonrpc::MessageId;
  */
 class MessageHandler{
 public:
-	explicit MessageHandler(Connection& connection, unsigned int maxResponseThreads = std::thread::hardware_concurrency() / 2);
+	explicit MessageHandler(Connection connection, unsigned int maxResponseThreads = std::thread::hardware_concurrency() / 2);
 	~MessageHandler() = default;
 
-	void processIncomingMessages();
+	void processNextMessage();
+	void setConnection(Connection connection);
+
 	// Only valid when called from within a request or response callback.
 	// Throws std::logic_error if not called in that context.
 	[[nodiscard]] static const MessageId& currentRequestId();
@@ -109,7 +111,7 @@ private:
 	using HandlerWrapper    = std::function<OptionalResponse(json::Value&&, bool)>;
 
 	// General
-	Connection&                                      m_connection;
+	Connection                                       m_connection;
 	ThreadPool                                       m_threadPool;
 	// Incoming requests
 	std::unordered_map<std::string, HandlerWrapper>  m_requestHandlersByMethod;
