@@ -4,6 +4,7 @@
 #include <future>
 #include <mutex>
 #include <utility>
+#include <unordered_map>
 #include <lsp/concepts.h>
 #include <lsp/connection.h>
 #include <lsp/error.h>
@@ -11,7 +12,6 @@
 #include <lsp/messagebase.h>
 #include <lsp/requestresult.h>
 #include <lsp/serialization.h>
-#include <lsp/strmap.h>
 #include <lsp/threadpool.h>
 
 namespace lsp{
@@ -23,10 +23,12 @@ using MessageId = jsonrpc::MessageId;
  */
 class MessageHandler{
 public:
-	explicit MessageHandler(Connection& connection, unsigned int maxResponseThreads = std::thread::hardware_concurrency() / 2);
+	explicit MessageHandler(Connection connection, unsigned int maxResponseThreads = std::thread::hardware_concurrency() / 2);
 	~MessageHandler() = default;
 
-	void processIncomingMessages();
+	void processNextMessage();
+	void setConnection(Connection connection);
+
 	// Only valid when called from within a request or response callback.
 	// Throws std::logic_error if not called in that context.
 	[[nodiscard]] static const MessageId& currentRequestId();
@@ -60,7 +62,7 @@ public:
 	MessageHandler& add(std::string_view method, GenericMessageCallback callback);
 	MessageHandler& add(std::string_view method, GenericAsyncMessageCallback callback);
 
-	void remove(std::string_view method);
+	void remove(const std::string& method);
 
 	/*
 	 * sendRequest
@@ -109,10 +111,10 @@ private:
 	using HandlerWrapper    = std::function<OptionalResponse(json::Value&&, bool)>;
 
 	// General
-	Connection&                                      m_connection;
+	Connection                                       m_connection;
 	ThreadPool                                       m_threadPool;
 	// Incoming requests
-	StrMap<std::string, HandlerWrapper>              m_requestHandlersByMethod;
+	std::unordered_map<std::string, HandlerWrapper>  m_requestHandlersByMethod;
 	std::mutex                                       m_requestHandlersMutex;
 	// Outgoing requests
 	std::mutex                                       m_pendingRequestsMutex;

@@ -1,0 +1,12 @@
+lsp_add_test(enumeration)
+lsp_add_test(nullable)
+add_executable(TestProcess test_process.cpp)
+target_link_libraries(TestProcess PRIVATE lsp)
+target_compile_definitions(TestProcess PRIVATE "LSP_TEST_PROCESS_IMPLEMENTATION")
+lsp_add_test(process)
+target_compile_definitions(test_process PRIVATE LSP_TEST_PROCESS_EXE="$<TARGET_FILE:TestProcess>")
+add_dependencies(test_process TestProcess)
+lsp_add_test(threadpool)
+lsp_add_test(uri)
+
+add_subdirectory(json)

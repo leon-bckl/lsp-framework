@@ -109,8 +109,6 @@ std::vector<std::string_view> splitStringView(std::string_view str, std::string_
 	return result;
 }
 
-std::vector<std::string_view> splitStringView(std::string&&, char, bool) = delete;
-
 std::string joinStrings(const std::vector<std::string_view>& strings, const std::string& separator, auto transform = [](std::string_view s){ return s; })
 {
 	std::string result;
@@ -892,20 +890,24 @@ R"(#pragma once
  *#############################################################*/
 
 #include <string>
-#include <string_view>
 #include <tuple>
 #include <variant>
 #include <vector>
+#include <unordered_map>
 #include <lsp/enumeration.h>
 #include <lsp/json/json.h>
 #include <lsp/nullable.h>
 #include <lsp/serialization.h>
-#include <lsp/strmap.h>
 #include <lsp/uri.h>
+#include <lsp/version.h>
 
 namespace lsp{
 
-inline constexpr std::string_view ProtocolVersionStr{"${LSP_VERSION}"};
+#define LSP_PROTOCOL_VERSION_MAJOR ${LSP_PROTOCOL_VERSION_MAJOR}
+#define LSP_PROTOCOL_VERSION_MINOR ${LSP_PROTOCOL_VERSION_MINOR}
+#define LSP_PROTOCOL_VERSION_PATCH ${LSP_PROTOCOL_VERSION_PATCH}
+#define LSP_PROTOCOL_VERSION LSP_INT_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
+#define LSP_PROTOCOL_VERSION_STR LSP_STRINGIFY_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
 
 using Null      = std::nullptr_t;
 using uint      = unsigned int;
@@ -933,7 +935,7 @@ template<typename T>
 using Array = std::vector<T>;
 
 template<typename K, typename T>
-using Map = StrMap<K, T>;
+using Map = std::unordered_map<K, T>;
 
 )";
 
@@ -1001,7 +1003,17 @@ public:
 
 	void writeFiles()
 	{
-		writeFile("types.h", replaceString(TypesHeaderBegin, "${LSP_VERSION}", m_metaModel.metaData().version) + m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent + TypesHeaderEnd);
+		const auto versionStr   = m_metaModel.metaData().version;
+		const auto versionParts = splitStringView(versionStr, ".");
+
+		if(versionParts.size() != 3)
+			throw std::runtime_error("Could not determine version parts from '" + std::string(versionStr) + "'");
+
+		auto typesHeader = replaceString(TypesHeaderBegin, "${LSP_PROTOCOL_VERSION_MAJOR}", versionParts[0]);
+		typesHeader      = replaceString(typesHeader,      "${LSP_PROTOCOL_VERSION_MINOR}", versionParts[1]);
+		typesHeader      = replaceString(typesHeader,      "${LSP_PROTOCOL_VERSION_PATCH}", versionParts[2]);
+
+		writeFile("types.h", typesHeader + m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent + TypesHeaderEnd);
 		writeFile("types.cpp", TypesSourceBegin + m_typesSourceFileContent + m_typesBoilerPlateSourceFileContent + TypesSourceEnd);
 		writeFile("messages.h", MessagesHeaderBegin + m_messagesHeaderFileContent + MessagesHeaderEnd);
 	}

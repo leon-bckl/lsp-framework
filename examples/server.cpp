@@ -65,8 +65,7 @@ void printMessage()
 class LanguageServer{
 public:
 	LanguageServer(lsp::io::Stream& io)
-		: m_connection{io}
-		, m_messageHandler{m_connection}
+		: m_messageHandler{lsp::Connection(io)}
 	{
 		registerCallbacks();
 		m_state.store(State::Uninitialized);
@@ -83,7 +82,7 @@ public:
 		try
 		{
 			while(isRunning())
-				m_messageHandler.processIncomingMessages();
+				m_messageHandler.processNextMessage();
 		}
 		catch(const std::exception& e)
 		{
@@ -109,6 +108,12 @@ public:
 		 * Respond with an InitializeResult containing some basic server info and capabilities
 		 */
 
+#if LSP_PROTOCOL_VERSION < LSP_INT_VERSION(3, 18, 0)
+		using ServerInfo = lsp::InitializeResultServerInfo;
+#else
+		using ServerInfo = lsp::ServerInfo;
+#endif
+
 		return {
 			.capabilities = {
 				.positionEncoding = lsp::PositionEncodingKind::UTF16,
@@ -119,7 +124,7 @@ public:
 				},
 				.hoverProvider = true,
 			},
-			.serverInfo = lsp::ServerInfo{
+			.serverInfo = ServerInfo{
 				.name    = "Language Server Example",
 				.version = "1.0.0"
 			},
@@ -182,7 +187,6 @@ public:
 	}
 
 private:
-	lsp::Connection     m_connection;
 	lsp::MessageHandler m_messageHandler;
 	lsp::NullOr<int>    m_parentProcessId;
 

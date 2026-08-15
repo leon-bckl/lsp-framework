@@ -75,8 +75,7 @@ void printError(const lsp::ResponseError& error)
 class LanguageClient{
 public:
 	LanguageClient(lsp::io::Stream& io)
-		: m_connection{io}
-		, m_messageHandler{m_connection}
+		: m_messageHandler{lsp::Connection(io)}
 	{
 	}
 
@@ -191,7 +190,6 @@ public:
 	}
 
 private:
-	lsp::Connection         m_connection;
 	lsp::MessageHandler     m_messageHandler;
 	std::atomic_bool        m_running = false;
 	std::thread             m_messageThread;
@@ -202,7 +200,7 @@ private:
 		try
 		{
 			while(isRunning())
-				m_messageHandler.processIncomingMessages();
+				m_messageHandler.processNextMessage();
 		}
 		catch(const std::exception& e)
 		{

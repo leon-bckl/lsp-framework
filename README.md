@@ -59,16 +59,16 @@ Create an `lsp::Connection` using a stream and then an `lsp::MessageHandler` wit
 #include <lsp/messagehandler.h>
 
 auto connection     = lsp::Connection(lsp::io::standardIO());
-auto messageHandler = lsp::MessageHandler(connection);
+auto messageHandler = lsp::MessageHandler(std::move(connection));
 ```
 
 The message handler is the core of the framework. It is used to register callbacks for incoming requests and notifications as well as send outgoing requests and notifications.
 
-Once the callbacks are registered it is necessary to enter the message processing loop which needs to call `lsp::MessageHandler::processIncomingMessages`. This call will block until input becomes available.
+Once the callbacks are registered it is necessary to enter the message processing loop which needs to call `lsp::MessageHandler::processNextMessage`. This call will block until input becomes available.
 
 ```cpp
 while(running)
-    messageHandler.processIncomingMessages();
+    messageHandler.processNextMessage();
 ```
 
 ### Request Callbacks
@@ -152,7 +152,7 @@ Requests are sent using the `lsp::MessageHandler::sendRequest` method. Just like
 
 There are two versions of this method:
 
-One returns a `std::future<MessageType::Result>` in addition to the message id. The future will become ready once a response was received. Don't call `std::future::wait` on the same thread that calls `processIncomingMessages` since it would block. If an error response was returned, the future will rethrow it so make sure to handle that case.
+One returns a `std::future<MessageType::Result>` in addition to the message id. The future will become ready once a response was received. Don't call `std::future::wait` on the same thread that calls `processNextMessage` since it would block. If an error response was returned, the future will rethrow it so make sure to handle that case.
 
 ```cpp
 auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
@@ -233,7 +233,7 @@ while(socketListener.isReady())
     std::thread([socket = std::move(socket)]() mutable
     {
         auto connection     = lsp::Connection(socket);
-        auto messageHandler = lsp::MessageHandler(connection);
+        auto messageHandler = lsp::MessageHandler(std::move(connection));
         // ...
     }).detach();
 }
@@ -242,3 +242,6 @@ while(socketListener.isReady())
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+Third-party material included in this repository (the LSP meta model) is
+covered by a separate license — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

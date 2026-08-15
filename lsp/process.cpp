@@ -23,6 +23,7 @@ struct Process::Impl final : public io::Stream{
 #ifdef LSP_PROCESS_POSIX
 	int   m_stdinWrite = -1;
 	int   m_stdoutRead = -1;
+	int   m_exitCode   = -1;
 	pid_t m_pid        = -1;
 
 	Impl(const std::string& executable, const ArgList& args)
@@ -150,7 +151,11 @@ struct Process::Impl final : public io::Stream{
 	{
 		if(m_pid != -1)
 		{
-			const auto pid = waitpid(m_pid, nullptr, WNOHANG);
+			int status;
+			const auto pid = waitpid(m_pid, &status, WNOHANG);
+
+			if(WIFEXITED(status))
+				m_exitCode = WEXITSTATUS(status);
 
 			if(pid != 0)
 			{
@@ -162,14 +167,22 @@ struct Process::Impl final : public io::Stream{
 		return m_pid != -1;
 	}
 
-	void wait()
+	int wait()
 	{
 		if(checkRunning())
 		{
 			closeStdHandles();
-			waitpid(m_pid, nullptr, 0);
+			int status;
+			waitpid(m_pid, &status, 0);
 			m_pid = -1;
+
+			if(WIFEXITED(status))
+				m_exitCode = WEXITSTATUS(status);
+			else if(WIFSIGNALED(status))
+				m_exitCode = 128 + WTERMSIG(status);
 		}
+
+		return m_exitCode;
 	}
 
 	void terminate()
@@ -216,6 +229,10 @@ struct Process::Impl final : public io::Stream{
 
 				throw io::Error(std::string("Failed to read from process stdout: ") + strerror(errno));
 			}
+			else if(bytesRead == 0)
+			{
+				throw io::Error(std::string("Reached EOF"));
+			}
 
 			totalBytesRead += static_cast<std::size_t>(bytesRead);
 		}
@@ -246,10 +263,11 @@ struct Process::Impl final : public io::Stream{
 	HANDLE              m_stdoutRead   = nullptr;
 	HANDLE              m_stdoutWrite  = nullptr;
 	PROCESS_INFORMATION m_processInfo  = {};
+	int                 m_exitCode     = -1;
 
 	static std::string escapeArg(const std::string& arg)
 	{
-		if(arg.find_first_of(" \t\n\v\\\",") == std::string::npos)
+		if(!arg.empty() && arg.find_first_of(" \t\n\v\\\",") == std::string::npos)
 			return arg;
 
 		std::string escaped;
@@ -346,6 +364,11 @@ struct Process::Impl final : public io::Stream{
 
 			throw ProcessError("Failed to start process");
 		}
+
+		CloseHandle(m_stdinRead);
+		CloseHandle(m_stdoutWrite);
+		m_stdinRead   = nullptr;
+		m_stdoutWrite = nullptr;
 	}
 
 	~Impl()
@@ -355,14 +378,29 @@ struct Process::Impl final : public io::Stream{
 
 	void closeStdHandles()
 	{
-		CloseHandle(m_stdinRead);
-		CloseHandle(m_stdinWrite);
-		CloseHandle(m_stdoutRead);
-		CloseHandle(m_stdoutWrite);
-		m_stdinRead   = nullptr;
-		m_stdinWrite  = nullptr;
-		m_stdoutRead  = nullptr;
-		m_stdoutWrite = nullptr;
+		if(m_stdinRead)
+		{
+			CloseHandle(m_stdinRead);
+			m_stdinRead = nullptr;
+		}
+
+		if(m_stdinWrite)
+		{
+			CloseHandle(m_stdinWrite);
+			m_stdinWrite = nullptr;
+		}
+
+		if(m_stdoutRead)
+		{
+			CloseHandle(m_stdoutRead);
+			m_stdoutRead = nullptr;
+		}
+
+		if(m_stdoutWrite)
+		{
+			CloseHandle(m_stdoutWrite);
+			m_stdoutWrite = nullptr;
+		}
 	}
 
 	[[nodiscard]]
@@ -376,15 +414,24 @@ struct Process::Impl final : public io::Stream{
 		if(GetExitCodeProcess(m_processInfo.hProcess, &exitCode) && exitCode == STILL_ACTIVE)
 			return true;
 
+		m_exitCode = static_cast<int>(exitCode);
+		CloseHandle(m_processInfo.hThread);
+		CloseHandle(m_processInfo.hProcess);
 		ZeroMemory(&m_processInfo, sizeof(m_processInfo));
 
 		return false;
 	}
 
-	void wait()
+	int wait()
 	{
 		if(checkRunning())
+		{
+			closeStdHandles();
 			WaitForSingleObject(m_processInfo.hProcess, INFINITE);
+			(void)checkRunning();
+		}
+
+		return m_exitCode;
 	}
 
 	void terminate()
@@ -392,6 +439,7 @@ struct Process::Impl final : public io::Stream{
 		if(checkRunning())
 		{
 			TerminateProcess(m_processInfo.hProcess, 0);
+			WaitForSingleObject(m_processInfo.hProcess, INFINITE);
 			CloseHandle(m_processInfo.hThread);
 			CloseHandle(m_processInfo.hProcess);
 			ZeroMemory(&m_processInfo, sizeof(m_processInfo));
@@ -416,12 +464,15 @@ struct Process::Impl final : public io::Stream{
 	{
 		if(id > 0)
 		{
-			const auto handle = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(id));
+			const auto handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(id));
 
 			if(handle)
 			{
+				DWORD exitCode;
+				const auto running = GetExitCodeProcess(handle, &exitCode) && exitCode == STILL_ACTIVE;
 				CloseHandle(handle);
-				return true;
+
+				return running;
 			}
 		}
 
@@ -436,7 +487,12 @@ struct Process::Impl final : public io::Stream{
 		{
 			DWORD bytesRead;
 			if(!ReadFile(m_stdoutRead, buffer + totalBytesRead, static_cast<DWORD>(size - totalBytesRead), &bytesRead, nullptr))
+			{
+				if(GetLastError() == ERROR_BROKEN_PIPE)
+					throw io::Error("Reached EOF");
+
 				throw io::Error(std::string("Failed to read from process stdout"));
+			}
 
 			totalBytesRead += bytesRead;
 		}
@@ -465,12 +521,7 @@ Process::Process(Process&&) noexcept = default;
 Process& Process::operator=(Process&&) noexcept = default;
 
 Process::Process(const std::string& executable, const ArgList& args)
-{
-	*this = start(executable, args);
-}
-
-Process::Process(std::unique_ptr<Impl> impl)
-	: m_impl(std::move(impl))
+	: m_impl{std::make_unique<Process::Impl>(executable, args)}
 {
 }
 
@@ -479,22 +530,9 @@ Process::~Process()
 	wait();
 }
 
-Process Process::start(const std::string& executable, const ArgList& args)
-{
-	return Process(std::make_unique<Process::Impl>(executable, args));
-}
-
 bool Process::isRunning() const
 {
 	return m_impl && m_impl->checkRunning();
-}
-
-io::Stream& Process::stdIO()
-{
-	if(!isRunning())
-		throw ProcessError("Process is not running - Cannot get stdio");
-
-	return *m_impl;
 }
 
 int Process::id()
@@ -505,13 +543,25 @@ int Process::id()
 	return m_impl->id();
 }
 
-void Process::wait()
+io::Stream& Process::stdIO()
 {
+	if(!isRunning())
+		throw ProcessError("Process is not running - Cannot get stdio");
+
+	return *m_impl;
+}
+
+int Process::wait()
+{
+	int exitCode = -1;
+
 	if(m_impl)
 	{
-		m_impl->wait();
+		exitCode = m_impl->wait();
 		m_impl.reset();
 	}
+
+	return exitCode;
 }
 
 void Process::terminate()

@@ -14,13 +14,13 @@ json::Integer nextUniqueRequestId()
 
 }
 
-MessageHandler::MessageHandler(Connection& connection, unsigned int maxResponseThreads)
-	: m_connection{connection}
+MessageHandler::MessageHandler(Connection connection, unsigned int maxResponseThreads)
+	: m_connection{std::move(connection)}
 	, m_threadPool(0, maxResponseThreads)
 {
 }
 
-void MessageHandler::processIncomingMessages()
+void MessageHandler::processNextMessage()
 {
 	auto messageOrBatch = m_connection.readMessage();
 
@@ -63,6 +63,11 @@ void MessageHandler::processIncomingMessages()
 	}
 }
 
+void MessageHandler::setConnection(Connection connection)
+{
+	m_connection = std::move(connection);
+}
+
 const MessageId& MessageHandler::currentRequestId()
 {
 	assert(t_currentRequestId);
@@ -72,7 +77,7 @@ const MessageId& MessageHandler::currentRequestId()
 	return *t_currentRequestId;
 }
 
-void MessageHandler::remove(std::string_view method)
+void MessageHandler::remove(const std::string& method)
 {
 	std::lock_guard lock{m_requestHandlersMutex};
 
@@ -256,9 +261,13 @@ void MessageHandler::sendResponse(jsonrpc::Response&& response)
 
 MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Value>&& params)
 {
-	std::lock_guard lock{m_pendingRequestsMutex};
 	const auto messageId = nextUniqueRequestId();
-	m_pendingRequests[messageId] = std::move(result);
+
+	{
+		std::lock_guard lock{m_pendingRequestsMutex};
+		m_pendingRequests[messageId] = std::move(result);
+	}
+
 	auto request = jsonrpc::createRequest(messageId, method, std::move(params));
 	m_connection.writeMessage(std::move(request));
 	return messageId;
