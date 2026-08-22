@@ -6,23 +6,28 @@
 namespace lsp{
 namespace{
 
-bool isDigit(char c) {
+bool isDigit(char c)
+{
 	return c >= '0' && c <= '9';
 }
 
-bool isAlpha(char c) {
+bool isAlpha(char c)
+{
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-bool isAlphanumeric(char c) {
+bool isAlphanumeric(char c)
+{
 	return isAlpha(c) || isDigit(c);
 }
 
-char toLower(char c) {
+char toLower(char c)
+{
 	return c >= 'A' && c <= 'Z' ? c + 32 : c;
 }
 
-char toUpper(char c) {
+char toUpper(char c)
+{
 	return c >= 'a' && c <= 'z' ? c - 32 : c;
 }
 
@@ -492,47 +497,23 @@ bool Uri::operator==(const Uri& other) const
 	if(scheme() != other.scheme())
 		return false;
 
-	if(hasAuthority())
-	{
-		if(!other.hasAuthority())
-			return false;
-
-		if(authority() != other.authority())
-			return false;
-	}
-	else if(other.hasAuthority())
-	{
+	if(hasAuthority() != other.hasAuthority())
 		return false;
-	}
+
+	if(authority() != other.authority())
+		return false;
 
 	if(path() != other.path())
 		return false;
 
-	if(hasQuery())
-	{
-		if(!other.hasQuery())
-			return false;
-
-		if(query() != other.query())
-			return false;
-	}
-	else if(other.hasQuery())
-	{
+	if(hasQuery() != other.hasQuery())
 		return false;
-	}
 
-	if(hasFragment())
-	{
-		if(!other.hasFragment())
-			return false;
-
-		if(fragment() != other.fragment())
-			return false;
-	}
-	else if(other.hasFragment())
-	{
+	if(hasFragment() != other.hasFragment())
 		return false;
-	}
+
+	if(fragment() != other.fragment())
+		return false;
 
 	return true;
 }
