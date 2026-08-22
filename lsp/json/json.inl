@@ -10,24 +10,13 @@ namespace lsp::json{
  * Value
  */
 
-inline Decimal Value::number() const
-{
-	if(isDecimal())
-		return get<Decimal>(nullptr);
-
-	if(isInteger())
-		return static_cast<Decimal>(get<Integer>(nullptr));
-
-	throw TypeError("JSON value is not number");
-}
-
 template<typename T>
 T& Value::get(const char* typeName)
 {
 	if(auto* const v = std::get_if<T>(&m_variant))
 		return *v;
 
-	throw TypeError(std::string("JSON value is not ") + typeName);
+	throwTypeError(typeName);
 }
 
 template<typename T>
@@ -36,7 +25,7 @@ const T& Value::get(const char* typeName) const
 	if(auto* const v = std::get_if<T>(&m_variant))
 		return *v;
 
-	throw TypeError(std::string("JSON value is not ") + typeName);
+	throwTypeError(typeName);
 }
 
 /*

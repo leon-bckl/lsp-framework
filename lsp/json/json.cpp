@@ -6,6 +6,26 @@ namespace{
 } // namespace
 
 /*
+ * Value
+ */
+
+Decimal Value::number() const
+{
+	if(isDecimal())
+		return get<Decimal>(nullptr);
+
+	if(isInteger())
+		return static_cast<Decimal>(get<Integer>(nullptr));
+
+	throwTypeError("number");
+}
+
+void Value::throwTypeError(const char* expectedType)
+{
+	throw TypeError(std::string("JSON value is not ") + expectedType);
+}
+
+/*
  * Object
  */
 

@@ -164,6 +164,8 @@ private:
 
 	template<typename T>
 	const T& get(const char* typeName) const;
+
+	[[noreturn]] static void throwTypeError(const char* expectedType);
 };
 
 } // namespace lsp::json
