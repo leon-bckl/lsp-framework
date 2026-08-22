@@ -115,6 +115,9 @@ int main(int argc, char** argv)
 		test::check(!uri.setScheme("ht!tp"), "setSchemeInvalidRejected");
 		test::compare(uri.scheme(), "https"); // unchanged
 
+		test::check(!uri.setScheme("1http"), "setSchemeInvalidNonAlphaRejected");
+		test::compare(uri.scheme(), "https"); // unchanged
+
 		test::check(uri.setAuthority("server"), "setAuthority");
 		test::compare(uri.authority(), "server");
 

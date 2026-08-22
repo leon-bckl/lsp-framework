@@ -21,21 +21,14 @@ bool isAlphanumeric(char c)
 	return isAlpha(c) || isDigit(c);
 }
 
-char toLower(char c)
+std::uint16_t parseUriScheme(std::string_view uriSchemeStr)
 {
-	return c >= 'A' && c <= 'Z' ? c + 32 : c;
-}
+	if(uriSchemeStr.empty() || !isAlpha(uriSchemeStr[0]))
+		return 0;
 
-char toUpper(char c)
-{
-	return c >= 'a' && c <= 'z' ? c - 32 : c;
-}
-
-std::uint16_t parseUriScheme(std::string_view uriStr)
-{
 	std::uint16_t len = 0;
 
-	for(const char c : uriStr)
+	for(const char c : uriSchemeStr)
 	{
 		if(!isAlphanumeric(c) && c != '-' && c != '.' && c != '+')
 			break;
@@ -104,6 +97,8 @@ void normalizeEncodedCase(std::string& str, std::size_t first, std::size_t count
 	{
 		if(str[i] == '%' && i + 2 < end)
 		{
+			const auto toUpper = [](char c) -> char{ return c >= 'a' && c <= 'z' ? c - 32 : c; };
+
 			auto j = i + 1;
 			str[j] = toUpper(str[j]);
 			++j;
@@ -355,6 +350,8 @@ void Uri::insertScheme(std::string_view scheme)
 {
 	m_data.replace(0, m_schemeLen, scheme);
 	m_schemeLen = static_cast<std::uint16_t>(scheme.size());
+
+	const auto toLower = [](char c) -> char{ return c >= 'A' && c <= 'Z' ? c + 32 : c; };
 
 	for(std::uint16_t i = 0; i < m_schemeLen; ++i)
 		m_data[i] = toLower(m_data[i]);
