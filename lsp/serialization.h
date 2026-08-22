@@ -474,6 +474,8 @@ template<typename K, typename T>
 void fromJson(json::Value&& json, std::unordered_map<K, T>& value)
 {
 	auto& obj = json.object();
+	value.reserve(obj.size());
+
 	for(auto&& [k, v] : obj)
 		fromJson(std::move(v), value[k]);
 }

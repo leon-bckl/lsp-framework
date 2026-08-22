@@ -20,6 +20,11 @@ Object::SizeType Object::size() const
 	return m_keyValuePairs.size();
 }
 
+Object::SizeType Object::capacity() const
+{
+	return m_keyValuePairs.capacity();
+}
+
 Value& Object::insert(String key, Value value)
 {
 	Value* existingValue = find(key);
@@ -48,6 +53,11 @@ void Object::remove(std::string_view key)
 void Object::clear()
 {
 	m_keyValuePairs.clear();
+}
+
+void Object::reserve(SizeType size)
+{
+	m_keyValuePairs.reserve(size);
 }
 
 Value* Object::find(std::string_view key)

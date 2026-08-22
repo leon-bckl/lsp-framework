@@ -80,11 +80,13 @@ public:
 	Object& operator=(Object&& other) noexcept;
 
 	[[nodiscard]] SizeType size() const;
+	[[nodiscard]] SizeType capacity() const;
 	[[nodiscard]] bool     isEmpty() const{ return size() == 0; }
 
 	Value& insert(String key, Value value);
 	void   remove(std::string_view key);
 	void   clear();
+	void   reserve(SizeType size);
 
 	[[nodiscard]] Value*       find(std::string_view key);
 	[[nodiscard]] const Value* find(std::string_view key) const{ return const_cast<Object*>(this)->find(key); }

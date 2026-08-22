@@ -142,6 +142,14 @@ int main(int argc, char** argv)
 		test::check(obj.isEmpty(), "isEmpty");
 	});
 
+	app.addTest("Object/Reserve", [](){
+		auto obj = Object();
+
+		obj.reserve(100);
+		test::check(obj.capacity() >= 100, "capacity");
+		test::check(obj.isEmpty(), "isEmpty");
+	});
+
 	app.addTest("Object/SubscriptOperator", [](){
 		auto obj = Object();
 
