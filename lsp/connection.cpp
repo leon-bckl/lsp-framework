@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cctype>
 #include <charconv>
 #include <cstring>
 #include <mutex>
@@ -50,10 +49,10 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 
 std::string_view trimWhitespace(std::string_view str)
 {
-	while(!str.empty() && std::isspace(static_cast<unsigned char>(str.front())))
+	while(!str.empty() && str.front() <= 0x20)
 		str.remove_prefix(1);
 
-	while(!str.empty() && std::isspace(static_cast<unsigned char>(str.back())))
+	while(!str.empty() && str.back() <= 0x20)
 		str.remove_suffix(1);
 
 	return str;
@@ -63,8 +62,8 @@ bool equalCaseInsensitive(std::string_view lhs, std::string_view rhs)
 {
 	return std::ranges::equal(lhs, rhs, [](char a, char b)
 		{
-			return std::tolower(static_cast<unsigned char>(a)) ==
-			       std::tolower(static_cast<unsigned char>(b));
+			const auto toLower = [](char c){ return c >= 'A' && c <= 'Z' ? c + 32 : c; };
+			return toLower(a) == toLower(b);
 		});
 }
 
