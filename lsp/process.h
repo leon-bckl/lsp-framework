@@ -39,10 +39,11 @@ public:
 	using ArgList = std::vector<std::string>;
 
 	Process();
-	Process(const std::string& executable, const ArgList& args = {});
 	Process(Process&&) noexcept;
 	Process& operator=(Process&&) noexcept;
 	~Process();
+
+	[[nodiscard]] static Process start(const std::string& executable, const ArgList& args = {});
 
 	[[nodiscard]] bool        isRunning() const;
 	[[nodiscard]] int         id();
@@ -57,6 +58,8 @@ public:
 private:
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
+
+	Process(std::unique_ptr<Impl> impl);
 };
 
 } // namespace lsp

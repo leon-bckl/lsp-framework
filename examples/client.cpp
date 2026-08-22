@@ -313,7 +313,7 @@ int main(int argc, char** argv)
 		if(!args.executable.empty())
 		{
 			std::cerr << "Launching language server executable '" << args.executable << '\'' << std::endl;
-			auto proc = lsp::Process(args.executable, args.executableArgs);
+			auto proc = lsp::Process::start(args.executable, args.executableArgs);
 			runLanguageClient(proc.stdIO());
 		}
 		else if(args.port.has_value())

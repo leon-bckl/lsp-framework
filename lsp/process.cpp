@@ -520,9 +520,14 @@ Process::Process() = default;
 Process::Process(Process&&) noexcept = default;
 Process& Process::operator=(Process&&) noexcept = default;
 
-Process::Process(const std::string& executable, const ArgList& args)
-	: m_impl{std::make_unique<Process::Impl>(executable, args)}
+Process::Process(std::unique_ptr<Impl> impl)
+	: m_impl{std::move(impl)}
 {
+}
+
+Process Process::start(const std::string& executable, const ArgList& args)
+{
+	return Process(std::make_unique<Process::Impl>(executable, args));
 }
 
 Process::~Process()

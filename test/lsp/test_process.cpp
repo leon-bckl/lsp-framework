@@ -88,7 +88,7 @@ int main(int argc, char** argv)
 	else if(std::strcmp(argv[1], "Terminate") == 0)
 	{
 		for(;;)
-			std::this_thread::sleep_for(std::chrono::seconds(2));
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 
 	return -1; // Test failure
@@ -126,17 +126,17 @@ int main(int argc, char** argv)
 	app.addTest("InvalidExecutable", [](){
 		test::expectException<ProcessError>([]()
 		{
-			Process("DoesNotExist");
+			(void)Process::start("DoesNotExist");
 		});
 	});
 
 	app.addTest("NoArgs", [](){
-		auto proc = Process(LSP_TEST_PROCESS_EXE);
+		auto proc = Process::start(LSP_TEST_PROCESS_EXE);
 		test::compare(proc.wait(), 0);
 	});
 
 	app.addTest("NaturalExit", [](){
-		auto proc = Process(LSP_TEST_PROCESS_EXE);
+		auto proc = Process::start(LSP_TEST_PROCESS_EXE);
 		std::this_thread::sleep_for(std::chrono::seconds(1)); // Not 100% reliable but after a second the process should have finished...
 		test::check(!proc.isRunning(), "!isRunning");
 		proc.terminate();
@@ -144,17 +144,17 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("SingleArg", [](){
-		auto proc = Process(LSP_TEST_PROCESS_EXE, {"SingleArg"});
+		auto proc = Process::start(LSP_TEST_PROCESS_EXE, {"SingleArg"});
 		test::compare(proc.wait(), 1);
 	});
 
 	app.addTest("MultiArg", [](){
-		auto proc = Process(LSP_TEST_PROCESS_EXE, {"MultiArg", "--first", "second", "foo", "--bar"});
+		auto proc = Process::start(LSP_TEST_PROCESS_EXE, {"MultiArg", "--first", "second", "foo", "--bar"});
 		test::compare(proc.wait(), 2);
 	});
 
 	app.addTest("EscapedArgs", [](){
-		auto proc = Process(LSP_TEST_PROCESS_EXE, {
+		auto proc = Process::start(LSP_TEST_PROCESS_EXE, {
 			"EscapedArgs",
 			"hello world",
 			"C:\\Program Files\\",
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("StdIn", [](){
-		auto       proc  = Process(LSP_TEST_PROCESS_EXE, {"StdIn"});
+		auto       proc  = Process::start(LSP_TEST_PROCESS_EXE, {"StdIn"});
 		auto&      stdIO = proc.stdIO();
 		const auto msg   = std::string_view("Hello World!");
 
@@ -177,7 +177,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("StdOut", [](){
-		auto       proc       = Process(LSP_TEST_PROCESS_EXE, {"StdOut"});
+		auto       proc       = Process::start(LSP_TEST_PROCESS_EXE, {"StdOut"});
 		auto&      stdIO      = proc.stdIO();
 		const auto expected   = std::string_view("Hello World!");
 		char       buffer[16] = {};
@@ -188,7 +188,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("StdIO", [](){
-		auto  proc       = Process(LSP_TEST_PROCESS_EXE, {"StdIO"});
+		auto  proc       = Process::start(LSP_TEST_PROCESS_EXE, {"StdIO"});
 		auto& stdIO      = proc.stdIO();
 		auto  expected   = std::string_view("Hello World!");
 		char  buffer[16] = {};
@@ -204,7 +204,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("StdInReadPastEOF", [](){
-		auto  proc       = Process(LSP_TEST_PROCESS_EXE);
+		auto  proc       = Process::start(LSP_TEST_PROCESS_EXE);
 		auto& stdIO      = proc.stdIO();
 
 		test::expectException<io::Error>([&stdIO](){
@@ -214,7 +214,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("ProcessId", [](){
-		auto       proc  = Process(LSP_TEST_PROCESS_EXE, {"ProcessId"});
+		auto       proc  = Process::start(LSP_TEST_PROCESS_EXE, {"ProcessId"});
 		auto&      stdIO = proc.stdIO();
 		const auto idStr = std::to_string(proc.id());
 
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("Terminate", [](){
-		auto       proc = Process(LSP_TEST_PROCESS_EXE, {"Terminate"});
+		auto       proc = Process::start(LSP_TEST_PROCESS_EXE, {"Terminate"});
 		const auto id   = proc.id();
 
 		test::check(proc.isRunning(), "isRunning");
@@ -242,7 +242,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("MoveConstructed", [](){
-		auto proc     = Process(LSP_TEST_PROCESS_EXE);
+		auto proc     = Process::start(LSP_TEST_PROCESS_EXE);
 		const auto id = proc.id();
 		auto proc2    = Process(std::move(proc));
 
@@ -254,7 +254,7 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("MoveAssigned", [](){
-		auto       proc  = Process(LSP_TEST_PROCESS_EXE);
+		auto       proc  = Process::start(LSP_TEST_PROCESS_EXE);
 		const auto id    = proc.id();
 		auto       proc2 = Process();
 
