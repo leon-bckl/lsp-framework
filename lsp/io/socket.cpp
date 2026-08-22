@@ -26,7 +26,7 @@ namespace lsp::io{
  * Socket::Impl
  */
 
-struct Socket::Impl{
+struct Socket::Impl : Stream{
 	static constexpr auto InvalidSocket =
 #ifdef LSP_SOCKET_POSIX
 	-1;
@@ -181,7 +181,7 @@ struct Socket::Impl{
 		return std::make_unique<Impl>(other);
 	}
 
-	void read(char* buffer, std::size_t size)
+	void read(char* buffer, std::size_t size) override
 	{
 		if(size == 0)
 			return;
@@ -202,7 +202,7 @@ struct Socket::Impl{
 		}
 	}
 
-	void write(const char* buffer, std::size_t size)
+	void write(const char* buffer, std::size_t size) override
 	{
 		if(size == 0)
 			return;
@@ -262,6 +262,11 @@ void Socket::write(const char* buffer, std::size_t size)
 {
 	assert(m_impl);
 	m_impl->write(buffer, size);
+}
+
+Stream& Socket::stream()
+{
+	return *m_impl;
 }
 
 /*

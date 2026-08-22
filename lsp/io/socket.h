@@ -20,21 +20,24 @@ namespace lsp::io{
  * Socket
  */
 
-class Socket : public Stream{
+class Socket{
 public:
 	static constexpr auto Localhost = "127.0.0.1";
 
 	Socket(Socket&&) noexcept;
 	Socket& operator=(Socket&&) noexcept;
-	~Socket() override;
+	~Socket();
 
 	[[nodiscard]] static Socket connect(const std::string& address, unsigned short port);
 
 	[[nodiscard]] bool isOpen() const;
 	void close();
 
-	void read(char* buffer, std::size_t size) override;
-	void write(const char* buffer, std::size_t size) override;
+	void read(char* buffer, std::size_t size);
+	void write(const char* buffer, std::size_t size);
+
+	[[nodiscard]] Stream& stream();
+	operator Stream&(){ return stream(); }
 
 private:
 	friend class SocketListener;
