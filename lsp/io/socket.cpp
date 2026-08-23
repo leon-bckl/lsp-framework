@@ -113,11 +113,13 @@ struct Socket::Impl : Stream{
 			throwError("Failed to create socket");
 
 #ifdef LSP_SOCKET_POSIX
-		const int yes = 1;
+		const int yes     = 1;
+		const int optName = SO_REUSEADDR;
 #elif defined(LSP_SOCKET_WIN32)
-		const char yes = 1;
+		const char yes    = 1;
+		const int optName = SO_EXCLUSIVEADDRUSE;
 #endif
-		setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+		setsockopt(socketFd, SOL_SOCKET, optName, &yes, sizeof(yes));
 
 		auto addr = sockaddr_in{};
 		addr.sin_family      = AF_INET;
