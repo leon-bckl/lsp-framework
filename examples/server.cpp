@@ -42,7 +42,7 @@ template<typename MessageType>
 void printMessagePayload(const typename MessageType::Params& params)
 {
 	const auto json = lsp::toJson(typename MessageType::Params(params));
-	std::cerr << "payload: " << lsp::json::stringify(json, true) << std::endl;
+	std::cerr << "payload: " << lsp::json::stringify(json, "\t") << std::endl;
 }
 
 template<typename MessageType>

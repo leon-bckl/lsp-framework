@@ -57,7 +57,7 @@ using Array   = std::vector<Value>;
  */
 
 Value  parse(std::string_view text);
-String stringify(const Value& json, bool format = false);
+String stringify(const Value& json, std::string_view indent = {});
 String toStringLiteral(std::string_view str);
 String fromStringLiteral(std::string_view str);
 

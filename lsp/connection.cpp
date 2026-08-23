@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <charconv>
+#include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <optional>
@@ -38,11 +39,11 @@ namespace{
 void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Value& json)
 {
 #ifdef __APPLE__
-	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, true)).c_str());
+	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, "\t")).c_str());
 #elif defined(_WIN32)
-	OutputDebugStringA((messageType + ": " + lsp::json::stringify(json, true) + '\n').c_str());
+	OutputDebugStringA((messageType + ": " + lsp::json::stringify(json, "\t") + '\n').c_str());
 #elif defined(__linux__) || defined(__HAIKU__)
-    fprintf(stderr, "%s\n",  (messageType + ": " + lsp::json::stringify(json, true)).c_str());
+	std::fprintf(stderr, "%s\n",  (messageType + ": " + lsp::json::stringify(json, "\t")).c_str());
 #endif
 }
 #endif

@@ -111,7 +111,7 @@ int main(int argc, char** argv)
 
 	auto expectFormatted = [](Value value, std::string_view expected)
 	{
-		test::compare(stringify(value, true), expected);
+		test::compare(stringify(value, "\t"), expected);
 	};
 
 	app.addTest("Format", expectFormatted)({

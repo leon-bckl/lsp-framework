@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include "json.h"
@@ -6,19 +5,15 @@
 namespace lsp::json{
 namespace{
 
-constexpr auto NullValueString  = std::string_view("null");
-constexpr auto TrueValueString  = std::string_view("true");
-constexpr auto FalseValueString = std::string_view("false");
-
-void stringifyImplementation(const Value& json, std::string& str, std::size_t indentLevel, bool format)
+void stringifyImplementation(const Value& json, std::string& str, int indentLevel, std::string_view indent)
 {
-	const auto getIndent = [&indentLevel, format]()
+	const auto applyIndent = [&indentLevel, indent](std::string& out)
 	{
-		if(!format)
-			return std::string_view{};
-
-		static constexpr std::string_view Tabs{"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"};
-		return Tabs.substr(0, std::min(indentLevel, Tabs.size()));
+		if(!indent.empty())
+		{
+			for(int i = 0; i < indentLevel; ++i)
+				out += indent;
+		}
 	};
 
 	std::string_view keySep{":"};
@@ -26,7 +21,7 @@ void stringifyImplementation(const Value& json, std::string& str, std::size_t in
 	std::string_view listStart;
 	std::string_view listEnd;
 
-	if(format)
+	if(!indent.empty())
 	{
 		keySep = ": ";
 		valueSep = ",\n";
@@ -36,11 +31,11 @@ void stringifyImplementation(const Value& json, std::string& str, std::size_t in
 
 	if(json.isNull())
 	{
-		str += NullValueString;
+		str += "null";
 	}
 	else if(json.isBoolean())
 	{
-		str += json.boolean() ? TrueValueString : FalseValueString;
+		str += json.boolean() ? "true" : "false";
 	}
 	else if(json.isInteger())
 	{
@@ -78,25 +73,25 @@ void stringifyImplementation(const Value& json, std::string& str, std::size_t in
 		{
 			str += listStart;
 			++indentLevel;
-			str += getIndent();
+			applyIndent(str);
 			str += toStringLiteral(it->key());
 			str += keySep;
-			stringifyImplementation(it->value(), str, indentLevel, format);
+			stringifyImplementation(it->value(), str, indentLevel, indent);
 			++it;
 
 			while(it != obj.end())
 			{
 				str += valueSep;
-				str += getIndent();
+				applyIndent(str);
 				str += toStringLiteral(it->key());
 				str += keySep;
-				stringifyImplementation(it->value(), str, indentLevel, format);
+				stringifyImplementation(it->value(), str, indentLevel, indent);
 				++it;
 			}
 
 			str += listEnd;
 			--indentLevel;
-			str += getIndent();
+			applyIndent(str);
 		}
 
 		str += '}';
@@ -111,21 +106,21 @@ void stringifyImplementation(const Value& json, std::string& str, std::size_t in
 		{
 			str += listStart;
 			++indentLevel;
-			str += getIndent();
-			stringifyImplementation(*it, str, indentLevel, format);
+			applyIndent(str);
+			stringifyImplementation(*it, str, indentLevel, indent);
 			++it;
 
 			while(it != array.end())
 			{
 				str += valueSep;
-				str += getIndent();
-				stringifyImplementation(*it, str, indentLevel, format);
+				applyIndent(str);
+				stringifyImplementation(*it, str, indentLevel, indent);
 				++it;
 			}
 
 			str += listEnd;
 			--indentLevel;
-			str += getIndent();
+			applyIndent(str);
 		}
 
 		str += ']';
@@ -134,10 +129,10 @@ void stringifyImplementation(const Value& json, std::string& str, std::size_t in
 
 } // namespace
 
-std::string stringify(const Value& json, bool format)
+std::string stringify(const Value& json, std::string_view indent)
 {
 	std::string str;
-	stringifyImplementation(json, str, 0, format);
+	stringifyImplementation(json, str, 0, indent);
 	return str;
 }
 
