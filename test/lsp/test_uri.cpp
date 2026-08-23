@@ -236,22 +236,69 @@ int main(int argc, char** argv)
 		}
 	});
 
-	app.addTest("Equality", [](){
-		test::check(Uri::parse("http://example.com/path?query#fragment") ==
-		            Uri::parse("http://example.com/path?query#fragment"), "equalForIdenticalInput");
+	app.addTest("Equality", [](std::string_view lhsInput, std::string_view rhsInput, bool expectedEqual)
+	{
+		const auto lhs = Uri::parse(lhsInput);
+		const auto rhs = Uri::parse(rhsInput);
+		test::check(lhs.isValid(), "lhsValid");
+		test::check(rhs.isValid(), "rhsValid");
 
-		test::check(Uri::parse("http://example.com/a") !=
-		            Uri::parse("http://example.com/b"), "notEqualForDifferentPath");
+		test::compare(lhs == rhs, expectedEqual);
+		test::compare(rhs == lhs, expectedEqual); // symmetry
+		test::compare(lhs != rhs, !expectedEqual);
+		test::compare(rhs != lhs, !expectedEqual);
+	})({
+		{"IdenticalInput", {"http://example.com/path?query#fragment", "http://example.com/path?query#fragment", true}},
 
-		test::check(Uri::parse("HTTP://example.com/path") ==
-		            Uri::parse("http://example.com/path"), "equalIgnoringSchemeCase");
+		{"SchemeCaseInsensitive", {"HTTP://example.com/path",  "http://example.com/path", true}},
+		{"SchemeDiffSameLen",     {"cat://example.com/path",   "dog://example.com/path",  false}},
+		{"SchemeDiffLen",         {"http://example.com/path",  "ftp://example.com/path",  false}},
 
-		test::check(Uri::parse("file:///path?a%2fb") ==
-		            Uri::parse("file:///path?a%2Fb"), "equalIgnoringQueryEscapeCase");
+		{"AuthorityIdentical",             {"http://example.com/path", "http://example.com/path", true}},
+		{"AuthorityDiffContentSameLen",    {"http://example.com/path", "http://example.org/path", false}},
+		{"AuthorityDiffLen",               {"http://example.com/path", "http://example.co/path",  false}},
+		{"AuthorityPresenceDiffers",       {"file:/path",              "file:///path",            false}},
+		{"AuthorityEscapeCaseInsensitive", {"http://a%2fb/path",       "http://a%2Fb/path",       true}},
 
-		test::check(Uri::parse("file:///a") < Uri::parse("file:///b"), "lessThanOrderedByData");
-		test::check(!(Uri::parse("file:///a") < Uri::parse("file:///a")), "notLessThanForEqualUris");
+		{"PathIdentical",          {"http://example.com/a",  "http://example.com/a", true}},
+		{"PathDiffContentSameLen", {"http://example.com/a",  "http://example.com/b", false}},
+		{"PathDiffLen",            {"http://example.com/aa", "http://example.com/a", false}},
 
+		{"NoQueryBothAbsent",            {"http://example.com/path",           "http://example.com/path",           true}},
+		{"QueryIdentical",               {"http://example.com/path?key=value", "http://example.com/path?key=value", true}},
+		{"QueryDiffContentSameLen",      {"http://example.com/path?aaaa",      "http://example.com/path?bbbb",      false}},
+		{"QueryDiffLen",                 {"http://example.com/path?a",         "http://example.com/path?ab",        false}},
+		{"QueryPresenceDiffersNonEmpty", {"http://example.com/path?query",     "http://example.com/path",           false}},
+		{"QueryPresenceDiffersEmpty",    {"file:///path?",                     "file:///path",                      false}},
+		{"QueryEscapeCaseInsensitive",   {"file:///path?a%2fb",                "file:///path?a%2Fb",                true}},
+
+		{"NoFragmentBothAbsent",            {"http://example.com/path",         "http://example.com/path",         true}},
+		{"FragmentIdentical",               {"http://example.com/path#section", "http://example.com/path#section", true}},
+		{"FragmentDiffContentSameLen",      {"http://example.com/path#aaaa",    "http://example.com/path#bbbb",    false}},
+		{"FragmentDiffLen",                 {"http://example.com/path#a",       "http://example.com/path#ab",      false}},
+		{"FragmentPresenceDiffersNonEmpty", {"http://example.com/path#frag",    "http://example.com/path",         false}},
+		{"FragmentPresenceDiffersEmpty",    {"file:///path#",                   "file:///path",                    false}},
+		{"FragmentEscapeCaseInsensitive",   {"file:///path#a%2fb",              "file:///path#a%2Fb",              true}},
+
+		{"AuthorityPathBoundaryDiffers", {"http://example.com/x", "http://example.co/m/x", false}},
+	});
+
+	app.addTest("LessThan", [](std::string_view lhsInput, std::string_view rhsInput, bool expectedLess)
+	{
+		const auto lhs = Uri::parse(lhsInput);
+		const auto rhs = Uri::parse(rhsInput);
+		test::check(lhs.isValid(), "lhsValid");
+		test::check(rhs.isValid(), "rhsValid");
+		test::compare(lhs < rhs, expectedLess);
+	})({
+		{"OrderedByPath",       {"file:///a", "file:///b",  true}},
+		{"ReverseNotLess",      {"file:///b", "file:///a",  false}},
+		{"EqualNotLess",        {"file:///a", "file:///a",  false}},
+		{"OrderedByScheme",     {"a://x/p",   "b://x/p",    true}},
+		{"ShorterIsPrefixLess", {"file:///a", "file:///ab", true}},
+	});
+
+	app.addTest("EqualityRawDataCollisionAcrossSplit", [](){
 		auto splitA = Uri();
 		splitA.setScheme("http");
 		splitA.setAuthority("example.com");
@@ -266,12 +313,6 @@ int main(int argc, char** argv)
 		test::compare(splitB.toString(), "http://example.co/m/x");
 		test::check(splitA != splitB, "differentSplitNotEqual");
 		test::check(!(splitA < splitB) && !(splitB < splitA), "differentSplitNeitherLessThan");
-
-		const auto noAuthority    = Uri::parse("file:/path");
-		const auto emptyAuthority = Uri::parse("file:///path");
-		test::check(!noAuthority.hasAuthority(), "noAuthority");
-		test::check(emptyAuthority.hasAuthority(), "emptyAuthority");
-		test::compare(noAuthority == emptyAuthority, emptyAuthority == noAuthority);
 	});
 
 	app.addTest("Encode", [](std::string_view decoded, std::string_view exclude, std::string_view expectedEncoded)

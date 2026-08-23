@@ -506,6 +506,9 @@ bool Uri::operator==(const Uri& other) const
 	if(hasQuery() != other.hasQuery())
 		return false;
 
+	if(query() != other.query())
+		return false;
+
 	if(hasFragment() != other.hasFragment())
 		return false;
 
