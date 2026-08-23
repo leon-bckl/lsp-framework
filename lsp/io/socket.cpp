@@ -47,14 +47,14 @@ struct Socket::Impl : Stream{
 		int;
 #endif
 
-	SocketHandle   m_socketFd       = InvalidSocket;
-	unsigned short m_port           = 0;
-	unsigned short m_maxConnections = 1; // Only relevant for listen
+	SocketHandle   m_socketFd = InvalidSocket;
+	unsigned short m_port     = 0;
+	unsigned short m_backlog  = 1; // Only relevant for listen
 
-	Impl(SocketHandle socket, unsigned short port, unsigned short maxConnections = 1)
+	Impl(SocketHandle socket, unsigned short port, unsigned short backlog = 1)
 		: m_socketFd{socket}
 		, m_port{port}
-		, m_maxConnections{maxConnections}
+		, m_backlog{backlog}
 	{
 	}
 
@@ -103,7 +103,7 @@ struct Socket::Impl : Stream{
 	}
 
 	[[nodiscard]]
-	static std::unique_ptr<Impl> setupForListen(unsigned short port, unsigned short maxConnections)
+	static std::unique_ptr<Impl> setupForListen(unsigned short port, unsigned short backlog)
 	{
 		ensureInitialized();
 
@@ -137,7 +137,7 @@ struct Socket::Impl : Stream{
 			throwError("Failed to get listen port");
 		}
 
-		return std::make_unique<Impl>(socketFd, ntohs(addr.sin_port), maxConnections);
+		return std::make_unique<Impl>(socketFd, ntohs(addr.sin_port), backlog);
 	}
 
 	[[nodiscard]]
@@ -178,14 +178,14 @@ struct Socket::Impl : Stream{
 		throwError("Failed to connect to any resolved address");
 	}
 
-	std::unique_ptr<Impl> listen()
+	std::unique_ptr<Impl> accept()
 	{
 		assert(m_socketFd != InvalidSocket);
 
-		if(::listen(m_socketFd, m_maxConnections) == -1)
+		if(::listen(m_socketFd, m_backlog) == -1)
 			throwError("Failed to listen for new socket connections");
 
-		const auto other = accept(m_socketFd, nullptr, nullptr);
+		const auto other = ::accept(m_socketFd, nullptr, nullptr);
 
 		if(other == InvalidSocket)
 			throwError("Failed to accept socket connection");
@@ -299,17 +299,17 @@ Stream& Socket::stream()
  * SocketListener
  */
 
-SocketListener::SocketListener(unsigned short port, unsigned short maxConnections)
-	: m_socket(Socket::Impl::setupForListen(port, maxConnections))
+SocketListener::SocketListener(unsigned short port, unsigned short backlog)
+	: m_socket(Socket::Impl::setupForListen(port, backlog))
 {
 }
 
-Socket SocketListener::listen()
+Socket SocketListener::accept()
 {
-	if(!isReady())
+	if(!isOpen())
 		throw Error("Server socket is not open for listening");
 
-	return Socket(m_socket.m_impl->listen());
+	return Socket(m_socket.m_impl->accept());
 }
 
 } // namespace lsp::io

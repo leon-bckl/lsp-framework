@@ -251,9 +251,9 @@ int runSocketServer(unsigned short port)
 
 		std::cerr << "Waiting for incoming connections on port " << socketListener.port() << std::endl;
 
-		while(socketListener.isReady())
+		while(socketListener.isOpen())
 		{
-			auto socket = socketListener.listen();
+			auto socket = socketListener.accept();
 
 			if(!socket.isOpen())
 				break;

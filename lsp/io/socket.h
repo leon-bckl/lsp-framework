@@ -30,10 +30,10 @@ public:
 
 	[[nodiscard]] static Socket connect(const std::string& address, unsigned short port);
 
-	[[nodiscard]] bool isOpen() const;
+	[[nodiscard]] bool           isOpen() const;
 	[[nodiscard]] unsigned short port() const;
-	void close();
 
+	void close();
 	void read(char* buffer, std::size_t size);
 	void write(const char* buffer, std::size_t size);
 
@@ -54,13 +54,13 @@ private:
 
 class SocketListener{
 public:
-	SocketListener(unsigned short port, unsigned short maxConnections = 32);
+	SocketListener(unsigned short port, unsigned short backlog = 32);
 
-	[[nodiscard]] Socket listen();
-	[[nodiscard]] bool isReady() const{ return m_socket.isOpen(); }
+	[[nodiscard]] Socket accept();
+	[[nodiscard]] bool isOpen() const{ return m_socket.isOpen(); }
 	[[nodiscard]] unsigned short port() const{ return m_socket.port(); }
-	void shutdown(){ m_socket.close(); }
 
+	void close(){ m_socket.close(); }
 
 private:
 	Socket m_socket;
