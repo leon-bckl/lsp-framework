@@ -48,11 +48,13 @@ struct Socket::Impl : Stream{
 #endif
 
 	SocketHandle   m_socketFd       = InvalidSocket;
+	unsigned short m_port           = 0;
 	unsigned short m_maxConnections = 1; // Only relevant for listen
 
-	Impl(SocketHandle socket, unsigned short maxConnections = 1)
-		: m_socketFd(socket)
-		, m_maxConnections(maxConnections)
+	Impl(SocketHandle socket, unsigned short port, unsigned short maxConnections = 1)
+		: m_socketFd{socket}
+		, m_port{port}
+		, m_maxConnections{maxConnections}
 	{
 	}
 
@@ -128,12 +130,22 @@ struct Socket::Impl : Stream{
 			throwError("Failed to bind socket address");
 		}
 
-		return std::make_unique<Impl>(socketFd, maxConnections);
+		SizeType addrLen = sizeof(addr);
+		if(getsockname(socketFd, reinterpret_cast<sockaddr*>(&addr), &addrLen) != 0)
+		{
+			closeSocketHandle(socketFd);
+			throwError("Failed to get listen port");
+		}
+
+		return std::make_unique<Impl>(socketFd, ntohs(addr.sin_port), maxConnections);
 	}
 
 	[[nodiscard]]
 	static std::unique_ptr<Impl> connect(const std::string& address, unsigned short port)
 	{
+		if(port == 0)
+			throw Error("Cannot connect on port 0");
+
 		ensureInitialized();
 
 		addrinfo hints = {};
@@ -155,7 +167,7 @@ struct Socket::Impl : Stream{
 			if(::connect(socketFd, addr->ai_addr, static_cast<SizeType>(addr->ai_addrlen)) == 0)
 			{
 				freeaddrinfo(addrInfoList);
-				return std::make_unique<Impl>(socketFd);
+				return std::make_unique<Impl>(socketFd, port);
 			}
 
 			closeSocketHandle(socketFd);
@@ -178,7 +190,7 @@ struct Socket::Impl : Stream{
 		if(other == InvalidSocket)
 			throwError("Failed to accept socket connection");
 
-		return std::make_unique<Impl>(other);
+		return std::make_unique<Impl>(other, m_port);
 	}
 
 	void read(char* buffer, std::size_t size) override
@@ -247,25 +259,39 @@ bool Socket::isOpen() const
 	return !!m_impl;
 }
 
+unsigned short Socket::port() const
+{
+	if(m_impl)
+		return m_impl->m_port;
+
+	return 0;
+}
+
 void Socket::close()
 {
-	m_impl.reset();
+	if(m_impl)
+		m_impl.reset();
 }
 
 void Socket::read(char* buffer, std::size_t size)
 {
-	assert(m_impl);
+	if(!m_impl)
+		throw Error("Socket is not open for reading");
+
 	m_impl->read(buffer, size);
 }
 
 void Socket::write(const char* buffer, std::size_t size)
 {
-	assert(m_impl);
+	if(!m_impl)
+		throw Error("Socket is not open for writing");
+
 	m_impl->write(buffer, size);
 }
 
 Stream& Socket::stream()
 {
+	assert(m_impl);
 	return *m_impl;
 }
 

@@ -247,9 +247,9 @@ int runSocketServer(unsigned short port)
 {
 	try
 	{
-		std::cerr << "Waiting for incoming connections..." << std::endl;
-
 		auto socketListener = lsp::io::SocketListener(port);
+
+		std::cerr << "Waiting for incoming connections on port " << socketListener.port() << std::endl;
 
 		while(socketListener.isReady())
 		{

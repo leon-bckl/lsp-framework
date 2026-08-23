@@ -31,6 +31,7 @@ public:
 	[[nodiscard]] static Socket connect(const std::string& address, unsigned short port);
 
 	[[nodiscard]] bool isOpen() const;
+	[[nodiscard]] unsigned short port() const;
 	void close();
 
 	void read(char* buffer, std::size_t size);
@@ -57,7 +58,9 @@ public:
 
 	[[nodiscard]] Socket listen();
 	[[nodiscard]] bool isReady() const{ return m_socket.isOpen(); }
+	[[nodiscard]] unsigned short port() const{ return m_socket.port(); }
 	void shutdown(){ m_socket.close(); }
+
 
 private:
 	Socket m_socket;
