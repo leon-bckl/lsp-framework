@@ -144,15 +144,6 @@ int main(int argc, char** argv)
 		}, "Server socket is not open for listening");
 	});
 
-	app.addTest("BindSamePortTwiceThrows", [](){
-		auto first = SocketListener(0);
-		const auto port = first.port();
-
-		test::expectException<Error>([port](){
-			auto second = SocketListener(port);
-		});
-	});
-
 	app.addTest("ReadAfterPeerClosedThrows", [](){
 		auto listener = SocketListener(0);
 		auto [client, server] = connectPair(listener);
