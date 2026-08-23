@@ -8,5 +8,6 @@ target_compile_definitions(test_process PRIVATE LSP_TEST_PROCESS_EXE="$<TARGET_F
 add_dependencies(test_process TestProcess)
 lsp_add_test(threadpool)
 lsp_add_test(uri)
+lsp_add_test(socket)
 
 add_subdirectory(json)
