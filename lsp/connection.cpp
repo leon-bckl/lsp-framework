@@ -312,12 +312,14 @@ void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& 
 		throw ConnectionError("Protocol: Expected header field to be terminated by '\\r\\n'");
 }
 
-void Connection::writeMessageData(const std::string& content)
+void Connection::writeMessageData(std::string_view content)
 {
-	std::lock_guard lock{m->writeMutex};
-	MessageHeader header{content.size()};
-	const auto messageStr = messageHeaderString(header) + content;
-	m->stream.write(messageStr.data(), messageStr.size());
+	const auto lock      = std::lock_guard(m->writeMutex);
+	const auto header    = MessageHeader{ .contentLength = content.size() };
+	const auto headerStr = messageHeaderString(header);
+
+	m->stream.write(headerStr.data(), headerStr.size());
+	m->stream.write(content.data(), content.size());
 }
 
 std::string Connection::messageHeaderString(const MessageHeader& header)

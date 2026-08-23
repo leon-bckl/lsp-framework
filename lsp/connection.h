@@ -44,7 +44,7 @@ private:
 	MessageHeader readMessageHeader(InputReader& reader);
 	static void parseHeaderValue(MessageHeader& header, std::string_view line);
 	static void readNextMessageHeaderField(MessageHeader& header, InputReader& reader);
-	void writeMessageData(const std::string& content);
+	void writeMessageData(std::string_view content);
 	std::string messageHeaderString(const MessageHeader& header);
 };
 
