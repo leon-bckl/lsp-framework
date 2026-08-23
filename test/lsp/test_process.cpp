@@ -49,7 +49,7 @@ int main(int argc, char** argv)
 		const auto expected   = std::string_view("Hello World!");
 		char       buffer[16] = {};
 
-		std::fread(buffer, static_cast<int>(expected.size()), 1, stdin);
+		std::fread(buffer, expected.size(), 1, stdin);
 
 		if(buffer == expected)
 			return 4;
@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 		const auto expected   = std::string_view("ping");
 		char       buffer[16] = {};
 
-		std::fread(buffer, static_cast<int>(expected.size()), 1, stdin);
+		std::fread(buffer, expected.size(), 1, stdin);
 
 		if(buffer == expected)
 		{
