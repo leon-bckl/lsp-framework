@@ -9,10 +9,10 @@ public:
 	Parser(std::string_view text);
 	~Parser();
 
-	bool atEnd() const;
-	std::size_t textOffset(const char* pos) const;
-	std::size_t currentTextOffset() const;
-	Value parse();
+	[[nodiscard]] bool atEnd() const;
+	[[nodiscard]] std::size_t textOffset(const char* pos) const;
+	[[nodiscard]] std::size_t currentTextOffset() const;
+	[[nodiscard]] Value parse();
 	void reset();
 
 private:

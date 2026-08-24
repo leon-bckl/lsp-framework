@@ -1,6 +1,7 @@
+#include <limits>
 #include <test/test.h>
 #include <lsp/json/json.h>
-#include <limits>
+#include <lsp/json/parser.h>
 
 using namespace lsp;
 using namespace lsp::json;
@@ -23,7 +24,8 @@ int main(int argc, char** argv)
 
 	auto expectValue = [](std::string_view text, Value expected)
 	{
-		test::compare(parse(text), expected);
+		auto parser = Parser(text);
+		test::compare(parser.parse(), expected);
 	};
 
 	app.addTest("Literals", expectValue)({
@@ -124,7 +126,8 @@ int main(int argc, char** argv)
 	{
 		try
 		{
-			(void)parse(text);
+			auto parser = Parser(text);
+			(void)parser.parse();
 			test::fail("Expected ParseError");
 		}
 		catch(const ParseError& e)

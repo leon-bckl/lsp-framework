@@ -4,6 +4,18 @@
 using namespace lsp;
 using namespace lsp::json;
 
+namespace test{
+
+template<>
+auto toString<Value>(const Value& v) -> std::string
+{
+	return std::visit([](const auto& actualValue){
+		return test::toString(actualValue);
+	}, v.variant());
+}
+
+} // namespace test
+
 int main(int argc, char** argv)
 {
 	auto app = test::TestApp();
@@ -89,13 +101,13 @@ int main(int argc, char** argv)
 
 	app.addTest("Object/DefaultConstruct", [](){
 		const auto obj = Object();
-		test::compare(obj.size(), 0u);
+		test::compare(obj.size(), 0);
 		test::check(obj.isEmpty(), "isEmpty");
 	});
 
 	app.addTest("Object/InitializerList", [](){
 		const auto obj = Object{{"a", 1}, {"b", "x"}};
-		test::compare(obj.size(), 2u);
+		test::compare(obj.size(), 2);
 		test::check(obj.contains("a"), "containsA");
 		test::check(obj.contains("b"), "containsB");
 		test::compare(obj.get("a").integer(), 1);
@@ -105,7 +117,7 @@ int main(int argc, char** argv)
 	app.addTest("Object/InsertNewKey", [](){
 		auto obj = Object();
 		auto& ref = obj.insert("key", Value(1));
-		test::compare(obj.size(), 1u);
+		test::compare(obj.size(), 1);
 		test::check(obj.contains("key"), "contains");
 		test::compare(ref.integer(), 1);
 		test::compare(obj.get("key").integer(), 1);
@@ -115,7 +127,7 @@ int main(int argc, char** argv)
 		auto obj = Object();
 		obj.insert("key", Value(1));
 		auto& ref = obj.insert("key", Value(2));
-		test::compare(obj.size(), 1u);
+		test::compare(obj.size(), 1);
 		test::compare(ref.integer(), 2);
 		test::compare(obj.get("key").integer(), 2);
 	});
@@ -123,7 +135,7 @@ int main(int argc, char** argv)
 	app.addTest("Object/AppendNewKey", [](){
 		auto obj = Object();
 		auto& ref = obj.append("key", Value(1));
-		test::compare(obj.size(), 1u);
+		test::compare(obj.size(), 1);
 		test::check(obj.contains("key"), "contains");
 		test::compare(ref.integer(), 1);
 		test::compare(obj.get("key").integer(), 1);
@@ -135,7 +147,7 @@ int main(int argc, char** argv)
 		auto& ref = obj.append("key", Value(2));
 
 		// append does not check for collisions, so both entries coexist
-		test::compare(obj.size(), 2u);
+		test::compare(obj.size(), 2);
 		test::compare(ref.integer(), 2);
 
 		// find/get return the first matching entry
@@ -153,10 +165,10 @@ int main(int argc, char** argv)
 
 		obj.remove("key");
 		test::check(!obj.contains("key"), "!contains");
-		test::compare(obj.size(), 0u);
+		test::compare(obj.size(), 0);
 
 		obj.remove("missing"); // no-op
-		test::compare(obj.size(), 0u);
+		test::compare(obj.size(), 0);
 	});
 
 	app.addTest("Object/Clear", [](){
@@ -165,7 +177,7 @@ int main(int argc, char** argv)
 		obj.insert("b", Value(2));
 
 		obj.clear();
-		test::compare(obj.size(), 0u);
+		test::compare(obj.size(), 0);
 		test::check(obj.isEmpty(), "isEmpty");
 	});
 
@@ -182,11 +194,11 @@ int main(int argc, char** argv)
 
 		auto& inserted = obj["key"];
 		test::check(inserted.isNull(), "defaultIsNull");
-		test::compare(obj.size(), 1u);
+		test::compare(obj.size(), 1);
 
 		inserted = Value(42);
 		test::compare(obj["key"].integer(), 42);
-		test::compare(obj.size(), 1u);
+		test::compare(obj.size(), 1);
 	});
 
 	app.addTest("Object/Find", [](){
@@ -246,8 +258,8 @@ int main(int argc, char** argv)
 		auto copy = original;
 		copy.get("nested").object().insert("y", Value(2));
 
-		test::compare(copy.get("nested").object().size(), 2u);
-		test::compare(original.get("nested").object().size(), 1u);
+		test::compare(copy.get("nested").object().size(), 2);
+		test::compare(original.get("nested").object().size(), 1);
 	});
 
 	app.addTest("Object/Move", [](){
@@ -259,7 +271,7 @@ int main(int argc, char** argv)
 		auto c = Object{{"e", 5}, {"f", 6}};
 		auto moveAssignedOverExisting = Object{{"old", 99}};
 		moveAssignedOverExisting = std::move(c);
-		test::compare(moveAssignedOverExisting.size(), 2u);
+		test::compare(moveAssignedOverExisting.size(), 2);
 		test::check(moveAssignedOverExisting.contains("e"), "containsE");
 		test::check(moveAssignedOverExisting.contains("f"), "containsF");
 		test::check(!moveAssignedOverExisting.contains("old"), "!containsOld");
@@ -270,7 +282,7 @@ int main(int argc, char** argv)
 		const auto source = Object{{"a", 3}, {"b", 4}};
 
 		target = source;
-		test::compare(target.size(), 2u);
+		test::compare(target.size(), 2);
 		test::check(target.contains("a"), "containsA");
 		test::check(target.contains("b"), "containsB");
 		test::check(!target.contains("c"), "!containsC");
@@ -278,7 +290,7 @@ int main(int argc, char** argv)
 
 		auto& selfRef = target;
 		target = selfRef; // self-assignment, avoiding -Wself-assign-overloaded
-		test::compare(target.size(), 2u);
+		test::compare(target.size(), 2);
 		test::check(target.contains("a"), "selfAssignContainsA");
 	});
 
@@ -362,6 +374,46 @@ int main(int argc, char** argv)
 	app.addTest("Stringify/SimpleArray", [](){
 		test::compare(stringify(Array({1, 2})), std::string_view("[1,2]"));
 		test::compare(stringify(Array({1, 2}), "\t"), std::string_view("[\n\t1,\n\t2\n]"));
+	});
+
+	/*
+	 * Parse is implemented using json::Parser so the test cases here are minimal.
+	 */
+
+	auto expectValue = [](std::string_view text, Value expected)
+	{
+		test::compare(parse(text), expected);
+	};
+
+	app.addTest("Parse/Literals", expectValue)({
+		{"Null",  {"null",  nullptr}},
+		{"True",  {"true",  true}},
+		{"False", {"false", false}},
+	});
+
+	app.addTest("Parse/Number", expectValue)({
+		{"Integer", {"42",   42}},
+		{"Decimal", {"3.14", 3.14}},
+	});
+
+	app.addTest("Parse/String", [](){
+		test::compare(parse(R"("hello")").string(), std::string("hello"));
+	});
+
+	app.addTest("Parse/SimpleObject", [](){
+		test::compare(parse(R"({"a":1})").object().get("a").integer(), 1);
+	});
+
+	app.addTest("Parse/SimpleArray", [](){
+		const auto  value = parse("[1,2]");
+		const auto& arr   = value.array();
+		test::compare(arr.size(), 2);
+		test::compare(arr[0].integer(), 1);
+		test::compare(arr[1].integer(), 2);
+	});
+
+	app.addTest("Parse/Error", [](){
+		test::expectException<ParseError>([](){ (void)parse("{"); });
 	});
 
 	return app.main(argc, argv);
