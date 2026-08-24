@@ -65,8 +65,7 @@ Writer::Writer(std::string& outStr, std::string_view indent)
 	, m_indent{indent}
 	, m_keySep{indent.empty() ? ":" : ": "}
 	, m_valueSep{indent.empty() ? "," : ",\n"}
-	, m_listStart{indent.empty() ? "" : "\n"}
-	, m_listEnd{indent.empty() ? "" : "\n"}
+	, m_newline{indent.empty() ? "" : "\n"}
 {
 }
 
@@ -101,7 +100,7 @@ void Writer::writeObjectEnd(bool hasItems)
 
 	if(hasItems)
 	{
-		*m_outStr += m_listEnd;
+		*m_outStr += m_newline;
 		writeIndent();
 	}
 
@@ -120,7 +119,7 @@ void Writer::writeArrayEnd(bool hasItems)
 
 	if(hasItems)
 	{
-		*m_outStr += m_listEnd;
+		*m_outStr += m_newline;
 		writeIndent();
 	}
 
@@ -141,36 +140,6 @@ void Writer::write(std::nullptr_t)
 void Writer::write(bool value)
 {
 	*m_outStr += value ? "true" : "false";
-}
-
-void Writer::write(signed char value)
-{
-	write(static_cast<long long>(value));
-}
-
-void Writer::write(unsigned char value)
-{
-	write(static_cast<unsigned long long>(value));
-}
-
-void Writer::write(short value)
-{
-	write(static_cast<long long>(value));
-}
-
-void Writer::write(unsigned short value)
-{
-	write(static_cast<unsigned long long>(value));
-}
-
-void Writer::write(int value)
-{
-	write(static_cast<long long>(value));
-}
-
-void Writer::write(unsigned int value)
-{
-	write(static_cast<unsigned long long>(value));
 }
 
 void Writer::write(long long value)
@@ -248,7 +217,7 @@ void Writer::write(const Array& value)
 void Writer::writePreValue(bool first)
 {
 	if(first)
-		*m_outStr += m_listStart;
+		*m_outStr += m_newline;
 	else
 		*m_outStr += m_valueSep;
 

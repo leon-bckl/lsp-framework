@@ -34,8 +34,7 @@ private:
 	const std::string_view m_indent;
 	const std::string_view m_keySep;
 	const std::string_view m_valueSep;
-	const std::string_view m_listStart;
-	const std::string_view m_listEnd;
+	const std::string_view m_newline;
 
 	void writeIndent();
 	void writePreValue(bool first);
@@ -45,16 +44,17 @@ private:
 	void writeArrayEnd(bool hasItems);
 	void writeObjectKey(std::string_view key);
 
+	template<std::integral T>
+	void write(T t)
+	{
+		if constexpr(std::is_signed_v<T>)
+			write(static_cast<long long>(t));
+		else
+			write(static_cast<unsigned long long>(t));
+	}
+
 	void write(std::nullptr_t);
 	void write(bool value);
-	void write(signed char value);
-	void write(unsigned char value);
-	void write(short value);
-	void write(unsigned short value);
-	void write(int value);
-	void write(unsigned int value);
-	void write(long value);
-	void write(unsigned long value);
 	void write(long long value);
 	void write(unsigned long long value);
 	void write(double value);
@@ -67,11 +67,11 @@ private:
 };
 
 /*
- * IsJsonPrimitive
+ * JsonPrimitive
  */
 
 template<typename T>
-concept IsJsonPrimitive =
+concept JsonPrimitive =
 	std::is_null_pointer_v<T> ||
 	std::is_same_v<T, bool> ||
 	std::is_integral_v<T> ||
@@ -98,8 +98,7 @@ public:
 	[[nodiscard]] ObjectWriter beginObject(std::string_view key);
 	[[nodiscard]] ArrayWriter  beginArray(std::string_view key);
 
-	template<typename T>
-	requires IsJsonPrimitive<T>
+	template<JsonPrimitive T>
 	void write(std::string_view key, const T& value)
 	{
 		m_writer->writePreValue(m_first);
@@ -132,8 +131,7 @@ public:
 	[[nodiscard]] ObjectWriter beginObject();
 	[[nodiscard]] ArrayWriter  beginArray();
 
-	template<typename T>
-	requires IsJsonPrimitive<T>
+	template<JsonPrimitive T>
 	void write(const T& value)
 	{
 		m_writer->writePreValue(m_first);
