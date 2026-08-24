@@ -1,3 +1,4 @@
+lsp_add_test(connection)
 lsp_add_test(enumeration)
 lsp_add_test(nullable)
 add_executable(TestProcess test_process.cpp)
