@@ -1525,7 +1525,7 @@ private:
 				switch(p.type->category())
 				{
 				case Type::StringLiteral:
-					literalValue = json::toStringLiteral(p.type->as<StringLiteralType>().stringValue);
+					literalValue = json::stringify(std::string(p.type->as<StringLiteralType>().stringValue));
 					break;
 				case Type::IntegerLiteral:
 					literalValue = std::to_string(p.type->as<IntegerLiteralType>().integerValue);

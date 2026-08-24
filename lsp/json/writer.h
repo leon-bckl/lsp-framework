@@ -21,7 +21,6 @@ class Writer{
 	friend class ObjectWriter;
 	friend class ArrayWriter;
 	friend std::string stringify(const Value&, std::string_view); // Needed to write raw values
-	friend std::string toStringLiteral(std::string_view);
 public:
 	Writer(std::string& outStr, std::string_view indent = {});
 

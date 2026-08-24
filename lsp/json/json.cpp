@@ -1,11 +1,18 @@
 #include "json.h"
+#include "parser.h"
 #include "writer.h"
 
 namespace lsp::json{
 
 /*
- * stringify
+ * parse/stringify
  */
+
+Value parse(std::string_view text)
+{
+	auto parser = Parser(text);
+	return parser.parse();
+}
 
 std::string stringify(const Value& json, std::string_view indent)
 {
@@ -13,18 +20,6 @@ std::string stringify(const Value& json, std::string_view indent)
 	auto writer = Writer(str, indent);
 	writer.write(json);
 	return str;
-}
-
-/*
- * toStringLiteral
- */
-
-std::string toStringLiteral(std::string_view str)
-{
-	auto out    = std::string();
-	auto writer = Writer(out);
-	writer.write(str);
-	return out;
 }
 
 /*

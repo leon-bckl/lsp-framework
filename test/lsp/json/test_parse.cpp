@@ -154,17 +154,5 @@ int main(int argc, char** argv)
 		{"UnquotedKey",          {"{a:1}",            "String expected",               1}},
 	});
 
-	// This just covers the removal of the quotes. The rest is already tested in the string parsing test.
-	app.addTest("FromStringLiteral", [](std::string_view input, std::string_view expected)
-	{
-		test::compare(fromStringLiteral(input), expected);
-	})({
-		{"WithQuotes",        {R"("hello")", "hello"}},
-		{"WithoutQuotes",     {"hello",      "hello"}},
-		{"LeadingQuoteOnly",  {R"("hello)",  "hello"}},
-		{"TrailingQuoteOnly", {R"(hello")",  "hello"}},
-		{"Empty",             {"",           ""}},
-	});
-
 	return app.main(argc, argv);
 }
