@@ -120,6 +120,33 @@ int main(int argc, char** argv)
 		test::compare(obj.get("key").integer(), 2);
 	});
 
+	app.addTest("Object/AppendNewKey", [](){
+		auto obj = Object();
+		auto& ref = obj.append("key", Value(1));
+		test::compare(obj.size(), 1u);
+		test::check(obj.contains("key"), "contains");
+		test::compare(ref.integer(), 1);
+		test::compare(obj.get("key").integer(), 1);
+	});
+
+	app.addTest("Object/AppendDuplicateKey", [](){
+		auto obj = Object();
+		obj.append("key", Value(1));
+		auto& ref = obj.append("key", Value(2));
+
+		// append does not check for collisions, so both entries coexist
+		test::compare(obj.size(), 2u);
+		test::compare(ref.integer(), 2);
+
+		// find/get return the first matching entry
+		test::compare(obj.get("key").integer(), 1);
+
+		std::vector<int> values;
+		for(auto& [key, value] : obj)
+			values.push_back(value.integer());
+		test::compare(values, std::vector<int>{1, 2});
+	});
+
 	app.addTest("Object/Remove", [](){
 		auto obj = Object();
 		obj.insert("key", Value(1));

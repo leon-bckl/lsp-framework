@@ -84,6 +84,7 @@ public:
 	[[nodiscard]] bool     isEmpty() const{ return size() == 0; }
 
 	Value& insert(String key, Value value);
+	Value& append(String key, Value value);
 	void   remove(std::string_view key);
 	void   clear();
 	void   reserve(SizeType size);

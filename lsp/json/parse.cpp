@@ -7,10 +7,6 @@
 namespace lsp::json{
 namespace{
 
-constexpr auto NullValueString  = std::string_view("null");
-constexpr auto TrueValueString  = std::string_view("true");
-constexpr auto FalseValueString = std::string_view("false");
-
 class Parser{
 public:
 	Parser(std::string_view text)
@@ -174,7 +170,7 @@ private:
 		++m_pos;
 
 		popState();
-		pushState(State::Value, object[key]);
+		pushState(State::Value, object.append(key, {}));
 	}
 
 	void handleArray()
@@ -314,13 +310,13 @@ private:
 
 		auto identifier = std::string_view(idStart, m_pos);
 
-		if(identifier == TrueValueString)
+		if(identifier == "true")
 			return Boolean(true);
 
-		if(identifier == FalseValueString)
+		if(identifier == "false")
 			return Boolean(false);
 
-		if(identifier == NullValueString)
+		if(identifier == "null")
 			return Null();
 
 		throw ParseError("Unexpected '" + std::string(identifier) + "'", textOffset(idStart));

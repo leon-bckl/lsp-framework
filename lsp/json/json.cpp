@@ -55,6 +55,11 @@ Value& Object::insert(String key, Value value)
 		return *existingValue;
 	}
 
+	return append(std::move(key), std::move(value));
+}
+
+Value& Object::append(String key, Value value)
+{
 	return m_keyValuePairs.emplace_back(std::move(key), std::move(value)).value();
 }
 
