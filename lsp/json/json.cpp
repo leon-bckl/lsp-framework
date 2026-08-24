@@ -1,9 +1,31 @@
 #include "json.h"
+#include "writer.h"
 
 namespace lsp::json{
-namespace{
 
-} // namespace
+/*
+ * stringify
+ */
+
+std::string stringify(const Value& json, std::string_view indent)
+{
+	auto str    = std::string();
+	auto writer = Writer(str, indent);
+	writer.write(json);
+	return str;
+}
+
+/*
+ * toStringLiteral
+ */
+
+std::string toStringLiteral(std::string_view str)
+{
+	auto out    = std::string();
+	auto writer = Writer(out);
+	writer.write(str);
+	return out;
+}
 
 /*
  * Value

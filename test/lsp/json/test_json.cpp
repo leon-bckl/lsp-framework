@@ -307,5 +307,62 @@ int main(int argc, char** argv)
 		test::compare(collectKeys(obj.cbegin(), obj.cend()), std::vector<std::string>{"a", "b", "c"});
 	});
 
+	/*
+	 * Stringify is implemented using json::Writer so the test cases here are minimal.
+	 * Scalar values are tested directly since they cannot be written via the writer
+	 * because that only writes entire json documents (object/array).
+	 */
+
+	auto expectString = [](Value value, std::string_view expected)
+	{
+		test::compare(stringify(value), expected);
+	};
+
+	app.addTest("Stringify/Literals", expectString)({
+		{"Null",  {nullptr, "null"}},
+		{"True",  {true,    "true"}},
+		{"False", {false,   "false"}},
+	});
+
+	app.addTest("Stringify/Numbers", expectString)({
+		{"Zero",               {0,        "0"}},
+		{"PositiveInteger",    {42,       "42"}},
+		{"NegativeInteger",    {-42,      "-42"}},
+		{"Decimal",            {3.14,     "3.14"}},
+		{"DecimalWholeNumber", {3.0,      "3.0"}},
+		{"NegativeDecimal",    {-2.5,     "-2.5"}},
+		{"NegativeZero",       {-0.0,     "-0.0"}},
+		{"SmallDecimal",       {0.001,    "0.001"}},
+		{"SmallFixed",         {0.0001,   "0.0001"}},
+		{"LargeFixed",         {100000.0, "100000.0"}},
+		{"SmallScientific",    {1e-7,     "1e-07"}},
+		{"LargeScientific",    {1e21,     "1e+21"}},
+	});
+
+	app.addTest("Stringify/Strings", expectString)({
+		{"Empty",                 {"",              R"("")"}},
+		{"Simple",                {"hello",         R"("hello")"}},
+		{"QuoteEscape",           {"a\"b",          R"("a\"b")"}},
+		{"BackslashEscape",       {"a\\b",          R"("a\\b")"}},
+		{"BackspaceEscape",       {"a\bb",          R"("a\bb")"}},
+		{"TabEscape",             {"a\tb",          R"("a\tb")"}},
+		{"NewlineEscape",         {"a\nb",          R"("a\nb")"}},
+		{"FormFeedEscape",        {"a\fb",          R"("a\fb")"}},
+		{"CarriageReturnEscape",  {"a\rb",          R"("a\rb")"}},
+		{"UnnamedControlChar",    {"a\ab",          R"("a\u0007b")"}},
+		{"MixedEscapes",          {"a\tb\nc\\d\"e", R"("a\tb\nc\\d\"e")"}},
+		{"UnicodePassedThrough",  {"中",            "\"中\""}},
+	});
+
+	app.addTest("Stringify/SimpleObject", [](){
+		test::compare(stringify(Object({{"a", 1}})), std::string_view(R"({"a":1})"));
+		test::compare(stringify(Object({{"a", 1}}), "\t"), std::string_view("{\n\t\"a\": 1\n}"));
+	});
+
+	app.addTest("Stringify/SimpleArray", [](){
+		test::compare(stringify(Array({1, 2})), std::string_view("[1,2]"));
+		test::compare(stringify(Array({1, 2}), "\t"), std::string_view("[\n\t1,\n\t2\n]"));
+	});
+
 	return app.main(argc, argv);
 }

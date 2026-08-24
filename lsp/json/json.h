@@ -56,10 +56,10 @@ using Array   = std::vector<Value>;
  * parse/stringify
  */
 
-Value  parse(std::string_view text);
-String stringify(const Value& json, std::string_view indent = {});
-String toStringLiteral(std::string_view str);
-String fromStringLiteral(std::string_view str);
+Value       parse(std::string_view text);
+std::string stringify(const Value& json, std::string_view indent = {});
+std::string toStringLiteral(std::string_view str);
+std::string fromStringLiteral(std::string_view str);
 
 /*
  * Object
