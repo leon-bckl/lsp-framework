@@ -7,7 +7,7 @@ using namespace lsp::json;
 namespace test{
 
 template<>
-auto toString<Value>(const Value& v) -> std::string
+std::string toString<Value>(const Value& v)
 {
 	return std::visit([](const auto& actualValue){
 		return test::toString(actualValue);
@@ -319,100 +319,43 @@ int main(int argc, char** argv)
 		test::compare(collectKeys(obj.cbegin(), obj.cend()), std::vector<std::string>{"a", "b", "c"});
 	});
 
-	/*
-	 * Stringify is implemented using json::Writer so the test cases here are minimal.
-	 * Scalar values are tested directly since they cannot be written via the writer
-	 * because that only writes entire json documents (object/array).
-	 */
-
-	auto expectString = [](Value value, std::string_view expected)
+	app.addTest("Stringify", [](Value value, std::string_view expected)
 	{
 		test::compare(stringify(value), expected);
-	};
+	})({
+		{"Null", {nullptr, "null"}},
+		{"True", {true,    "true"}},
 
-	app.addTest("Stringify/Literals", expectString)({
-		{"Null",  {nullptr, "null"}},
-		{"True",  {true,    "true"}},
-		{"False", {false,   "false"}},
-	});
+		{"Integer", {42,   "42"}},
+		{"Decimal", {3.14, "3.14"}},
 
-	app.addTest("Stringify/Numbers", expectString)({
-		{"Zero",               {0,        "0"}},
-		{"PositiveInteger",    {42,       "42"}},
-		{"NegativeInteger",    {-42,      "-42"}},
-		{"Decimal",            {3.14,     "3.14"}},
-		{"DecimalWholeNumber", {3.0,      "3.0"}},
-		{"NegativeDecimal",    {-2.5,     "-2.5"}},
-		{"NegativeZero",       {-0.0,     "-0.0"}},
-		{"SmallDecimal",       {0.001,    "0.001"}},
-		{"SmallFixed",         {0.0001,   "0.0001"}},
-		{"LargeFixed",         {100000.0, "100000.0"}},
-		{"SmallScientific",    {1e-7,     "1e-07"}},
-		{"LargeScientific",    {1e21,     "1e+21"}},
-	});
+		{"Simple",      {"hello", R"("hello")"}},
+		{"QuoteEscape", {"a\"b",  R"("a\"b")"}},
 
-	app.addTest("Stringify/Strings", expectString)({
-		{"Empty",                 {"",              R"("")"}},
-		{"Simple",                {"hello",         R"("hello")"}},
-		{"QuoteEscape",           {"a\"b",          R"("a\"b")"}},
-		{"BackslashEscape",       {"a\\b",          R"("a\\b")"}},
-		{"BackspaceEscape",       {"a\bb",          R"("a\bb")"}},
-		{"TabEscape",             {"a\tb",          R"("a\tb")"}},
-		{"NewlineEscape",         {"a\nb",          R"("a\nb")"}},
-		{"FormFeedEscape",        {"a\fb",          R"("a\fb")"}},
-		{"CarriageReturnEscape",  {"a\rb",          R"("a\rb")"}},
-		{"UnnamedControlChar",    {"a\ab",          R"("a\u0007b")"}},
-		{"MixedEscapes",          {"a\tb\nc\\d\"e", R"("a\tb\nc\\d\"e")"}},
-		{"UnicodePassedThrough",  {"中",            "\"中\""}},
-	});
-
-	app.addTest("Stringify/SimpleObject", [](){
-		test::compare(stringify(Object({{"a", 1}})), std::string_view(R"({"a":1})"));
-		test::compare(stringify(Object({{"a", 1}}), "\t"), std::string_view("{\n\t\"a\": 1\n}"));
-	});
-
-	app.addTest("Stringify/SimpleArray", [](){
-		test::compare(stringify(Array({1, 2})), std::string_view("[1,2]"));
-		test::compare(stringify(Array({1, 2}), "\t"), std::string_view("[\n\t1,\n\t2\n]"));
+		{"SimpleObject", {Object({{"a", 1}}), R"({"a":1})"}},
+		{"SimpleArray",  {Array({1, 2}),      "[1,2]"}},
 	});
 
 	/*
 	 * Parse is implemented using json::Parser so the test cases here are minimal.
 	 */
 
-	auto expectValue = [](std::string_view text, Value expected)
+	app.addTest("Parse", [](std::string_view text, Value expected)
 	{
 		test::compare(parse(text), expected);
-	};
-
-	app.addTest("Parse/Literals", expectValue)({
-		{"Null",  {"null",  nullptr}},
-		{"True",  {"true",  true}},
-		{"False", {"false", false}},
+	})({
+		{"Null",         {"null",       nullptr}},
+		{"True",         {"true",       true}},
+		{"False",        {"false",      false}},
+		{"Integer",      {"42",         42}},
+		{"Decimal",      {"3.14",       3.14}},
+		{"String",       {R"("hello")", "hello"}},
+		{"SimpleObject", {R"({"a":1})", Object({{"a", 1}})}},
+		{"SimpleArray",  {"[1,2]",      Array({1, 2})}},
 	});
 
-	app.addTest("Parse/Number", expectValue)({
-		{"Integer", {"42",   42}},
-		{"Decimal", {"3.14", 3.14}},
-	});
-
-	app.addTest("Parse/String", [](){
-		test::compare(parse(R"("hello")").string(), std::string("hello"));
-	});
-
-	app.addTest("Parse/SimpleObject", [](){
-		test::compare(parse(R"({"a":1})").object().get("a").integer(), 1);
-	});
-
-	app.addTest("Parse/SimpleArray", [](){
-		const auto  value = parse("[1,2]");
-		const auto& arr   = value.array();
-		test::compare(arr.size(), 2);
-		test::compare(arr[0].integer(), 1);
-		test::compare(arr[1].integer(), 2);
-	});
-
-	app.addTest("Parse/Error", [](){
+	app.addTest("Parse/Error", []()
+	{
 		test::expectException<ParseError>([](){ (void)parse("{"); });
 	});
 

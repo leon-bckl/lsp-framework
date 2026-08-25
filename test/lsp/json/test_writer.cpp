@@ -328,19 +328,53 @@ int main(int argc, char** argv)
 		test::compare(out, std::string_view(R"([42,{"x":1},[1,2]])"));
 	});
 
-	auto expectNonFinite = [&build](double value, std::string_view expected){
+	app.addTest("Number/NanInf", [&build](double value, std::string_view expected){
 		const auto out = build({}, [value](Writer& writer){
 			auto aw = writer.beginArray();
 			aw.write(value);
 		});
 
 		test::compare(out, expected);
-	};
-
-	app.addTest("Number/NanInf", expectNonFinite)({
+	})({
 		{"NaN",              {std::numeric_limits<double>::quiet_NaN(), "[null]"}},
 		{"Infinity",         {std::numeric_limits<double>::infinity(),  "[null]"}},
 		{"NegativeInfinity", {-std::numeric_limits<double>::infinity(), "[null]"}},
+	});
+
+	app.addTest("Scalar", [&build](Value value, std::string_view expected){
+		const auto out = build({}, [&value](Writer& writer){
+			writer.write(value);
+		});
+
+		test::compare(out, expected);
+	})({
+		{"Null",                 {nullptr,         "null"}},
+		{"True",                 {true,            "true"}},
+		{"False",                {false,           "false"}},
+		{"Zero",                 {0,               "0"}},
+		{"PositiveInteger",      {42,              "42"}},
+		{"NegativeInteger",      {-42,             "-42"}},
+		{"Decimal",              {3.14,            "3.14"}},
+		{"DecimalWholeNumber",   {3.0,             "3.0"}},
+		{"NegativeDecimal",      {-2.5,            "-2.5"}},
+		{"NegativeZero",         {-0.0,            "-0.0"}},
+		{"SmallDecimal",         {0.001,           "0.001"}},
+		{"SmallFixed",           {0.0001,          "0.0001"}},
+		{"LargeFixed",           {100000.0,        "100000.0"}},
+		{"SmallScientific",      {1e-7,            "1e-07"}},
+		{"LargeScientific",      {1e21,            "1e+21"}},
+		{"Empty",                {"",              R"("")"}},
+		{"Simple",               {"hello",         R"("hello")"}},
+		{"QuoteEscape",          {"a\"b",          R"("a\"b")"}},
+		{"BackslashEscape",      {"a\\b",          R"("a\\b")"}},
+		{"BackspaceEscape",      {"a\bb",          R"("a\bb")"}},
+		{"TabEscape",            {"a\tb",          R"("a\tb")"}},
+		{"NewlineEscape",        {"a\nb",          R"("a\nb")"}},
+		{"FormFeedEscape",       {"a\fb",          R"("a\fb")"}},
+		{"CarriageReturnEscape", {"a\rb",          R"("a\rb")"}},
+		{"UnnamedControlChar",   {"a\ab",          R"("a\u0007b")"}},
+		{"MixedEscapes",         {"a\tb\nc\\d\"e", R"("a\tb\nc\\d\"e")"}},
+		{"UnicodePassedThrough", {"中",            R"("中")"}},
 	});
 
 	app.addTest("Composite/NestedArrayAndObject", [&build](){

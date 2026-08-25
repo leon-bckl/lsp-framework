@@ -20,7 +20,6 @@ using Array = std::vector<Value>;
 class Writer{
 	friend class ObjectWriter;
 	friend class ArrayWriter;
-	friend std::string stringify(const Value&, std::string_view); // Needed to write raw values
 public:
 	Writer(std::string& outStr, std::string_view indent = {});
 
@@ -28,25 +27,6 @@ public:
 	Writer(Writer&&)                 = delete;
 	Writer& operator=(const Writer&) = delete;
 	Writer& operator=(Writer&&)      = delete;
-
-	[[nodiscard]] ObjectWriter beginObject();
-	[[nodiscard]] ArrayWriter  beginArray();
-
-private:
-	std::string*           m_outStr      = nullptr;
-	int                    m_indentLevel = 0;
-	const std::string_view m_indent;
-	const std::string_view m_keySep;
-	const std::string_view m_valueSep;
-	const std::string_view m_newline;
-
-	void writeIndent();
-	void writePreValue(bool first);
-	void writeObjectStart();
-	void writeObjectEnd(bool hasItems);
-	void writeArrayStart();
-	void writeArrayEnd(bool hasItems);
-	void writeObjectKey(std::string_view key);
 
 	template<std::integral T>
 	void write(T t)
@@ -68,6 +48,25 @@ private:
 	void write(const Value& value);
 	void write(const Object& value);
 	void write(const Array& value);
+
+	[[nodiscard]] ObjectWriter beginObject();
+	[[nodiscard]] ArrayWriter  beginArray();
+
+private:
+	std::string*           m_outStr       = nullptr;
+	int                    m_nestingLevel = 0;
+	const std::string_view m_indent;
+	const std::string_view m_keySep;
+	const std::string_view m_valueSep;
+	const std::string_view m_newline;
+
+	void writeIndent();
+	void writePreValue(bool first);
+	void writeObjectStart();
+	void writeObjectEnd(bool hasItems);
+	void writeArrayStart();
+	void writeArrayEnd(bool hasItems);
+	void writeObjectKey(std::string_view key);
 };
 
 /*

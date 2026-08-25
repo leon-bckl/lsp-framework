@@ -70,69 +70,6 @@ Writer::Writer(std::string& outStr, std::string_view indent)
 {
 }
 
-ObjectWriter Writer::beginObject()
-{
-	return ObjectWriter(*this);
-}
-
-ArrayWriter Writer::beginArray()
-{
-	return ArrayWriter(*this);
-}
-
-void Writer::writeIndent()
-{
-	if(!m_indent.empty())
-	{
-		for(int i = 0; i < m_indentLevel; ++i)
-			*m_outStr += m_indent;
-	}
-}
-
-void Writer::writeObjectStart()
-{
-	*m_outStr += '{';
-	++m_indentLevel;
-}
-
-void Writer::writeObjectEnd(bool hasItems)
-{
-	--m_indentLevel;
-
-	if(hasItems)
-	{
-		*m_outStr += m_newline;
-		writeIndent();
-	}
-
-	*m_outStr += '}';
-}
-
-void Writer::writeArrayStart()
-{
-	*m_outStr += '[';
-	++m_indentLevel;
-}
-
-void Writer::writeArrayEnd(bool hasItems)
-{
-	--m_indentLevel;
-
-	if(hasItems)
-	{
-		*m_outStr += m_newline;
-		writeIndent();
-	}
-
-	*m_outStr += ']';
-}
-
-void Writer::writeObjectKey(std::string_view key)
-{
-	appendStringLiteral(key, *m_outStr);
-	*m_outStr += m_keySep;
-}
-
 void Writer::write(std::nullptr_t)
 {
 	*m_outStr += "null";
@@ -213,6 +150,69 @@ void Writer::write(const Array& value)
 
 	for(const auto& v : value)
 		arrayWriter.write(v);
+}
+
+ObjectWriter Writer::beginObject()
+{
+	return ObjectWriter(*this);
+}
+
+ArrayWriter Writer::beginArray()
+{
+	return ArrayWriter(*this);
+}
+
+void Writer::writeIndent()
+{
+	if(!m_indent.empty())
+	{
+		for(int i = 0; i < m_nestingLevel; ++i)
+			*m_outStr += m_indent;
+	}
+}
+
+void Writer::writeObjectStart()
+{
+	*m_outStr += '{';
+	++m_nestingLevel;
+}
+
+void Writer::writeObjectEnd(bool hasItems)
+{
+	--m_nestingLevel;
+
+	if(hasItems)
+	{
+		*m_outStr += m_newline;
+		writeIndent();
+	}
+
+	*m_outStr += '}';
+}
+
+void Writer::writeArrayStart()
+{
+	*m_outStr += '[';
+	++m_nestingLevel;
+}
+
+void Writer::writeArrayEnd(bool hasItems)
+{
+	--m_nestingLevel;
+
+	if(hasItems)
+	{
+		*m_outStr += m_newline;
+		writeIndent();
+	}
+
+	*m_outStr += ']';
+}
+
+void Writer::writeObjectKey(std::string_view key)
+{
+	appendStringLiteral(key, *m_outStr);
+	*m_outStr += m_keySep;
 }
 
 void Writer::writePreValue(bool first)

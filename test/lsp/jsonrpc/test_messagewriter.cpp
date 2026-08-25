@@ -242,6 +242,29 @@ int main(int argc, char** argv)
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":null})"));
 	});
 
+	app.addTest("Response/ManualFinalizeClosesErrorObject", [](){
+		auto out    = std::string();
+		auto writer = json::Writer(out);
+		auto rw     = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), jsonrpc::Error::InvalidRequest, "Invalid Request");
+
+		rw.finalize();
+
+		// Make sure the nested error object is closed with finalize
+		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"}})"));
+	});
+
+	app.addTest("Response/ManualFinalizeClosesErrorDataObject", [](){
+		auto out    = std::string();
+		auto writer = json::Writer(out);
+		auto rw     = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), jsonrpc::Error::InvalidRequest, "Invalid Request");
+		rw.writeDataObject().write("reason", "bad");
+
+		rw.finalize();
+
+		test::compare(out, std::string_view(
+			R"({"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request","data":{"reason":"bad"}}})"));
+	});
+
 	app.addTest("Response/ErrorNullId", [](){
 		const auto out = build({}, [](json::Writer& writer){
 			auto rw = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Null{}), Error::ParseError, "Parse error");
