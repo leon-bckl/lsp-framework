@@ -31,11 +31,13 @@ using SingleRequestOrBatch = std::variant<Request, RequestBatch>;
  */
 
 struct Error{
-	static constexpr json::Integer ParseError     = -32700;
-	static constexpr json::Integer InvalidRequest = -32600;
-	static constexpr json::Integer MethodNotFound = -32601;
-	static constexpr json::Integer InvalidParams  = -32602;
-	static constexpr json::Integer InternalError  = -32603;
+	enum : int{
+		ParseError     = -32700,
+		InvalidRequest = -32600,
+		MethodNotFound = -32601,
+		InvalidParams  = -32602,
+		InternalError  = -32603
+	};
 
 	json::Integer              code;
 	json::String               message;

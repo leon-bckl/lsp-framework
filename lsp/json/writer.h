@@ -106,6 +106,12 @@ public:
 		m_first = false;
 	}
 
+	template<typename... Args>
+	void write(std::string_view key, const std::variant<Args...>& value)
+	{
+		std::visit([this, key](const auto& v){ this->write(key, v); }, value);
+	}
+
 private:
 	Writer* m_writer = nullptr;
 	bool    m_first  = true;

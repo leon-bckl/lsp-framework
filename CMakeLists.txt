@@ -86,6 +86,7 @@ set(LSP_HEADERS
 	json/writer.h
 	# jsonrpc
 	jsonrpc/jsonrpc.h
+	jsonrpc/messagewriter.h
 )
 list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR}/)
 
@@ -105,6 +106,7 @@ set(LSP_SOURCES
 	json/writer.cpp
 	# jsonrpc
 	jsonrpc/jsonrpc.cpp
+	jsonrpc/messagewriter.cpp
 )
 list(TRANSFORM LSP_SOURCES PREPEND ${LSP_SRC_DIR}/)
 
