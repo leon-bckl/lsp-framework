@@ -12,3 +12,4 @@ lsp_add_test(uri)
 lsp_add_test(socket)
 
 add_subdirectory(json)
+add_subdirectory(jsonrpc)

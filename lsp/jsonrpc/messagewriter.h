@@ -76,8 +76,8 @@ public:
 
 	void finalize();
 
-	[[nodiscard]] RequestWriter writeRequest(const MessageId& id, std::string_view method);
-	[[nodiscard]] RequestWriter writeNotification(std::string_view method);
+	[[nodiscard]] RequestWriter  writeRequest(const MessageId& id, std::string_view method);
+	[[nodiscard]] RequestWriter  writeNotification(std::string_view method);
 	[[nodiscard]] ResponseWriter writeResponse(const MessageId& id);
 	[[nodiscard]] ResponseWriter writeError(const MessageId& id, int code, std::string_view message);
 
