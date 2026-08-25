@@ -94,10 +94,13 @@ class ObjectWriter{
 public:
 	~ObjectWriter();
 
+	ObjectWriter(ObjectWriter&& other) noexcept;
+	ObjectWriter& operator=(ObjectWriter&& other) noexcept;
+
 	ObjectWriter(const ObjectWriter&)            = delete;
 	ObjectWriter& operator=(const ObjectWriter&) = delete;
-	ObjectWriter(ObjectWriter&& other);
-	ObjectWriter& operator=(ObjectWriter&& other);
+
+	void finalize();
 
 	[[nodiscard]] ObjectWriter beginObject(std::string_view key);
 	[[nodiscard]] ArrayWriter  beginArray(std::string_view key);
@@ -133,10 +136,13 @@ class ArrayWriter{
 public:
 	~ArrayWriter();
 
+	ArrayWriter(ArrayWriter&& other) noexcept;
+	ArrayWriter& operator=(ArrayWriter&& other) noexcept;
+
 	ArrayWriter(const ArrayWriter&)            = delete;
 	ArrayWriter& operator=(const ArrayWriter&) = delete;
-	ArrayWriter(ArrayWriter&& other);
-	ArrayWriter& operator=(ArrayWriter&& other);
+
+	void finalize();
 
 	[[nodiscard]] ObjectWriter beginObject();
 	[[nodiscard]] ArrayWriter  beginArray();

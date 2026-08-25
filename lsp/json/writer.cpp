@@ -1,5 +1,6 @@
 #include <charconv>
 #include <cmath>
+#include <utility>
 #include "writer.h"
 #include "json.h"
 
@@ -236,27 +237,32 @@ ObjectWriter::ObjectWriter(Writer& writer)
 
 ObjectWriter::~ObjectWriter()
 {
-	if(m_writer)
-		m_writer->writeObjectEnd(!m_first);
+	finalize();
 }
 
-ObjectWriter::ObjectWriter(ObjectWriter&& other)
-	: m_writer{other.m_writer}
+ObjectWriter::ObjectWriter(ObjectWriter&& other) noexcept
+	: m_writer{std::exchange(other.m_writer, nullptr)}
 	, m_first{other.m_first}
 {
-	other.m_writer = nullptr;
 }
 
-ObjectWriter& ObjectWriter::operator=(ObjectWriter&& other)
+ObjectWriter& ObjectWriter::operator=(ObjectWriter&& other) noexcept
 {
-	if(m_writer)
-		m_writer->writeObjectEnd(!m_first);
+	finalize();
 
-	m_writer       = other.m_writer;
-	m_first        = other.m_first;
-	other.m_writer = nullptr;
+	m_writer = std::exchange(other.m_writer, nullptr);
+	m_first  = other.m_first;
 
 	return *this;
+}
+
+void ObjectWriter::finalize()
+{
+	if(m_writer)
+	{
+		m_writer->writeObjectEnd(!m_first);
+		m_writer = nullptr;
+	}
 }
 
 ObjectWriter ObjectWriter::beginObject(std::string_view key)
@@ -287,27 +293,32 @@ ArrayWriter::ArrayWriter(Writer& writer)
 
 ArrayWriter::~ArrayWriter()
 {
-	if(m_writer)
-		m_writer->writeArrayEnd(!m_first);
+	finalize();
 }
 
-ArrayWriter::ArrayWriter(ArrayWriter&& other)
-	: m_writer{other.m_writer}
+ArrayWriter::ArrayWriter(ArrayWriter&& other) noexcept
+	: m_writer{std::exchange(other.m_writer, nullptr)}
 	, m_first{other.m_first}
 {
-	other.m_writer = nullptr;
 }
 
-ArrayWriter& ArrayWriter::operator=(ArrayWriter&& other)
+ArrayWriter& ArrayWriter::operator=(ArrayWriter&& other) noexcept
 {
-	if(m_writer)
-		m_writer->writeArrayEnd(!m_first);
+	finalize();
 
-	m_writer       = other.m_writer;
-	m_first        = other.m_first;
-	other.m_writer = nullptr;
+	m_writer = std::exchange(other.m_writer, nullptr);
+	m_first  = other.m_first;
 
 	return *this;
+}
+
+void ArrayWriter::finalize()
+{
+	if(m_writer)
+	{
+		m_writer->writeArrayEnd(!m_first);
+		m_writer = nullptr;
+	}
 }
 
 ObjectWriter ArrayWriter::beginObject()

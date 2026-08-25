@@ -128,6 +128,53 @@ int main(int argc, char** argv)
 		test::compare(outB, std::string_view("[2]"));
 	});
 
+	app.addTest("Object/ManualFinalize", [&build](){
+		const auto out = build({}, [](Writer& writer){
+			auto ow = writer.beginObject();
+			auto inner = ow.beginObject("nested");
+			inner.write("a", 1);
+			inner.finalize();
+			ow.write("done", true);
+		});
+
+		test::compare(out, std::string_view(R"({"nested":{"a":1},"done":true})"));
+	});
+
+	app.addTest("Array/ManualFinalize", [&build](){
+		const auto out = build({}, [](Writer& writer){
+			auto ow    = writer.beginObject();
+			auto inner = ow.beginArray("items");
+			inner.write(1);
+			inner.write(2);
+			inner.finalize();
+			ow.write("done", true);
+		});
+
+		test::compare(out, std::string_view(R"({"items":[1,2],"done":true})"));
+	});
+
+	app.addTest("ObjectWriter/FinalizeIsIdempotent", [&build](){
+		const auto out = build({}, [](Writer& writer){
+			auto ow = writer.beginObject();
+			ow.write("a", 1);
+			ow.finalize();
+			ow.finalize();
+		});
+
+		test::compare(out, std::string_view(R"({"a":1})"));
+	});
+
+	app.addTest("ArrayWriter/FinalizeIsIdempotent", [&build](){
+		const auto out = build({}, [](Writer& writer){
+			auto aw = writer.beginArray();
+			aw.write(1);
+			aw.finalize();
+			aw.finalize();
+		});
+
+		test::compare(out, std::string_view("[1]"));
+	});
+
 	app.addTest("Array/Empty", [&build](){
 		const auto out = build({}, [](Writer& writer){
 			auto aw = writer.beginArray();

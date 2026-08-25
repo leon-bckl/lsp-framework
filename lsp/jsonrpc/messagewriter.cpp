@@ -27,6 +27,11 @@ RequestWriter::RequestWriter(json::ObjectWriter&& writer, std::string_view metho
 	writeMessageBase(m_writer, id, method);
 }
 
+void RequestWriter::finalize()
+{
+	m_writer.finalize();
+}
+
 RequestWriter RequestWriter::writeRequest(json::ObjectWriter&& writer, const MessageId& id, std::string_view method)
 {
 	return RequestWriter(std::move(writer), method, &id);
@@ -57,29 +62,35 @@ ResponseWriter::ResponseWriter(json::ObjectWriter&& writer, const MessageId& id)
 	writeMessageBase(m_writer, &id);
 }
 
-ResponseWriter::ResponseWriter(ResponseWriter&& other)
+ResponseWriter::ResponseWriter(ResponseWriter&& other) noexcept
 	: m_hasData{std::exchange(other.m_hasData, true)}
 	, m_writer{std::move(other.m_writer)}
 	, m_errorWriter{std::move(other.m_errorWriter)}
 {
 }
 
-ResponseWriter& ResponseWriter::operator=(ResponseWriter&& other)
+ResponseWriter::~ResponseWriter()
 {
-	if(!m_hasData && !m_errorWriter.has_value())
-		writeData(nullptr);
+	finalize();
+}
 
-	m_hasData       = std::exchange(other.m_hasData, true);
-	m_writer        = std::move(other.m_writer);
-	m_errorWriter   = std::move(other.m_errorWriter);
+ResponseWriter& ResponseWriter::operator=(ResponseWriter&& other) noexcept
+{
+	finalize();
+
+	m_hasData     = std::exchange(other.m_hasData, true);
+	m_writer      = std::move(other.m_writer);
+	m_errorWriter = std::move(other.m_errorWriter);
 
 	return *this;
 }
 
-ResponseWriter::~ResponseWriter()
+void ResponseWriter::finalize()
 {
 	if(!m_hasData && !m_errorWriter.has_value())
 		writeData(nullptr);
+
+	m_writer.finalize();
 }
 
 ResponseWriter ResponseWriter::writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id)
@@ -126,6 +137,11 @@ json::ArrayWriter ResponseWriter::writeDataArray()
 BatchWriter::BatchWriter(json::ArrayWriter&& writer)
 	: m_writer{std::move(writer)}
 {
+}
+
+void BatchWriter::finalize()
+{
+	m_writer.finalize();
 }
 
 RequestWriter BatchWriter::writeRequest( const MessageId& id, std::string_view method)
