@@ -90,6 +90,9 @@ void ResponseWriter::finalize()
 	if(!m_hasData && !m_errorWriter.has_value())
 		writeData(nullptr);
 
+	if(m_errorWriter.has_value())
+		m_errorWriter->finalize();
+
 	m_writer.finalize();
 }
 

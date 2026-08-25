@@ -11,6 +11,18 @@
 
 using namespace lsp;
 
+namespace test{
+
+template<>
+std::string toString<json::Value>(const json::Value& v)
+{
+	return std::visit([](const auto& actualValue){
+		return test::toString(actualValue);
+	}, v.variant());
+}
+
+} // namespace test
+
 namespace{
 
 class MemoryStream : public io::Stream{
@@ -78,6 +90,25 @@ std::string expectedMessageText(std::string_view body)
 {
 	return "Content-Length: " + std::to_string(body.size()) +
 		"\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n" + std::string(body);
+}
+
+std::string sendMessage(auto&& fn)
+{
+	auto stream     = MemoryStream();
+	auto connection = Connection(stream);
+
+	fn(connection);
+
+	return stream.output();
+}
+
+// The Send/* tests' body may be pretty-printed or compact depending on whether
+// LSP_MESSAGE_DEBUG_LOG is on, so compare parsed content instead of exact text.
+json::Value parseMessageBody(std::string_view rawOutput)
+{
+	const auto headerEnd = rawOutput.find("\r\n\r\n");
+	test::check(headerEnd != std::string_view::npos, "hasHeaderBodySeparator");
+	return json::parse(rawOutput.substr(headerEnd + 4));
 }
 
 } // namespace
@@ -208,15 +239,13 @@ int main(int argc, char** argv)
 		test::compare(stream.output(), expectedMessageText(R"({"jsonrpc":"2.0","id":1,"result":42})"));
 	});
 
-	auto expectReadError = [](std::string rawInput, std::string_view expectedMessage)
+	app.addTest("ReadMessage/Errors", [](std::string rawInput, std::string_view expectedMessage)
 	{
 		auto stream     = MemoryStream(std::move(rawInput));
 		auto connection = Connection(stream);
 
 		test::expectException<ConnectionError>([&](){ (void)connection.readMessage(); }, expectedMessage);
-	};
-
-	app.addTest("ReadMessage/Errors", expectReadError)({
+	})({
 		{"ConnectionLostOnEmptyStream",
 		 {"", "Connection lost"}},
 		{"EofMidHeader",
@@ -292,6 +321,141 @@ int main(int argc, char** argv)
 
 		test::compare(streamA.output(), expectedMessageText(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
 		test::check(streamB.output().empty(), "streamBUntouched");
+	});
+
+	app.addTest("Send/Request", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
+	});
+
+	app.addTest("Send/RequestWithParamsObject", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
+			sender.writeParamsObject().write("x", 1);
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo","params":{"x":1}})"));
+	});
+
+	app.addTest("Send/RequestWithParamsArray", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
+			auto params = sender.writeParamsArray();
+			params.write(1);
+			params.write(2);
+			params.finalize();
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo","params":[1,2]})"));
+	});
+
+	app.addTest("Send/Notification", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.notification("foo");
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","method":"foo"})"));
+	});
+
+	app.addTest("Send/NotificationWithParams", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.notification("foo");
+			sender.writeParamsObject().write("x", 1);
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","method":"foo","params":{"x":1}})"));
+	});
+
+	app.addTest("Send/ResponseNoDataDefaultsToNull", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.response(jsonrpc::MessageId(json::Integer(1)));
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"result":null})"));
+	});
+
+	app.addTest("Send/ResponseWithScalarData", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.response(jsonrpc::MessageId(json::Integer(1)));
+			sender.writeData(42);
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"result":42})"));
+	});
+
+	app.addTest("Send/ResponseWithDataObject", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.response(jsonrpc::MessageId(json::Integer(1)));
+			sender.writeDataObject().write("a", 1);
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"result":{"a":1}})"));
+	});
+
+	app.addTest("Send/ErrorResponse", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.errorResponse(jsonrpc::MessageId(json::Integer(1)), jsonrpc::Error::InvalidParams, "Invalid params");
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}})"));
+	});
+
+	app.addTest("Send/ErrorResponseWithDataObject", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.errorResponse(jsonrpc::MessageId(json::Integer(1)), jsonrpc::Error::InvalidParams, "Invalid params");
+			sender.writeDataObject().write("field", "x");
+			sender.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params","data":{"field":"x"}}})"));
+	});
+
+	app.addTest("Send/Batch", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto batch = connection.messageBatch();
+
+			{
+				auto rw = batch.writeNotification("foo");
+			}
+			{
+				auto rw = batch.writeResponse(jsonrpc::MessageId(json::Integer(1)));
+				rw.writeData(1);
+			}
+
+			batch.submit(connection);
+		});
+
+		test::compare(parseMessageBody(out), json::parse(R"([{"jsonrpc":"2.0","method":"foo"},{"jsonrpc":"2.0","id":1,"result":1}])"));
+	});
+
+	app.addTest("Send/RoundTrip", [](){
+		const auto out = sendMessage([](Connection& connection){
+			auto sender = connection.request("textDocument/foo", jsonrpc::MessageId(json::String("abc")));
+			sender.writeParamsObject().write("x", 1);
+			sender.submit(connection);
+		});
+
+		auto readStream     = MemoryStream(out);
+		auto readConnection = Connection(readStream);
+
+		auto  message = readConnection.readMessage();
+		auto& request = std::get<jsonrpc::Request>(std::get<jsonrpc::Message>(message));
+
+		test::compare(*request.id, jsonrpc::MessageId(json::String("abc")));
+		test::compare(request.method, std::string("textDocument/foo"));
+		test::compare(request.params->object().get("x").integer(), 1);
 	});
 
 	app.addTest("ReadWriteRoundTrip", [](){

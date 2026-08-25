@@ -4,7 +4,9 @@
 #include <string>
 #include <variant>
 #include <lsp/exception.h>
+#include <lsp/json/writer.h>
 #include <lsp/jsonrpc/jsonrpc.h>
+#include <lsp/jsonrpc/messagewriter.h>
 
 namespace lsp{
 namespace json{
@@ -33,6 +35,69 @@ public:
 
 	Message readMessage();
 	void writeMessage(Message&& message);
+
+	/*
+	 * MessageSender
+	 */
+
+	class MessageSender{
+	protected:
+		MessageSender();
+
+		std::string_view buffer();
+		json::Writer&    writer();
+
+	private:
+		std::string  m_buffer;
+		json::Writer m_writer;
+	};
+
+	/*
+	 * RequestSender
+	 */
+
+	class RequestSender : public MessageSender, public jsonrpc::RequestWriter{
+		friend class Connection;
+	public:
+		void submit(Connection& connection);
+
+	private:
+		RequestSender(std::string_view method, const jsonrpc::MessageId& id);
+		RequestSender(std::string_view method);
+	};
+
+	/*
+	 * ResponseSender
+	 */
+
+	class ResponseSender : public MessageSender, public jsonrpc::ResponseWriter{
+		friend class Connection;
+	public:
+		void submit(Connection& connection);
+
+	private:
+		ResponseSender(const jsonrpc::MessageId& id);
+		ResponseSender(const jsonrpc::MessageId& id, int code, std::string_view message);
+	};
+
+	/*
+	 * BatchSender
+	 */
+
+	class BatchSender : public MessageSender, public jsonrpc::BatchWriter{
+		friend class Connection;
+	public:
+		void submit(Connection& connection);
+
+	private:
+		BatchSender();
+	};
+
+	[[nodiscard]] static RequestSender  request(std::string_view method, const jsonrpc::MessageId& id);
+	[[nodiscard]] static RequestSender  notification(std::string_view method);
+	[[nodiscard]] static ResponseSender response(const jsonrpc::MessageId& id);
+	[[nodiscard]] static ResponseSender errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message);
+	[[nodiscard]] static BatchSender    messageBatch();
 
 private:
 	struct Internal;
