@@ -68,8 +68,6 @@ private:
 	void insertFragment(std::string_view fragment);
 };
 
-using DocumentUri = Uri;
-
 } // namespace lsp
 
 namespace std{

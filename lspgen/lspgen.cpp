@@ -909,12 +909,13 @@ namespace lsp{
 #define LSP_PROTOCOL_VERSION LSP_INT_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
 #define LSP_PROTOCOL_VERSION_STR LSP_STRINGIFY_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
 
-using Null      = std::nullptr_t;
-using uint      = unsigned int;
-using String    = std::string;
-using LSPArray  = json::Array;
-using LSPObject = json::Object;
-using LSPAny    = json::Value;
+using Null        = std::nullptr_t;
+using uint        = unsigned int;
+using String      = std::string;
+using DocumentUri = Uri;
+using LSPArray    = json::Array;
+using LSPObject   = json::Object;
+using LSPAny      = json::Value;
 
 template<typename T>
 using Opt = std::optional<T>;
