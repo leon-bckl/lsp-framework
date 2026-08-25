@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <iterator>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -97,51 +95,9 @@ void toJson(const Uri& uri, json::Writer& writer);
 void toJson(const Uri& uri, json::ArrayWriter& arrayWriter);
 void toJson(std::string_view key, const Uri& uri, json::ObjectWriter& objectWriter);
 
-
-// TODO: Remoe old toJson functions
-
-
-inline json::Value toJson(std::nullptr_t){ return {}; }
-inline json::Value toJson(bool v){ return v; }
-inline json::Value toJson(int i){ return i; }
-inline json::Value toJson(float i){ return i; }
-inline json::Value toJson(double i){ return i; }
-inline json::Value toJson(std::string&& v){ return std::move(v); }
-inline json::Value toJson(const std::string& v){ return json::String{v}; }
-inline json::Value toJson(std::string_view v){ return json::String{v}; }
-inline json::Value toJson(const Uri& uri){ return uri.toString(); }
-inline json::Value toJson(json::Value&& v){ return std::move(v); }
-inline json::Value toJson(json::Object&& v){ return std::move(v); }
-inline json::Value toJson(json::Array&& v){ return std::move(v); }
-
-template<typename... Args>
-json::Value toJson(std::tuple<Args...>&& tuple);
-
-template<typename K, typename T>
-json::Value toJson(std::unordered_map<K, T>&& map);
-
-template<typename T>
-json::Value toJson(std::vector<T>&& vector);
-
-template<typename... Args>
-json::Value toJson(std::variant<Args...>&& variant);
-
-template<typename EnumType, typename ValueType>
-json::Value toJson(Enumeration<EnumType, ValueType>&& enumeration);
-
-template<typename T>
-json::Value toJson(Nullable<T>&& nullable);
-
-template<typename... Args>
-json::Value toJson(NullableVariant<Args...>&& nullable);
-
-template<typename T>
-json::Value toJson(std::unique_ptr<T>&& v);
-
-template<typename T>
-json::Value toJson(std::optional<T>&& v);
-
-// fromJson
+/*
+ * fromJson
+ */
 
 template<typename T>
 const std::pair<const char*, json::Value>* literalProperties()
@@ -673,124 +629,9 @@ void toJson(std::string_view key, const std::unique_ptr<T>& opt, json::ObjectWri
 		objectWriter.write(key, nullptr);
 }
 
-// TODO: Remove old toJson functions
-
-inline json::Value toJson(unsigned int i)
-{
-	if(i <= static_cast<unsigned int>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-inline json::Value toJson(long i)
-{
-	if(i <= static_cast<long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-inline json::Value toJson(unsigned long i)
-{
-	if(i <= static_cast<unsigned long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-inline json::Value toJson(long long i)
-{
-	if(i >= static_cast<long long>(std::numeric_limits<json::Integer>::min()) && i <= static_cast<long long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-inline json::Value toJson(unsigned long long i)
-{
-	if(i <= static_cast<unsigned long long>(std::numeric_limits<json::Integer>::max()))
-		return static_cast<json::Integer>(i);
-
-	return static_cast<json::Decimal>(i);
-}
-
-template<typename... Args>
-json::Value toJson(std::tuple<Args...>&& tuple)
-{
-	json::Array result;
-	result.reserve(sizeof...(Args));
-	std::apply([&result](auto&&... tupleArgs){
-		(result.push_back(toJson(std::move(tupleArgs))), ...);
-	}, tuple);
-
-	return result;
-}
-
-template<typename K, typename T>
-json::Value toJson(std::unordered_map<K, T>&& map)
-{
-	json::Object result;
-	for(auto&& [k, v] : map)
-		result[impl::mapKey(k)] = toJson(std::move(v));
-
-	return result;
-}
-
-template<typename T>
-json::Value toJson(std::vector<T>&& vector)
-{
-	json::Array result;
-	result.reserve(vector.size());
-	std::transform(vector.begin(), vector.end(), std::back_inserter(result), [](auto&& v){ return toJson(std::move(v)); });
-	return result;
-}
-
-template<typename... Args>
-json::Value toJson(std::variant<Args...>&& variant)
-{
-	return std::visit([](auto&& v){ return toJson(std::move(v)); }, variant);
-}
-
-template<typename EnumType, typename ValueType>
-json::Value toJson(Enumeration<EnumType, ValueType>&& enumeration)
-{
-	return toJson(enumeration.value());
-}
-
-template<typename T>
-json::Value toJson(Nullable<T>&& nullable)
-{
-	if(nullable.isNull())
-		return nullptr;
-
-	return toJson(std::move(*nullable));
-}
-
-template<typename... Args>
-json::Value toJson(NullableVariant<Args...>&& nullable)
-{
-	if(nullable.isNull())
-		return nullptr;
-
-	return toJson(std::move(*nullable));
-}
-
-template<typename T>
-json::Value toJson(std::unique_ptr<T>&& v)
-{
-	assert(v);
-	return toJson(std::move(*v));
-}
-
-template<typename T>
-json::Value toJson(std::optional<T>&& v)
-{
-	assert(v.has_value());
-	return toJson(std::move(*v));
-}
-
-// fromJson
+/*
+ * fromJson
+ */
 
 template<typename... Args>
 void fromJson(json::Value&& json, std::tuple<Args...>& value)
