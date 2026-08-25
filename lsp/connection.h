@@ -7,6 +7,7 @@
 #include <lsp/json/writer.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 #include <lsp/jsonrpc/messagewriter.h>
+#include <lsp/serialization.h>
 
 namespace lsp{
 namespace json{
@@ -60,6 +61,25 @@ public:
 		friend class Connection;
 	public:
 		void submit(Connection& connection);
+
+		template<typename T>
+		void writeParams(const T& value)
+		{
+			if constexpr(json::JsonPrimitive<T>)
+			{
+				writer().write(value);
+			}
+			else if constexpr(impl::IsVector<T>{} || impl::IsTuple<T>{})
+			{
+				auto arrayWriter = writeParamsArray();
+				toJson(value, arrayWriter);
+			}
+			else
+			{
+				auto objectWriter = writeParamsObject();
+				toJson(value, objectWriter);
+			}
+		}
 
 	private:
 		RequestSender(std::string_view method, const jsonrpc::MessageId& id);

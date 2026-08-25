@@ -6,13 +6,7 @@ namespace{
 
 thread_local const MessageId* t_currentRequestId = nullptr;
 
-json::Integer nextUniqueRequestId()
-{
-	static std::atomic<json::Integer> s_uniqueRequestId = 0;
-	return ++s_uniqueRequestId;
-}
-
-}
+} // namespace
 
 MessageHandler::MessageHandler(Connection connection, unsigned int maxResponseThreads)
 	: m_connection{std::move(connection)}
@@ -259,44 +253,58 @@ void MessageHandler::sendResponse(jsonrpc::Response&& response)
 	m_connection.writeMessage(std::move(response));
 }
 
-MessageId MessageHandler::sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Value>&& params)
+void MessageHandler::addPendingRequest(RequestResultPtr result, json::Integer id)
 {
-	const auto messageId = nextUniqueRequestId();
-
-	{
-		std::lock_guard lock{m_pendingRequestsMutex};
-		m_pendingRequests[messageId] = std::move(result);
-	}
-
-	auto request = jsonrpc::createRequest(messageId, method, std::move(params));
-	m_connection.writeMessage(std::move(request));
-	return messageId;
+	const auto lock = std::lock_guard(m_pendingRequestsMutex);
+	assert(!m_pendingRequests.contains(id));
+	m_pendingRequests[id] = std::move(result);
 }
 
-MessageId MessageHandler::sendRequest(
-	std::string_view method,
-	std::optional<json::Value>&& params,
-	GenericResponseCallback then,
-	GenericErrorResponseCallback error)
+MessageId MessageHandler::sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error)
 {
 	auto result = std::make_unique<CallbackRequestResult<json::Value, decltype(then), decltype(error)>>(
 		std::move(then), std::move(error));
-	return sendRequest(method, std::move(result), std::move(params));
+	const auto requestId     = nextUniqueRequestId();
+	auto       requestSender = Connection::request(method, requestId);
+
+	if(!params.isNull())
+		requestSender.writeParams(params);
+
+	requestSender.submit(m_connection);
+	addPendingRequest(std::move(result), requestId);
+
+	return requestId;
 }
 
-FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::string_view method, std::optional<json::Value>&& params)
+FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::string_view method, const json::Value& params)
 {
-	auto result    = std::make_unique<FutureRequestResult<json::Value>>();
-	auto future    = result->future();
-	auto messageId = sendRequest(method, std::move(result), std::move(params));
+	auto       result        = std::make_unique<FutureRequestResult<json::Value>>();
+	auto       future        = result->future();
+	const auto requestId     = nextUniqueRequestId();
+	auto       requestSender = Connection::request(method, requestId);
 
-	return {std::move(messageId), std::move(future)};
+	if(!params.isNull())
+		requestSender.writeParams(params);
+
+	requestSender.submit(m_connection);
+
+	return {requestId, std::move(future)};
 }
 
-void MessageHandler::sendNotification(std::string_view method, std::optional<json::Value>&& params)
+void MessageHandler::sendNotification(std::string_view method, const json::Value& params)
 {
-	auto notification = jsonrpc::createNotification(method, std::move(params));
-	m_connection.writeMessage(std::move(notification));
+	auto notificationSender = Connection::notification(method);
+
+	if(!params.isNull())
+		notificationSender.writeParams(params);
+
+	notificationSender.submit(m_connection);
+}
+
+json::Integer MessageHandler::nextUniqueRequestId()
+{
+	static std::atomic<json::Integer> s_uniqueRequestId = 0;
+	return ++s_uniqueRequestId;
 }
 
 } // namespace lsp

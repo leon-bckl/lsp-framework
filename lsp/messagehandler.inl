@@ -189,37 +189,61 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsNotifica
  */
 
 template<typename M, typename F, typename E>
-MessageId MessageHandler::sendRequest(typename M::Params&& params, F&& then, E&& error) requires SendRequest<M, F, E>
+MessageId MessageHandler::sendRequest(const typename M::Params& params, F&& then, E&& error) requires SendRequest<M, F, E>
 {
-	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
-	(void)params;
-	return sendRequest(M::Method, std::move(result), {});
+	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
+		std::forward<F>(then), std::forward<E>(error));
+	const auto requestId      = nextUniqueRequestId();
+	auto       requestSender  = Connection::request(M::Method, requestId);
+
+	requestSender.writeParams(params);
+	requestSender.submit(m_connection);
+	addPendingRequest(std::move(result), requestId);
+
+	return requestId;
 }
 
 template<typename M, typename F, typename E>
 MessageId MessageHandler::sendRequest(F&& then, E&& error) requires SendNoParamsRequest<M, F, E>
 {
-	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
-	return sendRequest(M::Method, std::move(result));
+	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
+		std::forward<F>(then), std::forward<E>(error));
+	const auto requestId      = nextUniqueRequestId();
+	auto       requestSender  = Connection::request(M::Method, requestId);
+
+	requestSender.submit(m_connection);
+	addPendingRequest(std::move(result), requestId);
+
+	return requestId;
 }
 
 template<typename M>
-FutureResponse<M> MessageHandler::sendRequest(typename M::Params&& params) requires message::IsRequest<M> && message::HasParams<M>
+FutureResponse<M> MessageHandler::sendRequest(const typename M::Params& params) requires message::IsRequest<M> && message::HasParams<M>
 {
-	auto result    = std::make_unique<FutureRequestResult<typename M::Result>>();
-	auto future    = result->future();
-	(void)params;
-	auto messageId = sendRequest(M::Method, std::move(result), {});
-	return {std::move(messageId), std::move(future)};
+	auto       result         = std::make_unique<FutureRequestResult<typename M::Result>>();
+	auto       future         = result->future();
+	const auto requestId      = nextUniqueRequestId();
+	auto       requestSender  = Connection::request(M::Method, requestId);
+
+	requestSender.writeParams(params);
+	requestSender.submit(m_connection);
+	addPendingRequest(std::move(result), requestId);
+
+	return {requestId, std::move(future)};
 }
 
 template<typename M>
 FutureResponse<M> MessageHandler::sendRequest() requires message::IsRequest<M> && (!message::HasParams<M>)
 {
-	auto result    = std::make_unique<FutureRequestResult<typename M::Result>>();
-	auto future    = result->future();
-	auto messageId = sendRequest(M::Method, std::move(result));
-	return {std::move(messageId), std::move(future)};
+	auto       result         = std::make_unique<FutureRequestResult<typename M::Result>>();
+	auto       future         = result->future();
+	const auto requestId      = nextUniqueRequestId();
+	auto       requestSender  = Connection::request(M::Method, requestId);
+
+	requestSender.submit(m_connection);
+	addPendingRequest(std::move(result), requestId);
+
+	return {requestId, std::move(future)};
 }
 
 /*
@@ -227,16 +251,18 @@ FutureResponse<M> MessageHandler::sendRequest() requires message::IsRequest<M> &
  */
 
 template<typename M>
-void MessageHandler::sendNotification(typename M::Params&& params) requires SendNotification<M>
+void MessageHandler::sendNotification(const typename M::Params& params) requires SendNotification<M>
 {
-	(void)params;
-	sendNotification(M::Method, {});
+	auto notificationSender = Connection::notification(M::Method);
+	notificationSender.writeParams(params);
+	notificationSender.submit(m_connection);
 }
 
 template<typename M>
 void MessageHandler::sendNotification() requires SendNoParamsNotification<M>
 {
-	sendNotification(M::Method);
+	auto notificationSender = Connection::notification(M::Method);
+	notificationSender.submit(m_connection);
 }
 
 /*

@@ -71,36 +71,30 @@ public:
 	using ResponseErrorCallback = void(*)(const ResponseError&);
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	MessageId sendRequest(typename M::Params&& params, F&& then, E&& error = [](const ResponseError&){}) requires SendRequest<M, F, E>;
+	MessageId sendRequest(const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) requires SendRequest<M, F, E>;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	MessageId sendRequest(F&& then, E&& error = [](const ResponseError&){}) requires SendNoParamsRequest<M, F, E>;
 
 	template<typename M>
-	[[nodiscard]] FutureResponse<M> sendRequest(typename M::Params&& params) requires message::IsRequest<M> && message::HasParams<M>;
+	[[nodiscard]] FutureResponse<M> sendRequest(const typename M::Params& params) requires message::IsRequest<M> && message::HasParams<M>;
 
 	template<typename M>
 	[[nodiscard]] FutureResponse<M> sendRequest() requires message::IsRequest<M> && (!message::HasParams<M>);
 
-	FutureResponse<GenericMessage> sendRequest(std::string_view method, std::optional<json::Value>&& params = std::nullopt);
-
-	MessageId sendRequest(
-		std::string_view method,
-		std::optional<json::Value>&& params,
-		GenericResponseCallback then,
-		GenericErrorResponseCallback error);
+	FutureResponse<GenericMessage> sendRequest(std::string_view method, const json::Value& params = {});
+	MessageId sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error);
+	void sendNotification(std::string_view method, const json::Value& params = {});
 
 	/*
 	 * sendNotification
 	 */
 
 	template<typename M>
-	void sendNotification(typename M::Params&& params) requires SendNotification<M>;
+	void sendNotification(const typename M::Params& params) requires SendNotification<M>;
 
 	template<typename M>
 	void sendNotification() requires SendNoParamsNotification<M>;
-
-	void sendNotification(std::string_view method, std::optional<json::Value>&& params = std::nullopt);
 
 private:
 	class ResponseResultBase;
@@ -130,7 +124,9 @@ private:
 	void processResponse(jsonrpc::Response&& response);
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
 	void sendResponse(jsonrpc::Response&& response);
-	MessageId sendRequest(std::string_view method, RequestResultPtr result, std::optional<json::Value>&& params = std::nullopt);
+	void addPendingRequest(RequestResultPtr result, json::Integer id);
+
+	static json::Integer nextUniqueRequestId();
 
 	/*
 	 * Request result wrapper
