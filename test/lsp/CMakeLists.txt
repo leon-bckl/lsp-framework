@@ -1,6 +1,7 @@
 lsp_add_test(connection)
 lsp_add_test(enumeration)
 lsp_add_test(nullable)
+lsp_add_test(serialization)
 add_executable(TestProcess test_process.cpp)
 target_link_libraries(TestProcess PRIVATE lsp)
 target_compile_definitions(TestProcess PRIVATE "LSP_TEST_PROCESS_IMPLEMENTATION")

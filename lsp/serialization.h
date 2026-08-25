@@ -13,12 +13,93 @@
 #include <vector>
 #include <lsp/enumeration.h>
 #include <lsp/json/json.h>
+#include <lsp/json/writer.h>
 #include <lsp/nullable.h>
 #include <lsp/uri.h>
 
 namespace lsp{
 
-// toJson
+/*
+ * toJson
+ */
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const T& value, WriterType& writer);
+template<typename T>
+void toJson(std::string_view key, const T& value, json::ObjectWriter& objectWriter);
+
+// std::vector toJson
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const std::vector<T>& values, WriterType& writer);
+template<typename T>
+void toJson(std::string_view key, const std::vector<T>& values, json::ObjectWriter& objectWriter);
+
+// std::tuple toJson
+
+template<typename... Args, json::SimpleWriter WriterType>
+void toJson(const std::tuple<Args...>& tuple, WriterType& writer);
+template<typename... Args>
+void toJson(std::string_view key, const std::tuple<Args...>& tuple, json::ObjectWriter& objectWriter);
+
+// std::unordered_map toJson
+
+template<typename K, typename V, json::SimpleWriter WriterType>
+void toJson(const std::unordered_map<K, V>& values, WriterType& writer);
+template<typename K, typename V>
+void toJson(std::string_view key, const std::unordered_map<K, V>& values, json::ObjectWriter& objectWriter);
+
+// std::variant toJson
+
+template<typename... Args, json::SimpleWriter WriterType>
+void toJson(const std::variant<Args...>& variant, WriterType& writer);
+template<typename... Args>
+void toJson(std::string_view key, const std::variant<Args...>& variant, json::ObjectWriter& objectWriter);
+
+// std::optional toJson
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const std::optional<T>& opt, WriterType& writer);
+template<typename T>
+void toJson(std::string_view key, const std::optional<T>& opt, json::ObjectWriter& objectWriter);
+
+// std::unique_ptr toJson
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const std::unique_ptr<T>& opt, WriterType& writer);
+template<typename T>
+void toJson(std::string_view key, const std::unique_ptr<T>& opt, json::ObjectWriter& objectWriter);
+
+// Nullable toJson
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const Nullable<T>& nullable, WriterType& writer);
+template<typename T>
+void toJson(std::string_view key, const Nullable<T>& nullable, json::ObjectWriter& objectWriter);
+
+// NullableVariant toJson
+
+template<typename... Args, json::SimpleWriter WriterType>
+void toJson(const NullableVariant<Args...>& nullable, WriterType& writer);
+template<typename... Args>
+void toJson(std::string_view key, const NullableVariant<Args...>& nullable, json::ObjectWriter& objectWriter);
+
+// Enumeration toJson
+
+template<typename E, typename T, json::SimpleWriter WriterType>
+void toJson(const Enumeration<E, T>& enumeration, WriterType& writer);
+template<typename E, typename T>
+void toJson(std::string_view key, const Enumeration<E, T>& enumeration, json::ObjectWriter& objectWriter);
+
+// Uri toJson
+
+void toJson(const Uri& uri, json::Writer& writer);
+void toJson(const Uri& uri, json::ArrayWriter& arrayWriter);
+void toJson(std::string_view key, const Uri& uri, json::ObjectWriter& objectWriter);
+
+
+// TODO: Remoe old toJson functions
+
 
 inline json::Value toJson(std::nullptr_t){ return {}; }
 inline json::Value toJson(bool v){ return v; }
@@ -335,7 +416,264 @@ void variantFromJson(json::Value&& json, VariantType& variant, const std::size_t
 
 } // namespace impl
 
-// toJson
+/*
+ * toJson
+ */
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const T& value, WriterType& writer)
+{
+	if constexpr(json::JsonPrimitive<T>)
+	{
+		writer.write(value);
+	}
+	else
+	{
+		auto objectWriter = writer.beginObject();
+		toJson(value, objectWriter);
+	}
+}
+
+template<typename T>
+void toJson(std::string_view key, const T& value, json::ObjectWriter& objectWriter)
+{
+	if constexpr(json::JsonPrimitive<T>)
+	{
+		objectWriter.write(key, value);
+	}
+	else
+	{
+		auto nestedObjectWriter = objectWriter.beginObject(key);
+		toJson(value, nestedObjectWriter);
+	}
+}
+
+/*
+ * std::vector toJson
+ */
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const std::vector<T>& values, WriterType& writer)
+{
+	auto arrayWriter = writer.beginArray();
+
+	for(const auto& v : values)
+		toJson(v, arrayWriter);
+}
+
+template<typename T>
+void toJson(std::string_view key, const std::vector<T>& values, json::ObjectWriter& objectWriter)
+{
+	auto arrayWriter = objectWriter.beginArray(key);
+
+	for(const auto& v : values)
+		toJson(v, arrayWriter);
+}
+
+/*
+ * std::tuple toJson
+ */
+
+template<typename... Args, json::SimpleWriter WriterType>
+void toJson(const std::tuple<Args...>& tuple, WriterType& writer)
+{
+	auto arrayWriter = writer.beginArray();
+
+	std::apply([&arrayWriter](auto&&... tupleArgs){
+		(toJson(tupleArgs, arrayWriter), ...);
+	}, tuple);
+}
+
+template<typename... Args>
+void toJson(std::string_view key, const std::tuple<Args...>& tuple, json::ObjectWriter& objectWriter)
+{
+	auto arrayWriter = objectWriter.beginArray(key);
+
+	std::apply([&arrayWriter](auto&&... tupleArgs){
+		(toJson(tupleArgs, arrayWriter), ...);
+	}, tuple);
+}
+
+/*
+ * std::unordered_map toJson
+ */
+
+template<typename K, typename V, json::SimpleWriter WriterType>
+void toJson(const std::unordered_map<K, V>& values, WriterType& writer)
+{
+	auto objectWriter = writer.beginObject();
+
+	for(const auto& [k, v] : values)
+		toJson(impl::mapKey(k), v, objectWriter);
+}
+
+template<typename K, typename V>
+void toJson(std::string_view key, const std::unordered_map<K, V>& values, json::ObjectWriter& objectWriter)
+{
+	auto nestedObjectWriter = objectWriter.beginObject(key);
+
+	for(const auto& [k, v] : values)
+		toJson(impl::mapKey(k), v, nestedObjectWriter);
+}
+
+/*
+ * std::variant toJson
+ */
+
+template<typename... Args, json::SimpleWriter WriterType>
+void toJson(const std::variant<Args...>& variant, WriterType& writer)
+{
+	std::visit([&writer](const auto& v){ toJson(v, writer); }, variant);
+}
+
+template<typename... Args>
+void toJson(std::string_view key, const std::variant<Args...>& variant, json::ObjectWriter& objectWriter)
+{
+	std::visit([key, &objectWriter](const auto& v){ toJson(key, v, objectWriter); }, variant);
+}
+
+/*
+ * Nullable toJson
+ */
+
+template<typename T, json::SimpleWriter WriterType>
+void toJson(const Nullable<T>& nullable, WriterType& writer)
+{
+	if(nullable.isNull())
+		writer.write(nullptr);
+	else
+		toJson(nullable.value(), writer);
+}
+
+template<typename T>
+void toJson(std::string_view key, const Nullable<T>& nullable, json::ObjectWriter& objectWriter)
+{
+	if(nullable.isNull())
+		objectWriter.write(key, nullptr);
+	else
+		toJson(key, nullable.value(), objectWriter);
+}
+
+/*
+ * NullableVariant toJson
+ */
+
+template<typename... Args, json::SimpleWriter WriterType>
+void toJson(const NullableVariant<Args...>& nullable, WriterType& writer)
+{
+	if(nullable.isNull())
+		writer.write(nullptr);
+	else
+		toJson(nullable.value(), writer);
+}
+
+template<typename... Args>
+void toJson(std::string_view key, const NullableVariant<Args...>& nullable, json::ObjectWriter& objectWriter)
+{
+	if(nullable.isNull())
+		objectWriter.write(key, nullptr);
+	else
+		toJson(key, nullable.value(), objectWriter);
+}
+
+/*
+ * Enumeration toJson
+ */
+
+template<typename E, typename T, json::SimpleWriter WriterType>
+void toJson(const Enumeration<E, T>& enumeration, WriterType& writer)
+{
+	toJson(enumeration.value(), writer);
+}
+
+template<typename E, typename T>
+void toJson(std::string_view key, const Enumeration<E, T>& enumeration, json::ObjectWriter& objectWriter)
+{
+	toJson(key, enumeration.value(), objectWriter);
+}
+
+/*
+ * Uri toJson
+ */
+
+inline void toJson(const Uri& uri, json::Writer& writer)
+{
+	writer.write(uri.toString());
+}
+
+inline void toJson(std::string_view key, const Uri& uri, json::ObjectWriter& objectWriter)
+{
+	objectWriter.write(key, uri.toString());
+}
+
+inline void toJson(const Uri& uri, json::ArrayWriter& arrayWriter)
+{
+	arrayWriter.write(uri.toString());
+}
+
+/*
+ * std::optional toJson
+ */
+
+template<typename T>
+void toJson(const std::optional<T>& opt, json::Writer& writer)
+{
+	if(opt.has_value())
+		toJson(opt.value(), writer);
+	else
+		writer.write(nullptr);
+}
+
+template<typename T>
+void toJson(const std::optional<T>& opt, json::ArrayWriter& arrayWriter)
+{
+	if(opt.has_value())
+		toJson(opt.value(), arrayWriter);
+	else
+		arrayWriter.write(nullptr);
+}
+
+template<typename T>
+void toJson(std::string_view key, const std::optional<T>& opt, json::ObjectWriter& objectWriter)
+{
+	if(opt.has_value())
+		toJson(key, opt.value(), objectWriter);
+	else
+		objectWriter.write(key, nullptr);
+}
+
+/*
+ * std::unique_ptr toJson
+ */
+
+template<typename T>
+void toJson(const std::unique_ptr<T>& opt, json::Writer& writer)
+{
+	if(opt)
+		toJson(*opt, writer);
+	else
+		writer.write(nullptr);
+}
+
+template<typename T>
+void toJson(const std::unique_ptr<T>& opt, json::ArrayWriter& arrayWriter)
+{
+	if(opt)
+		toJson(*opt, arrayWriter);
+	else
+		arrayWriter.write(nullptr);
+}
+
+template<typename T>
+void toJson(std::string_view key, const std::unique_ptr<T>& opt, json::ObjectWriter& objectWriter)
+{
+	if(opt)
+		toJson(key, *opt, objectWriter);
+	else
+		objectWriter.write(key, nullptr);
+}
+
+// TODO: Remove old toJson functions
 
 inline json::Value toJson(unsigned int i)
 {

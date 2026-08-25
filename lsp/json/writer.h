@@ -161,4 +161,7 @@ private:
 	ArrayWriter(Writer& writer);
 };
 
+template<typename WriterType>
+concept SimpleWriter = std::same_as<WriterType, json::Writer> || std::same_as<WriterType, json::ArrayWriter>;
+
 } // namespace lsp::json
