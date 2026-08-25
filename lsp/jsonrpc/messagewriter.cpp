@@ -1,3 +1,4 @@
+#include <utility>
 #include "messagewriter.h"
 
 namespace lsp::jsonrpc{
@@ -56,6 +57,31 @@ ResponseWriter::ResponseWriter(json::ObjectWriter&& writer, const MessageId& id)
 	writeMessageBase(m_writer, &id);
 }
 
+ResponseWriter::ResponseWriter(ResponseWriter&& other)
+	: m_hasData{std::exchange(other.m_hasData, true)}
+	, m_writer{std::move(other.m_writer)}
+	, m_errorWriter{std::move(other.m_errorWriter)}
+{
+}
+
+ResponseWriter& ResponseWriter::operator=(ResponseWriter&& other)
+{
+	if(!m_hasData && !m_errorWriter.has_value())
+		writeData(nullptr);
+
+	m_hasData       = std::exchange(other.m_hasData, true);
+	m_writer        = std::move(other.m_writer);
+	m_errorWriter   = std::move(other.m_errorWriter);
+
+	return *this;
+}
+
+ResponseWriter::~ResponseWriter()
+{
+	if(!m_hasData && !m_errorWriter.has_value())
+		writeData(nullptr);
+}
+
 ResponseWriter ResponseWriter::writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id)
 {
 	return ResponseWriter(std::move(objectWriter), id);
@@ -75,6 +101,8 @@ ResponseWriter ResponseWriter::writeError(json::ObjectWriter&& objectWriter, con
 
 json::ObjectWriter ResponseWriter::writeDataObject()
 {
+	m_hasData = true;
+
 	if(m_errorWriter.has_value())
 		return m_errorWriter->beginObject("data");
 
@@ -83,6 +111,8 @@ json::ObjectWriter ResponseWriter::writeDataObject()
 
 json::ArrayWriter ResponseWriter::writeDataArray()
 {
+	m_hasData = true;
+
 	if(m_errorWriter.has_value())
 		return m_errorWriter->beginArray("data");
 

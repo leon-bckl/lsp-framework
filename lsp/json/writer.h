@@ -24,6 +24,11 @@ class Writer{
 public:
 	Writer(std::string& outStr, std::string_view indent = {});
 
+	Writer(const Writer&)            = delete;
+	Writer(Writer&&)                 = delete;
+	Writer& operator=(const Writer&) = delete;
+	Writer& operator=(Writer&&)      = delete;
+
 	[[nodiscard]] ObjectWriter beginObject();
 	[[nodiscard]] ArrayWriter  beginArray();
 

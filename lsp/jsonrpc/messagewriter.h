@@ -29,6 +29,10 @@ private:
 
 class ResponseWriter{
 public:
+	ResponseWriter(ResponseWriter&& other);
+	ResponseWriter& operator=(ResponseWriter&& other);
+	~ResponseWriter();
+
 	[[nodiscard]] static ResponseWriter writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id);
 	[[nodiscard]] static ResponseWriter writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message);
 
@@ -38,6 +42,8 @@ public:
 	template<json::JsonPrimitive T>
 	void writeData(const T& value)
 	{
+		m_hasData = true;
+
 		if(m_errorWriter.has_value())
 			m_errorWriter->write("data", value);
 		else
@@ -45,6 +51,7 @@ public:
 	}
 
 private:
+	bool                              m_hasData = false;
 	json::ObjectWriter                m_writer;
 	std::optional<json::ObjectWriter> m_errorWriter;
 
