@@ -1159,7 +1159,7 @@ private:
 
 	static std::string toJsonSig(const std::string& typeName)
 	{
-		return "json::Value toJson(" + typeName + "&& value)";
+		return "void toJson(const " + typeName + "& value, json::ObjectWriter& objectWriter)";
 	}
 
 	static std::string fromJsonSig(const std::string& typeName)
@@ -1584,16 +1584,7 @@ private:
 			}
 
 			if(!isInheritedLiteral)
-			{
-				std::string toJsonParam;
-
-				if(isTrivialBaseType(p.type) && !p.isOptional)
-					toJsonParam = "value." + p.name;
-				else
-					toJsonParam = "std::move(value." + p.name + ')';
-
-				toJson += "\tjson[\"" + p.name + "\"] = toJson(" + toJsonParam + ");\n";
-			}
+				toJson += "\ttoJson(\"" + p.name + "\", value." + p.name + ", objectWriter);\n";
 		}
 	}
 
@@ -1618,8 +1609,7 @@ private:
 		m_typesHeaderFileContent += documentationComment(structureCppName, structure.documentation) +
 		                            "struct " + structureCppName;
 
-		std::string propertiesToJson = "static void " + uncapitalizeString(structureCppName) + "ToJson(" +
-		                               structureCppName + "& value, json::Object& json)\n{\n";
+		std::string toJson = toJsonSig(structureCppName) + "\n{\n";
 		std::string propertiesFromJson = "static void " + uncapitalizeString(structureCppName) + "FromJson("
 		                                 "json::Object& json, " + structureCppName + "& value)\n{\n";
 		const std::string requiredPropertiesSig = "template<>\nconst char** requiredProperties<" + structureCppName + ">()";
@@ -1636,9 +1626,8 @@ private:
 		{
 			const auto* extends = &(*it)->as<ReferenceType>();
 			m_typesHeaderFileContent += " : " + extends->name;
-			std::string lower = uncapitalizeString(extends->name);
-			propertiesToJson += '\t' + lower + "ToJson(value, json);\n";
-			propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
+			toJson += "\ttoJson(static_cast<const " + extends->name + "&>(value), objectWriter);\n";
+			propertiesFromJson += '\t' + uncapitalizeString(extends->name) + "FromJson(json, value);\n";
 			++it;
 
 			for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties)
@@ -1653,9 +1642,8 @@ private:
 			{
 				extends = &(*it)->as<ReferenceType>();
 				m_typesHeaderFileContent += ", " + extends->name;
-				lower = uncapitalizeString(extends->name);
-				propertiesToJson += '\t' + lower + "ToJson(value, json);\n";
-				propertiesFromJson += '\t' + lower + "FromJson(json, value);\n";
+				toJson += "\ttoJson(static_cast<const " + extends->name + "&>(value), objectWriter);\n";
+				propertiesFromJson += '\t' + uncapitalizeString(extends->name) + "FromJson(json, value);\n";
 				++it;
 
 				for(const auto& p : std::get<const Structure*>(m_metaModel.typeForName(extends->name))->properties)
@@ -1681,10 +1669,10 @@ private:
 			if(!std::holds_alternative<const Structure*>(type))
 				throw std::runtime_error{"Mixin type for '" + structure.name + "' must be a structure type"};
 
-			generateStructureProperties(std::get<const Structure*>(type)->properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalPropertiesList, inheritedLiterals);
+			generateStructureProperties(std::get<const Structure*>(type)->properties, basePropertiesByName, toJson, propertiesFromJson, requiredPropertiesList, literalPropertiesList, inheritedLiterals);
 		}
 
-		generateStructureProperties(structure.properties, basePropertiesByName, propertiesToJson, propertiesFromJson, requiredPropertiesList, literalPropertiesList, inheritedLiterals);
+		generateStructureProperties(structure.properties, basePropertiesByName, toJson, propertiesFromJson, requiredPropertiesList, literalPropertiesList, inheritedLiterals);
 
 		if(!inheritedLiterals.empty())
 		{
@@ -1702,7 +1690,7 @@ private:
 
 		m_typesHeaderFileContent += "};\n\n";
 
-		propertiesToJson += "}\n\n";
+		toJson += "}\n";
 		propertiesFromJson += "}\n\n";
 
 		for(const auto& p : requiredPropertiesList)
@@ -1715,7 +1703,6 @@ private:
 
 		literalProperties += "\t\t{nullptr, {}}\n\t};\n\treturn properties;\n}\n\n";
 
-		std::string toJson = toJsonSig(structureCppName);
 		std::string fromJson = fromJsonSig(structureCppName);
 
 		if(!requiredPropertiesList.empty())
@@ -1730,15 +1717,10 @@ private:
 			m_typesBoilerPlateSourceFileContent += literalProperties;
 		}
 
-		m_typesBoilerPlateHeaderFileContent += toJson + ";\n" +
+		m_typesBoilerPlateHeaderFileContent += toJsonSig(structureCppName) + ";\n" +
 		                                       fromJson + ";\n";
-		m_typesSourceFileContent += propertiesToJson + propertiesFromJson;
-		m_typesBoilerPlateSourceFileContent += toJson + "\n"
-		                                       "{\n"
-		                                       "\tjson::Object obj;\n"
-		                                       "\t" + uncapitalizeString(structureCppName) + "ToJson(value, obj);\n"
-		                                       "\treturn obj;\n"
-		                                       "}\n\n" +
+		m_typesSourceFileContent += propertiesFromJson;
+		m_typesBoilerPlateSourceFileContent += toJson + "\n" +
 		                                       fromJson + "\n"
 		                                       "{\n"
 		                                       "\tauto& obj = json.object();\n"

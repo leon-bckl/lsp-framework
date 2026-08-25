@@ -11,7 +11,9 @@ namespace lsp{
 template<typename T>
 jsonrpc::Response MessageHandler::createResponse(const MessageId& id, T&& result)
 {
-	return jsonrpc::createResponse(id, toJson(std::forward<T>(result)));
+	// return jsonrpc::createResponse(id, toJson(std::forward<T>(result)));
+	(void)result;
+	return jsonrpc::createResponse(id, {});
 }
 
 template<typename M>
@@ -190,7 +192,8 @@ template<typename M, typename F, typename E>
 MessageId MessageHandler::sendRequest(typename M::Params&& params, F&& then, E&& error) requires SendRequest<M, F, E>
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(std::forward<F>(then), std::forward<E>(error));
-	return sendRequest(M::Method, std::move(result), toJson(std::move(params)));
+	(void)params;
+	return sendRequest(M::Method, std::move(result), {});
 }
 
 template<typename M, typename F, typename E>
@@ -205,7 +208,8 @@ FutureResponse<M> MessageHandler::sendRequest(typename M::Params&& params) requi
 {
 	auto result    = std::make_unique<FutureRequestResult<typename M::Result>>();
 	auto future    = result->future();
-	auto messageId = sendRequest(M::Method, std::move(result), toJson(std::move(params)));
+	(void)params;
+	auto messageId = sendRequest(M::Method, std::move(result), {});
 	return {std::move(messageId), std::move(future)};
 }
 
@@ -225,7 +229,8 @@ FutureResponse<M> MessageHandler::sendRequest() requires message::IsRequest<M> &
 template<typename M>
 void MessageHandler::sendNotification(typename M::Params&& params) requires SendNotification<M>
 {
-	sendNotification(M::Method, toJson(std::move(params)));
+	(void)params;
+	sendNotification(M::Method, {});
 }
 
 template<typename M>

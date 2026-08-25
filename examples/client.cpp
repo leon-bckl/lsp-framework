@@ -46,8 +46,10 @@ void printMessageMethod()
 template<typename MessageType>
 void printMessagePayload(const typename MessageType::Result& result)
 {
-	const auto json = lsp::toJson(typename MessageType::Result(result));
-	std::cerr << "payload: " << lsp::json::stringify(json, "\t") << std::endl;
+	auto json   = std::string();
+	auto writer = lsp::json::Writer(json, "\t");
+	lsp::toJson(result, writer);
+	std::cerr << "payload: " << json << std::endl;
 }
 
 template<typename MessageType>
