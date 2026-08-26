@@ -115,7 +115,7 @@ public:
 		 * Send initialize request to the server and wait for the response
 		 */
 		auto initializeRequest =
-			m_messageHandler.sendRequest<lsp::requests::Initialize>(std::move(initializeParams));
+			m_messageHandler.sendRequest<lsp::requests::Initialize>(initializeParams);
 		auto initializeResult = initializeRequest.result.get();
 
 		printResponse<lsp::requests::Initialize>(initializeResult);
@@ -159,10 +159,10 @@ public:
 		m_messageHandler.sendNotification<lsp::notifications::TextDocument_DidOpen>(
 			{
 				.textDocument = {
-					.uri = std::move(uri),
+					.uri        = std::move(uri),
 					.languageId = std::move(languageId),
-					.version = 1,
-					.text = std::move(text)
+					.version    = 1,
+					.text       = std::move(text)
 				}
 			});
 	}
@@ -176,7 +176,7 @@ public:
 			hoverParams.position         = position;
 
 			auto hoverRequest =
-				m_messageHandler.sendRequest<lsp::requests::TextDocument_Hover>(std::move(hoverParams));
+				m_messageHandler.sendRequest<lsp::requests::TextDocument_Hover>(hoverParams);
 
 			const auto hoverResult = hoverRequest.result.get();
 

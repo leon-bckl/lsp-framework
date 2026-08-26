@@ -157,7 +157,7 @@ One returns a `std::future<MessageType::Result>` in addition to the message id. 
 ```cpp
 auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
 auto [id, result] = messageHandler.sendRequest
-    <lsp::requests::TextDocument_Diagnostic>(std::move(params));
+    <lsp::requests::TextDocument_Diagnostic>(params);
 ```
 
 The second version allows specifying callbacks for the success and error cases. The success callback has a `MessageType::Result` parameter and the error callback an `lsp::ResponseError` containing the error code and message from the response.
@@ -165,7 +165,7 @@ The second version allows specifying callbacks for the success and error cases. 
 ```cpp
 auto params = lsp::requests::TextDocument_Diagnostic::Params{...}
 auto messageId = messageHandler.sendRequest<lsp::requests::TextDocument_Diagnostic>(
-    std::move(params),
+    params,
     [](lsp::requests::TextDocument_Diagnostic::Result&& result){
         // Called on success with the payload of the response
     },
@@ -186,7 +186,7 @@ Notifications are sent using `lsp::MessageHandler::sendNotification`. They don't
 // With params
 auto params = lsp::notifications::TextDocument_PublishDiagnostics::Params{...};
 messageHandler.sendNotification
-    <lsp::notifications::TextDocument_PublishDiagnostics>(std::move(params));
+    <lsp::notifications::TextDocument_PublishDiagnostics>(params);
 
 // Without params
 messageHandler.sendNotification<lsp::notifications::Exit>();
@@ -232,8 +232,7 @@ while(socketListener.isOpen())
 
     std::thread([socket = std::move(socket)]() mutable
     {
-        auto connection     = lsp::Connection(socket);
-        auto messageHandler = lsp::MessageHandler(std::move(connection));
+        auto messageHandler = lsp::MessageHandler(lsp::Connection(socket));
         // ...
     }).detach();
 }
