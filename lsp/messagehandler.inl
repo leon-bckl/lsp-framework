@@ -107,7 +107,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestC
 			}
 			else
 			{
-				m_threadPool.addTask([this, id = id, result = std::move(future)]() mutable
+				m_threadPool.addTask([this, id = id, future = std::move(future)]() mutable
 				{
 					handleAsyncResult<M>(&id, future);
 				});
@@ -137,9 +137,9 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNotificationCall
 		{
 			auto future = f(std::move(params));
 
-			m_threadPool.addTask([result = std::move(future)]() mutable
+			m_threadPool.addTask([future = std::move(future)]() mutable
 			{
-				result.get();
+				future.get();
 			});
 		}
 		else
@@ -162,9 +162,9 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsNotifica
 		{
 			auto future = f();
 
-			m_threadPool.addTask([result = std::move(future)]() mutable
+			m_threadPool.addTask([future = std::move(future)]() mutable
 			{
-				result.get();
+				future.get();
 			});
 		}
 		else

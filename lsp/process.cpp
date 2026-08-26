@@ -110,7 +110,8 @@ struct Process::Impl final : public io::Stream{
 			execvp(file, argv);
 
 			const auto error = errno;
-			::write(errPipe[1], &error, sizeof(error));
+			ssize_t x = ::write(errPipe[1], &error, sizeof(error));
+			(void)x;
 
 			close(errPipe[1]);
 

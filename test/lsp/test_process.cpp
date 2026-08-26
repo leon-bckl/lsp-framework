@@ -49,9 +49,7 @@ int main(int argc, char** argv)
 		const auto expected   = std::string_view("Hello World!");
 		char       buffer[16] = {};
 
-		std::fread(buffer, expected.size(), 1, stdin);
-
-		if(buffer == expected)
+		if(std::fread(buffer, expected.size(), 1, stdin) == 1 && buffer == expected)
 			return 4;
 	}
 	else if(std::strcmp(argv[1], "StdOut") == 0)
@@ -83,9 +81,7 @@ int main(int argc, char** argv)
 		const auto expected   = std::string_view("ping");
 		char       buffer[16] = {};
 
-		std::fread(buffer, expected.size(), 1, stdin);
-
-		if(buffer == expected)
+		if(std::fread(buffer, expected.size(), 1, stdin) == 1 && buffer == expected)
 		{
 			std::fprintf(stdout, "pong");
 			std::fflush(stdout);
@@ -95,9 +91,8 @@ int main(int argc, char** argv)
 	else if(std::strcmp(argv[1], "ProcessId") == 0)
 	{
 		int id = -1;
-		std::scanf("%d", &id);
 
-		if(Process::currentProcessId() == id)
+		if(std::scanf("%d", &id) == 1 && Process::currentProcessId() == id)
 			return 7;
 	}
 	else if(std::strcmp(argv[1], "Terminate") == 0)
