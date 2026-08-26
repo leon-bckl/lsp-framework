@@ -64,6 +64,10 @@ private:
 
 		void execute() override
 		{
+#ifdef _MSC_VER
+	#pragma warning(push)
+	#pragma warning(disable: 4702) // Unreachable code. A callback that throws unconditionally triggers this on the line after std::invoke
+#endif
 			std::apply([this](Args&&... args){
 				try
 				{
@@ -83,6 +87,9 @@ private:
 					promise.set_exception(std::current_exception());
 				}
 			}, std::move(callbackArgs));
+#ifdef _MSC_VER
+	#pragma warning(pop)
+#endif
 		}
 	};
 
