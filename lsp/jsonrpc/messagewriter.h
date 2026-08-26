@@ -16,11 +16,15 @@ public:
 	[[nodiscard]] static RequestWriter writeRequest(json::ObjectWriter&& writer, const MessageId& id, std::string_view method);
 	[[nodiscard]] static RequestWriter writeNotification(json::ObjectWriter&& writer, std::string_view method);
 
-	[[nodiscard]] json::ObjectWriter writeParamsObject();
-	[[nodiscard]] json::ArrayWriter  writeParamsArray();
+	template<typename F, typename T>
+	requires std::invocable<F, std::string_view, const T&, json::ObjectWriter&>
+	void writeParams(F&& writer, const T& value)
+	{
+		writer("params", value, m_paramsWriter);
+	}
 
 private:
-	json::ObjectWriter m_writer;
+	json::ObjectWriter m_paramsWriter;
 
 	RequestWriter(json::ObjectWriter&& writer, std::string_view method, const MessageId* id);
 };
@@ -44,23 +48,21 @@ public:
 	[[nodiscard]] static ResponseWriter writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id);
 	[[nodiscard]] static ResponseWriter writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message);
 
-	[[nodiscard]] json::ObjectWriter writeDataObject();
-	[[nodiscard]] json::ArrayWriter  writeDataArray();
-
-	template<json::JsonPrimitive T>
-	void writeData(const T& value)
+	template<typename F, typename T>
+	requires std::invocable<F, std::string_view, const T&, json::ObjectWriter&>
+	void writeData(F&& writer, const T& value)
 	{
 		m_hasData = true;
 
 		if(m_errorWriter.has_value())
-			m_errorWriter->write("data", value);
+			writer("data", value, *m_errorWriter);
 		else
-			m_writer.write("result", value);
+			writer("result", value, m_resultWriter);
 	}
 
 private:
 	bool                              m_hasData = false;
-	json::ObjectWriter                m_writer;
+	json::ObjectWriter                m_resultWriter;
 	std::optional<json::ObjectWriter> m_errorWriter;
 
 	ResponseWriter(json::ObjectWriter&& writer, const MessageId& id);

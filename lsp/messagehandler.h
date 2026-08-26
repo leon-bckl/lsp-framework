@@ -102,7 +102,7 @@ private:
 	using RequestResultPtr  = std::unique_ptr<RequestResultBase>;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
 	using OptionalResponse  = std::optional<jsonrpc::Response>;
-	using HandlerWrapper    = std::function<OptionalResponse(json::Value&&, bool)>;
+	using HandlerWrapper    = std::function<void(json::Value&&, Connection::BatchSender*)>;
 
 	// General
 	Connection                                       m_connection;
@@ -115,16 +115,16 @@ private:
 	std::unordered_map<MessageId, RequestResultPtr>  m_pendingRequests;
 
 	template<typename T>
-	static jsonrpc::Response createResponse(const MessageId& id, T&& result);
+	void sendResponse(const MessageId& messageId, const T& result);
 
 	template<typename M>
-	static jsonrpc::Response createResponseFromAsyncResult(const MessageId& id, AsyncRequestResult<M>& result);
+	void handleAsyncResult(const MessageId* messageId, AsyncRequestResult<M>& result);
 
-	OptionalResponse processRequest(jsonrpc::Request&& request, bool allowAsync);
+	void processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender);
 	void processResponse(jsonrpc::Response&& response);
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
-	void sendResponse(jsonrpc::Response&& response);
 	void addPendingRequest(RequestResultPtr result, json::Integer id);
+	void sendErrorResponse(const MessageId& messageId, int errorCode, std::string_view errorMessage, const std::optional<json::Value>& errorData = {});
 
 	static json::Integer nextUniqueRequestId();
 

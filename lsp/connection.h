@@ -65,20 +65,11 @@ public:
 		template<typename T>
 		void writeParams(const T& value)
 		{
-			if constexpr(json::JsonPrimitive<T>)
-			{
-				writer().write(value);
-			}
-			else if constexpr(impl::IsVector<T>{} || impl::IsTuple<T>{})
-			{
-				auto arrayWriter = writeParamsArray();
-				toJson(value, arrayWriter);
-			}
-			else
-			{
-				auto objectWriter = writeParamsObject();
-				toJson(value, objectWriter);
-			}
+			jsonrpc::RequestWriter::writeParams(
+				[](std::string_view key, const T& value, json::ObjectWriter& writer)
+				{
+					toJson(key, value, writer);
+				}, value);
 		}
 
 	private:
@@ -94,6 +85,16 @@ public:
 		friend class Connection;
 	public:
 		void submit(Connection& connection);
+
+		template<typename T>
+		void writeData(const T& value)
+		{
+			jsonrpc::ResponseWriter::writeData(
+				[](std::string_view key, const T& value, json::ObjectWriter& writer)
+				{
+					toJson(key, value, writer);
+				}, value);
+		}
 
 	private:
 		ResponseSender(const jsonrpc::MessageId& id);

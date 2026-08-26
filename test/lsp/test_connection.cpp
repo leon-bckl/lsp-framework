@@ -2,7 +2,9 @@
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 #include <test/test.h>
 #include <lsp/connection.h>
 #include <lsp/io/stream.h>
@@ -335,7 +337,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/RequestWithParamsObject", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
-			sender.writeParamsObject().write("x", 1);
+			sender.writeParams(std::unordered_map<std::string, int>{{"x", 1}});
 			sender.submit(connection);
 		});
 
@@ -345,10 +347,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/RequestWithParamsArray", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
-			auto params = sender.writeParamsArray();
-			params.write(1);
-			params.write(2);
-			params.finalize();
+			sender.writeParams(std::vector<int>{1, 2});
 			sender.submit(connection);
 		});
 
@@ -367,7 +366,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/NotificationWithParams", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.notification("foo");
-			sender.writeParamsObject().write("x", 1);
+			sender.writeParams(std::unordered_map<std::string, int>{{"x", 1}});
 			sender.submit(connection);
 		});
 
@@ -396,7 +395,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/ResponseWithDataObject", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.response(jsonrpc::MessageId(json::Integer(1)));
-			sender.writeDataObject().write("a", 1);
+			sender.writeData(std::unordered_map<std::string, int>{{"a", 1}});
 			sender.submit(connection);
 		});
 
@@ -415,7 +414,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/ErrorResponseWithDataObject", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.errorResponse(jsonrpc::MessageId(json::Integer(1)), jsonrpc::Error::InvalidParams, "Invalid params");
-			sender.writeDataObject().write("field", "x");
+			sender.writeData(std::unordered_map<std::string, std::string>{{"field", "x"}});
 			sender.submit(connection);
 		});
 
@@ -431,7 +430,10 @@ int main(int argc, char** argv)
 			}
 			{
 				auto rw = batch.writeResponse(jsonrpc::MessageId(json::Integer(1)));
-				rw.writeData(1);
+				rw.writeData([](std::string_view key, const int& value, json::ObjectWriter& writer)
+				{
+					toJson(key, value, writer);
+				}, 1);
 			}
 
 			batch.submit(connection);
@@ -443,7 +445,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/RoundTrip", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.request("textDocument/foo", jsonrpc::MessageId(json::String("abc")));
-			sender.writeParamsObject().write("x", 1);
+			sender.writeParams(std::unordered_map<std::string, int>{{"x", 1}});
 			sender.submit(connection);
 		});
 

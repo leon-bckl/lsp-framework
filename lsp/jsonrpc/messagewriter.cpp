@@ -22,14 +22,14 @@ void writeMessageBase(json::ObjectWriter& writer, const MessageId* id = nullptr,
  */
 
 RequestWriter::RequestWriter(json::ObjectWriter&& writer, std::string_view method, const MessageId* id)
-	: m_writer{std::move(writer)}
+	: m_paramsWriter{std::move(writer)}
 {
-	writeMessageBase(m_writer, id, method);
+	writeMessageBase(m_paramsWriter, id, method);
 }
 
 void RequestWriter::finalize()
 {
-	m_writer.finalize();
+	m_paramsWriter.finalize();
 }
 
 RequestWriter RequestWriter::writeRequest(json::ObjectWriter&& writer, const MessageId& id, std::string_view method)
@@ -42,29 +42,19 @@ RequestWriter RequestWriter::writeNotification(json::ObjectWriter&& writer, std:
 	return RequestWriter(std::move(writer), method, nullptr);
 }
 
-json::ObjectWriter RequestWriter::writeParamsObject()
-{
-	return m_writer.beginObject("params");
-}
-
-json::ArrayWriter RequestWriter::writeParamsArray()
-{
-	return m_writer.beginArray("params");
-}
-
 /*
  * ResponseWriter
  */
 
 ResponseWriter::ResponseWriter(json::ObjectWriter&& writer, const MessageId& id)
-	: m_writer{std::move(writer)}
+	: m_resultWriter{std::move(writer)}
 {
-	writeMessageBase(m_writer, &id);
+	writeMessageBase(m_resultWriter, &id);
 }
 
 ResponseWriter::ResponseWriter(ResponseWriter&& other) noexcept
 	: m_hasData{std::exchange(other.m_hasData, true)}
-	, m_writer{std::move(other.m_writer)}
+	, m_resultWriter{std::move(other.m_resultWriter)}
 	, m_errorWriter{std::move(other.m_errorWriter)}
 {
 }
@@ -78,9 +68,9 @@ ResponseWriter& ResponseWriter::operator=(ResponseWriter&& other) noexcept
 {
 	finalize();
 
-	m_hasData     = std::exchange(other.m_hasData, true);
-	m_writer      = std::move(other.m_writer);
-	m_errorWriter = std::move(other.m_errorWriter);
+	m_hasData      = std::exchange(other.m_hasData, true);
+	m_resultWriter = std::move(other.m_resultWriter);
+	m_errorWriter  = std::move(other.m_errorWriter);
 
 	return *this;
 }
@@ -88,12 +78,14 @@ ResponseWriter& ResponseWriter::operator=(ResponseWriter&& other) noexcept
 void ResponseWriter::finalize()
 {
 	if(!m_hasData && !m_errorWriter.has_value())
-		writeData(nullptr);
+		m_resultWriter.write("result", nullptr);
+
+	m_hasData = true;
 
 	if(m_errorWriter.has_value())
 		m_errorWriter->finalize();
 
-	m_writer.finalize();
+	m_resultWriter.finalize();
 }
 
 ResponseWriter ResponseWriter::writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id)
@@ -104,33 +96,13 @@ ResponseWriter ResponseWriter::writeResponse(json::ObjectWriter&& objectWriter, 
 ResponseWriter ResponseWriter::writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message)
 {
 	auto responseWriter = ResponseWriter(std::move(objectWriter), id);
-	auto errorWriter    = responseWriter.m_writer.beginObject("error");
+	auto errorWriter    = responseWriter.m_resultWriter.beginObject("error");
 
 	errorWriter.write("code", code);
 	errorWriter.write("message", message);
 	responseWriter.m_errorWriter = std::move(errorWriter);
 
 	return responseWriter;
-}
-
-json::ObjectWriter ResponseWriter::writeDataObject()
-{
-	m_hasData = true;
-
-	if(m_errorWriter.has_value())
-		return m_errorWriter->beginObject("data");
-
-	return m_writer.beginObject("result");
-}
-
-json::ArrayWriter ResponseWriter::writeDataArray()
-{
-	m_hasData = true;
-
-	if(m_errorWriter.has_value())
-		return m_errorWriter->beginArray("data");
-
-	return m_writer.beginArray("result");
 }
 
 /*

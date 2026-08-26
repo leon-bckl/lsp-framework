@@ -1,5 +1,6 @@
 #include <string>
 #include <utility>
+#include <vector>
 #include <test/test.h>
 #include <lsp/json/json.h>
 #include <lsp/json/writer.h>
@@ -16,6 +17,28 @@ auto build(std::string_view indent, auto&& fn) -> std::string
 	auto writer = json::Writer(out, indent);
 	fn(writer);
 	return out;
+}
+
+constexpr auto asValue = [](std::string_view key, const auto& value, json::ObjectWriter& writer)
+{
+	writer.write(key, value);
+};
+
+constexpr auto asArray = [](std::string_view key, const std::vector<int>& values, json::ObjectWriter& writer)
+{
+	auto arr = writer.beginArray(key);
+
+	for(auto v : values)
+		arr.write(v);
+};
+
+auto withField(std::string_view field)
+{
+	return [field](std::string_view key, const auto& value, json::ObjectWriter& writer)
+	{
+		auto obj = writer.beginObject(key);
+		obj.write(field, value);
+	};
 }
 
 } // namespace
@@ -46,9 +69,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Request/ParamsObject", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw     = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
-			auto params = rw.writeParamsObject();
-			params.write("a", 1);
+			auto rw = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
+			rw.writeParams(withField("a"), 1);
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"method":"foo","params":{"a":1}})"));
@@ -56,10 +78,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Request/ParamsArray", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw     = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
-			auto params = rw.writeParamsArray();
-			params.write(1);
-			params.write(2);
+			auto rw = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
+			rw.writeParams(asArray, std::vector<int>{1, 2});
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"method":"foo","params":[1,2]})"));
@@ -75,9 +95,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Notification/ParamsObject", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw     = RequestWriter::writeNotification(writer.beginObject(), "foo");
-			auto params = rw.writeParamsObject();
-			params.write("a", true);
+			auto rw = RequestWriter::writeNotification(writer.beginObject(), "foo");
+			rw.writeParams(withField("a"), true);
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","method":"foo","params":{"a":true}})"));
@@ -89,9 +108,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Response/DataObject", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw     = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
-			auto result = rw.writeDataObject();
-			result.write("a", 1);
+			auto rw = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
+			rw.writeData(withField("a"), 1);
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":{"a":1}})"));
@@ -99,10 +117,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Response/DataArray", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw     = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
-			auto result = rw.writeDataArray();
-			result.write(1);
-			result.write(2);
+			auto rw = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
+			rw.writeData(asArray, std::vector<int>{1, 2});
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":[1,2]})"));
@@ -111,7 +127,7 @@ int main(int argc, char** argv)
 	app.addTest("Response/ScalarResult", [](){
 		const auto out = build({}, [](json::Writer& writer){
 			auto rw = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
-			rw.writeData(42);
+			rw.writeData(asValue, 42);
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":42})"));
@@ -120,7 +136,7 @@ int main(int argc, char** argv)
 	app.addTest("Response/NullResult", [](){
 		const auto out = build({}, [](json::Writer& writer){
 			auto rw = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
-			rw.writeData(nullptr);
+			rw.writeData(asValue, nullptr);
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":null})"));
@@ -136,9 +152,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Response/ErrorDataObject", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw   = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), Error::InvalidRequest, "Invalid Request");
-			auto data = rw.writeDataObject();
-			data.write("reason", "bad");
+			auto rw = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), Error::InvalidRequest, "Invalid Request");
+			rw.writeData(withField("reason"), std::string_view("bad"));
 		});
 
 		test::compare(out, std::string_view(
@@ -147,10 +162,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Response/ErrorDataArray", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw   = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), Error::InvalidRequest, "Invalid Request");
-			auto data = rw.writeDataArray();
-			data.write(1);
-			data.write(2);
+			auto rw = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), Error::InvalidRequest, "Invalid Request");
+			rw.writeData(asArray, std::vector<int>{1, 2});
 		});
 
 		test::compare(out, std::string_view(
@@ -160,7 +173,7 @@ int main(int argc, char** argv)
 	app.addTest("Response/ErrorScalarData", [](){
 		const auto out = build({}, [](json::Writer& writer){
 			auto rw = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), Error::InvalidRequest, "Invalid Request");
-			rw.writeData("bad");
+			rw.writeData(asValue, std::string_view("bad"));
 		});
 
 		test::compare(out, std::string_view(
@@ -179,7 +192,7 @@ int main(int argc, char** argv)
 		const auto out = build({}, [](json::Writer& writer){
 			auto rw1 = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
 			auto rw2 = std::move(rw1);
-			rw2.writeData(1);
+			rw2.writeData(asValue, 1);
 		});
 
 		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":1})"));
@@ -194,7 +207,7 @@ int main(int argc, char** argv)
 		{
 			auto rw = ResponseWriter::writeResponse(writerA.beginObject(), MessageId(json::Integer(1)));
 			rw      = ResponseWriter::writeResponse(writerB.beginObject(), MessageId(json::Integer(2)));
-			rw.writeData(2);
+			rw.writeData(asValue, 2);
 		}
 
 		test::compare(outA, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":null})"));
@@ -203,10 +216,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Request/ManualFinalize", [](){
 		const auto out = build({}, [](json::Writer& writer){
-			auto rw     = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
-			auto params = rw.writeParamsObject();
-			params.write("a", 1);
-			params.finalize();
+			auto rw = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
+			rw.writeParams(withField("a"), 1);
 			rw.finalize();
 		});
 
@@ -216,7 +227,7 @@ int main(int argc, char** argv)
 	app.addTest("Response/ManualFinalizeWritesExplicitResult", [](){
 		const auto out = build({}, [](json::Writer& writer){
 			auto rw = ResponseWriter::writeResponse(writer.beginObject(), MessageId(json::Integer(1)));
-			rw.writeData(1);
+			rw.writeData(asValue, 1);
 			rw.finalize();
 		});
 
@@ -257,7 +268,7 @@ int main(int argc, char** argv)
 		auto out    = std::string();
 		auto writer = json::Writer(out);
 		auto rw     = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), jsonrpc::Error::InvalidRequest, "Invalid Request");
-		rw.writeDataObject().write("reason", "bad");
+		rw.writeData(withField("reason"), std::string_view("bad"));
 
 		rw.finalize();
 
@@ -282,9 +293,8 @@ int main(int argc, char** argv)
 			auto batch = BatchWriter(writer.beginArray());
 
 			{
-				auto rw     = batch.writeRequest(MessageId(json::Integer(1)), "foo");
-				auto params = rw.writeParamsObject();
-				params.write("a", 1);
+				auto rw = batch.writeRequest(MessageId(json::Integer(1)), "foo");
+				rw.writeParams(withField("a"), 1);
 			}
 			{
 				auto rw = batch.writeNotification("bar");
@@ -313,7 +323,7 @@ int main(int argc, char** argv)
 
 			{
 				auto rw = batch.writeResponse(MessageId(json::Integer(1)));
-				rw.writeData(1);
+				rw.writeData(asValue, 1);
 			}
 			{
 				auto rw = batch.writeError(MessageId(json::Integer(2)), Error::MethodNotFound, "Method not found");
@@ -329,26 +339,20 @@ int main(int argc, char** argv)
 			auto batch = BatchWriter(writer.beginArray());
 
 			{
-				auto rw     = batch.writeResponse(MessageId(json::Integer(1)));
-				auto result = rw.writeDataObject();
-				result.write("a", 1);
+				auto rw = batch.writeResponse(MessageId(json::Integer(1)));
+				rw.writeData(withField("a"), 1);
 			}
 			{
-				auto rw     = batch.writeResponse(MessageId(json::Integer(2)));
-				auto result = rw.writeDataArray();
-				result.write(1);
-				result.write(2);
+				auto rw = batch.writeResponse(MessageId(json::Integer(2)));
+				rw.writeData(asArray, std::vector<int>{1, 2});
 			}
 			{
-				auto rw   = batch.writeError(MessageId(json::Integer(3)), Error::InvalidParams, "Invalid params");
-				auto data = rw.writeDataObject();
-				data.write("field", "x");
+				auto rw = batch.writeError(MessageId(json::Integer(3)), Error::InvalidParams, "Invalid params");
+				rw.writeData(withField("field"), std::string_view("x"));
 			}
 			{
-				auto rw   = batch.writeError(MessageId(json::Integer(4)), Error::InvalidParams, "Invalid params");
-				auto data = rw.writeDataArray();
-				data.write(1);
-				data.write(2);
+				auto rw = batch.writeError(MessageId(json::Integer(4)), Error::InvalidParams, "Invalid params");
+				rw.writeData(asArray, std::vector<int>{1, 2});
 			}
 		});
 
@@ -373,9 +377,8 @@ int main(int argc, char** argv)
 
 	app.addTest("Format/RequestWithParams", [](){
 		const auto out = build("\t", [](json::Writer& writer){
-			auto rw     = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
-			auto params = rw.writeParamsObject();
-			params.write("a", 1);
+			auto rw = RequestWriter::writeRequest(writer.beginObject(), MessageId(json::Integer(1)), "foo");
+			rw.writeParams(withField("a"), 1);
 		});
 
 		test::compare(out, std::string_view(

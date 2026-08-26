@@ -21,39 +21,25 @@ void MessageHandler::processNextMessage()
 	if(auto* const message = std::get_if<jsonrpc::Message>(&messageOrBatch))
 	{
 		if(auto* const request = std::get_if<jsonrpc::Request>(message))
-		{
-			auto optionalResponse = processRequest(std::move(*request), true);
-
-			if(optionalResponse.has_value())
-				m_connection.writeMessage(std::move(*optionalResponse));
-		}
+			processRequest(std::move(*request), nullptr);
 		else
-		{
 			processResponse(std::move(std::get<jsonrpc::Response>(*message)));
-		}
 	}
 	else
 	{
-		auto& batch         = std::get<jsonrpc::MessageBatch>(messageOrBatch);
-		auto  responseBatch = jsonrpc::MessageBatch();
+		auto& batch       = std::get<jsonrpc::MessageBatch>(messageOrBatch);
+		auto  batchSender = Connection::messageBatch();
 
 		for(auto& msg : batch)
 		{
 			if(auto* const request = std::get_if<jsonrpc::Request>(&msg))
-			{
-				auto optionalResponse = processRequest(std::move(*request), false);
-
-				if(optionalResponse.has_value())
-					responseBatch.push_back(std::move(*optionalResponse));
-			}
+				processRequest(std::move(*request), &batchSender);
 			else
-			{
 				processResponse(std::move(std::get<jsonrpc::Response>(msg)));
-			}
 		}
 
-		if(!responseBatch.empty())
-			m_connection.writeMessage(std::move(responseBatch));
+		// FIXME: Don't send if batch is empty
+		batchSender.submit(m_connection);
 	}
 }
 
@@ -79,10 +65,9 @@ void MessageHandler::remove(const std::string& method)
 		m_requestHandlersByMethod.erase(it);
 }
 
-MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request&& request, bool allowAsync)
+void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender)
 {
-	std::unique_lock lock{m_requestHandlersMutex};
-	OptionalResponse response;
+	auto lock = std::unique_lock(m_requestHandlersMutex);
 
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
@@ -103,33 +88,24 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 			lock.unlock();
 
 			// Call handler for the method type and return optional response
-			response = handlerIt->second(
+			handlerIt->second(
 				request.params.has_value() ? std::move(*request.params) : json::Null{},
-				allowAsync);
+				batchSender);
 		}
 		catch(const RequestError& e)
 		{
 			if(!request.isNotification())
-			{
-				response = jsonrpc::createErrorResponse(
-					*request.id, e.code(), e.what(), e.data());
-			}
+				sendErrorResponse(*request.id, e.code(), e.what(), e.data());
 		}
 		catch(const json::TypeError& e)
 		{
 			if(!request.isNotification())
-			{
-				response = jsonrpc::createErrorResponse(
-					*request.id, MessageError::InvalidParams, e.what());
-			}
+				sendErrorResponse(*request.id, MessageError::InvalidParams, e.what());
 		}
 		catch(const std::exception& e)
 		{
 			if(!request.isNotification())
-			{
-				response = jsonrpc::createErrorResponse(
-					*request.id, MessageError::InternalError, e.what());
-			}
+				sendErrorResponse(*request.id, MessageError::InternalError, e.what());
 		}
 		catch(...)
 		{
@@ -142,10 +118,8 @@ MessageHandler::OptionalResponse MessageHandler::processRequest(jsonrpc::Request
 	else
 	{
 		if(!request.isNotification())
-			response = jsonrpc::createErrorResponse(*request.id, MessageError::MethodNotFound, "Method not found");
+			sendErrorResponse(*request.id, MessageError::MethodNotFound, "Method not found");
 	}
-
-	return response;
 }
 
 void MessageHandler::processResponse(jsonrpc::Response&& response)
@@ -217,40 +191,36 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericMessageCallb
 MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessageCallback callback)
 {
 	addHandler(method,
-		[this, f = std::move(callback)](json::Value&& params, bool allowAsync) -> OptionalResponse
+		[this, f = std::move(callback)](json::Value&& params, Connection::BatchSender* batchSender)
 		{
 			const auto isNotification = std::holds_alternative<std::nullptr_t>(currentRequestId());
 			auto future = f(std::move(params));
 
-			if(allowAsync)
+			if(batchSender)
+			{
+				if(!isNotification)
+				{
+					auto responseWriter = batchSender->writeResponse(currentRequestId());
+					responseWriter.writeData(
+						[](std::string_view key, const auto& value, json::ObjectWriter& writer)
+						{
+							toJson(key, value, writer);
+						}, future.get());
+				}
+			}
+			else
 			{
 				m_threadPool.addTask(
 					[this, future = std::move(future), isNotification = isNotification, requestId = currentRequestId()]() mutable
 					{
-						auto response = createResponseFromAsyncResult<GenericMessage>(requestId, future);
-
-						if(!isNotification)
-							sendResponse(std::move(response));
+						handleAsyncResult<GenericMessage>(isNotification ? nullptr : &requestId, future);
 					}
 				);
-				return std::nullopt;
 			}
-
-			auto result = future.get();
-
-			if(!isNotification)
-				return jsonrpc::createResponse(currentRequestId(), std::move(result));
-
-			return std::nullopt;
 		}
 	);
 
 	return *this;
-}
-
-void MessageHandler::sendResponse(jsonrpc::Response&& response)
-{
-	m_connection.writeMessage(std::move(response));
 }
 
 void MessageHandler::addPendingRequest(RequestResultPtr result, json::Integer id)
@@ -299,6 +269,16 @@ void MessageHandler::sendNotification(std::string_view method, const json::Value
 		notificationSender.writeParams(params);
 
 	notificationSender.submit(m_connection);
+}
+
+void MessageHandler::sendErrorResponse(const MessageId& messageId, int errorCode, std::string_view errorMessage, const std::optional<json::Value>& errorData )
+{
+	auto errorResponse = Connection::errorResponse(messageId, errorCode, errorMessage);
+
+	if(errorData.has_value())
+		errorResponse.writeData(errorData.value());
+
+	errorResponse.submit(m_connection);
 }
 
 json::Integer MessageHandler::nextUniqueRequestId()
