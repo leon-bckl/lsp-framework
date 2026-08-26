@@ -204,12 +204,14 @@ Connection::Message Connection::readMessage()
 	}
 	catch(const json::ParseError& e)
 	{
-		writeMessage(jsonrpc::createErrorResponse(json::Null(), MessageError::ParseError, e.what()));
+		auto responseSender = errorResponse(json::Null(), MessageError::ParseError, e.what());
+		responseSender.submit(*this);
 		throw; // FIXME: This shouldn't abort the connection
 	}
 	catch(const jsonrpc::ProtocolError& e)
 	{
-		writeMessage(jsonrpc::createErrorResponse(json::Null(), MessageError::InvalidRequest, e.what()));
+		auto responseSender = errorResponse(json::Null(), MessageError::InvalidRequest, e.what());
+		responseSender.submit(*this);
 		throw; // FIXME: This shouldn't abort the connection
 	}
 	catch(const ConnectionError&)
@@ -219,32 +221,6 @@ Connection::Message Connection::readMessage()
 	catch(const std::exception& e)
 	{
 		throw ConnectionError(e.what());
-	}
-	catch(...)
-	{
-		throw ConnectionError("Unknown error");
-	}
-}
-
-void Connection::writeMessage(Message&& message)
-{
-	try
-	{
-		auto json = json::Value();
-
-		if(auto* const msg = std::get_if<jsonrpc::Message>(&message))
-			json = jsonrpc::messageToJson(std::move(*msg));
-		else
-			json = jsonrpc::messageBatchToJson(std::move(std::get<jsonrpc::MessageBatch>(message)));
-
-#if LSP_MESSAGE_DEBUG_LOG
-		debugLogMessageJson("outgoing", json::stringify(json));
-#endif
-		writeMessageData(json::stringify(json));
-	}
-	catch(const std::exception& e)
-	{
-		throw ConnectionError{e.what()};
 	}
 	catch(...)
 	{
@@ -319,8 +295,15 @@ void Connection::writeMessageData(std::string_view content)
 	const auto header    = MessageHeader{ .contentLength = content.size() };
 	const auto headerStr = messageHeaderString(header);
 
-	m->stream.write(headerStr.data(), headerStr.size());
-	m->stream.write(content.data(), content.size());
+	try
+	{
+		m->stream.write(headerStr.data(), headerStr.size());
+		m->stream.write(content.data(), content.size());
+	}
+	catch(const std::exception& e)
+	{
+		throw ConnectionError(e.what());
+	}
 }
 
 std::string Connection::messageHeaderString(const MessageHeader& header)

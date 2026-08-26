@@ -79,12 +79,5 @@ public:
 
 [[nodiscard]] Message      messageFromJson(json::Object&& json);
 [[nodiscard]] MessageBatch messageBatchFromJson(json::Array&& json);
-[[nodiscard]] json::Object messageToJson(Message&& message);
-[[nodiscard]] json::Array  messageBatchToJson(MessageBatch&& batch);
-
-[[nodiscard]] Request  createRequest(MessageId id, std::string_view method, std::optional<json::Value> params = std::nullopt);
-[[nodiscard]] Request  createNotification(std::string_view method, std::optional<json::Value> params = std::nullopt);
-[[nodiscard]] Response createResponse(MessageId id, json::Value result);
-[[nodiscard]] Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Value> data = std::nullopt);
 
 } // namespace lsp::jsonrpc

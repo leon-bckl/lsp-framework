@@ -35,7 +35,6 @@ public:
 	Connection& operator=(const Connection&) = delete;
 
 	Message readMessage();
-	void writeMessage(Message&& message);
 
 	/*
 	 * MessageSender

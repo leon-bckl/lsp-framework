@@ -173,15 +173,28 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 MessageHandler& MessageHandler::add(std::string_view method, GenericMessageCallback callback)
 {
 	addHandler(method,
-		[f = std::move(callback)](json::Value&& params, bool) -> OptionalResponse
+		[this, f = std::move(callback)](json::Value&& params, Connection::BatchSender* batchSender)
 		{
-			const auto isNotification = std::holds_alternative<std::nullptr_t>(currentRequestId());
-			auto result = f(std::move(params));
+			const auto& requestId      = currentRequestId();
+			const auto  isNotification = std::holds_alternative<std::nullptr_t>(requestId);
+			const auto  result         = f(std::move(params));
 
-			if(!isNotification)
-				return jsonrpc::createResponse(currentRequestId(), std::move(result));
-
-			return std::nullopt;
+			if(batchSender)
+			{
+				if(!isNotification)
+				{
+					auto responseWriter = batchSender->writeResponse(requestId);
+					responseWriter.writeData(
+						[](std::string_view key, const auto& value, json::ObjectWriter& writer)
+						{
+							toJson(key, value, writer);
+						}, result);
+				}
+			}
+			else if(!isNotification)
+			{
+				sendResponse(requestId, result);
+			}
 		}
 	);
 
@@ -193,8 +206,9 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessage
 	addHandler(method,
 		[this, f = std::move(callback)](json::Value&& params, Connection::BatchSender* batchSender)
 		{
-			const auto isNotification = std::holds_alternative<std::nullptr_t>(currentRequestId());
-			auto future = f(std::move(params));
+			const auto& requestId      = currentRequestId();
+			const auto  isNotification = std::holds_alternative<std::nullptr_t>(requestId);
+			auto        future         = f(std::move(params));
 
 			if(batchSender)
 			{
@@ -211,7 +225,7 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessage
 			else
 			{
 				m_threadPool.addTask(
-					[this, future = std::move(future), isNotification = isNotification, requestId = currentRequestId()]() mutable
+					[this, future = std::move(future), isNotification = isNotification, requestId]() mutable
 					{
 						handleAsyncResult<GenericMessage>(isNotification ? nullptr : &requestId, future);
 					}

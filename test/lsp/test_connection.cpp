@@ -88,12 +88,6 @@ std::string makeMessage(std::string_view body, std::string_view contentType = {}
 	return msg;
 }
 
-std::string expectedMessageText(std::string_view body)
-{
-	return "Content-Length: " + std::to_string(body.size()) +
-		"\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n" + std::string(body);
-}
-
 std::string sendMessage(auto&& fn)
 {
 	auto stream     = MemoryStream();
@@ -223,24 +217,6 @@ int main(int argc, char** argv)
 		test::compare(response.error->code, jsonrpc::Error::InvalidRequest);
 	});
 
-	app.addTest("WriteMessage/Request", [](){
-		auto stream     = MemoryStream();
-		auto connection = Connection(stream);
-
-		connection.writeMessage(Connection::Message(jsonrpc::Message(jsonrpc::createRequest(json::Integer(1), "foo"))));
-
-		test::compare(stream.output(), expectedMessageText(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
-	});
-
-	app.addTest("WriteMessage/Response", [](){
-		auto stream     = MemoryStream();
-		auto connection = Connection(stream);
-
-		connection.writeMessage(Connection::Message(jsonrpc::Message(jsonrpc::createResponse(json::Integer(1), 42))));
-
-		test::compare(stream.output(), expectedMessageText(R"({"jsonrpc":"2.0","id":1,"result":42})"));
-	});
-
 	app.addTest("ReadMessage/Errors", [](std::string rawInput, std::string_view expectedMessage)
 	{
 		auto stream     = MemoryStream(std::move(rawInput));
@@ -278,27 +254,14 @@ int main(int argc, char** argv)
 		test::check(stream.output().empty(), "noResponseWritten");
 	});
 
-	app.addTest("WriteMessage/Batch", [](){
-		auto stream     = MemoryStream();
-		auto connection = Connection(stream);
-
-		auto batch = jsonrpc::MessageBatch();
-		batch.push_back(jsonrpc::Message(jsonrpc::createRequest(json::Integer(1), "a")));
-		batch.push_back(jsonrpc::Message(jsonrpc::createRequest(json::Integer(2), "b")));
-
-		connection.writeMessage(Connection::Message(std::move(batch)));
-
-		test::compare(stream.output(),
-			expectedMessageText(R"([{"jsonrpc":"2.0","id":1,"method":"a"},{"jsonrpc":"2.0","id":2,"method":"b"}])"));
-	});
-
-	app.addTest("WriteMessage/StreamFailureIsWrappedAsConnectionError", [](){
+	app.addTest("Send/StreamFailureIsWrappedAsConnectionError", [](){
 		auto stream     = MemoryStream();
 		auto connection = Connection(stream);
 		stream.failWrites = true;
 
 		test::expectException<ConnectionError>([&](){
-			connection.writeMessage(Connection::Message(jsonrpc::Message(jsonrpc::createRequest(json::Integer(1), "foo"))));
+			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
+			sender.submit(connection);
 		}, "Write failed");
 	});
 
@@ -307,9 +270,10 @@ int main(int argc, char** argv)
 		auto original = Connection(stream);
 		auto moved    = Connection(std::move(original));
 
-		moved.writeMessage(Connection::Message(jsonrpc::Message(jsonrpc::createRequest(json::Integer(1), "foo"))));
+		auto sender = moved.request("foo", jsonrpc::MessageId(json::Integer(1)));
+		sender.submit(moved);
 
-		test::compare(stream.output(), expectedMessageText(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
+		test::compare(parseMessageBody(stream.output()), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
 	});
 
 	app.addTest("Connection/MoveAssign", [](){
@@ -319,9 +283,11 @@ int main(int argc, char** argv)
 		auto connectionB = Connection(streamB);
 
 		connectionB = std::move(connectionA);
-		connectionB.writeMessage(Connection::Message(jsonrpc::Message(jsonrpc::createRequest(json::Integer(1), "foo"))));
 
-		test::compare(streamA.output(), expectedMessageText(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
+		auto sender = connectionB.request("foo", jsonrpc::MessageId(json::Integer(1)));
+		sender.submit(connectionB);
+
+		test::compare(parseMessageBody(streamA.output()), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
 		test::check(streamB.output().empty(), "streamBUntouched");
 	});
 
@@ -450,24 +416,6 @@ int main(int argc, char** argv)
 		});
 
 		auto readStream     = MemoryStream(out);
-		auto readConnection = Connection(readStream);
-
-		auto  message = readConnection.readMessage();
-		auto& request = std::get<jsonrpc::Request>(std::get<jsonrpc::Message>(message));
-
-		test::compare(*request.id, jsonrpc::MessageId(json::String("abc")));
-		test::compare(request.method, std::string("textDocument/foo"));
-		test::compare(request.params->object().get("x").integer(), 1);
-	});
-
-	app.addTest("ReadWriteRoundTrip", [](){
-		auto writeStream     = MemoryStream();
-		auto writeConnection = Connection(writeStream);
-
-		writeConnection.writeMessage(Connection::Message(jsonrpc::Message(
-			jsonrpc::createRequest(json::String("abc"), "textDocument/foo", json::Value(json::Object({{"x", 1}}))))));
-
-		auto readStream     = MemoryStream(writeStream.output());
 		auto readConnection = Connection(readStream);
 
 		auto  message = readConnection.readMessage();

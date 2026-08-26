@@ -101,7 +101,6 @@ private:
 	class RequestResultBase;
 	using RequestResultPtr  = std::unique_ptr<RequestResultBase>;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
-	using OptionalResponse  = std::optional<jsonrpc::Response>;
 	using HandlerWrapper    = std::function<void(json::Value&&, Connection::BatchSender*)>;
 
 	// General
