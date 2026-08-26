@@ -154,13 +154,18 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
-	void closeStdHandles()
+	void closeStdinWrite()
 	{
 		if(m_stdinWrite != -1)
 		{
 			close(m_stdinWrite);
 			m_stdinWrite  = -1;
 		}
+	}
+
+	void closeStdHandles()
+	{
+		closeStdinWrite();
 
 		if(m_stdoutRead != -1)
 		{
@@ -189,7 +194,7 @@ struct Process::Impl final : public io::Stream{
 			if(pid != 0)
 			{
 				m_pid = -1;
-				closeStdHandles();
+				closeStdinWrite();
 			}
 		}
 

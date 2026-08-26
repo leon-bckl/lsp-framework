@@ -60,6 +60,21 @@ int main(int argc, char** argv)
 		std::fflush(stdout);
 		return 5;
 	}
+	else if(std::strcmp(argv[1], "StdErr") == 0)
+	{
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::fprintf(stderr, "Hello Error!");
+		std::fflush(stderr);
+		return 8;
+	}
+	else if(std::strcmp(argv[1], "StdOutAndStdErr") == 0)
+	{
+		std::fprintf(stdout, "out");
+		std::fflush(stdout);
+		std::fprintf(stderr, "err");
+		std::fflush(stderr);
+		return 9;
+	}
 	else if(std::strcmp(argv[1], "StdIO") == 0)
 	{
 		std::fprintf(stdout, "Hello World!");
@@ -211,6 +226,39 @@ int main(int argc, char** argv)
 			char buf[1];
 			stdIO.read(buf, sizeof(buf));
 		}, "Reached EOF");
+	});
+
+	app.addTest("StdErr", [](){
+		auto proc = Process::start(LSP_TEST_PROCESS_EXE, {"StdErr"});
+		test::compare(proc.readAvailableStdErr(), std::string());
+		std::this_thread::sleep_for(std::chrono::seconds(2)); // Give process time to write to stderr
+		test::compare(proc.readAvailableStdErr(), std::string_view("Hello Error!"));
+		test::compare(proc.readAvailableStdErr(), std::string());
+		test::compare(proc.wait(), 8);
+	});
+
+	app.addTest("StdOutAndStdErrAreSeparate", [](){
+		auto       proc       = Process::start(LSP_TEST_PROCESS_EXE, {"StdOutAndStdErr"});
+		auto&      stdIO      = proc.stdIO();
+		const auto expected   = std::string_view("out");
+		char       buffer[16] = {};
+
+		stdIO.read(buffer, expected.size());
+		test::compare(std::string_view(buffer, expected.size()), expected);
+		test::compare(proc.readAvailableStdErr(), std::string_view("err"));
+		test::compare(proc.wait(), 9);
+	});
+
+	app.addTest("IsRunningDoesNotDiscardBufferedStdErr", [](){
+		auto proc = Process::start(LSP_TEST_PROCESS_EXE, {"StdOutAndStdErr"});
+
+		std::this_thread::sleep_for(std::chrono::seconds(1)); // let the process write its output and exit
+
+		test::check(!proc.isRunning(), "!isRunning");
+		test::check(!proc.isRunning(), "!isRunningIdempotent");
+
+		test::compare(proc.readAvailableStdErr(), std::string_view("err"));
+		test::compare(proc.wait(), 9);
 	});
 
 	app.addTest("ProcessId", [](){
