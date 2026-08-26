@@ -23,12 +23,14 @@ struct Process::Impl final : public io::Stream{
 #ifdef LSP_PROCESS_POSIX
 	int   m_stdinWrite = -1;
 	int   m_stdoutRead = -1;
+	int   m_stderrRead = -1;
 	pid_t m_pid        = -1;
 
 	Impl(const std::string& executable, const ArgList& args)
 	{
 		int inPipe[2]; // Parent writes to child (stdin)
 		int outPipe[2]; // Parent reads from child (stdout)
+		int stderrPipe[2]; // Parent reads from child (stderr)
 		int errPipe[2]; // Used to inform parent about exec errors
 
 		if(pipe(inPipe) == -1)
@@ -42,6 +44,16 @@ struct Process::Impl final : public io::Stream{
 			throw ProcessError(strerror(error));
 		}
 
+		if(pipe(stderrPipe) == -1)
+		{
+			const auto error = errno;
+			close(inPipe[0]);
+			close(inPipe[1]);
+			close(outPipe[0]);
+			close(outPipe[1]);
+			throw ProcessError(strerror(error));
+		}
+
 		if(pipe(errPipe) == -1)
 		{
 			const auto error = errno;
@@ -49,6 +61,8 @@ struct Process::Impl final : public io::Stream{
 			close(inPipe[1]);
 			close(outPipe[0]);
 			close(outPipe[1]);
+			close(stderrPipe[0]);
+			close(stderrPipe[1]);
 			throw ProcessError(strerror(error));
 		}
 
@@ -72,6 +86,8 @@ struct Process::Impl final : public io::Stream{
 			close(inPipe[1]);
 			close(outPipe[0]);
 			close(outPipe[1]);
+			close(stderrPipe[0]);
+			close(stderrPipe[1]);
 			throw ProcessError(strerror(errno));
 		}
 
@@ -79,11 +95,14 @@ struct Process::Impl final : public io::Stream{
 		{
 			dup2(inPipe[0], STDIN_FILENO);
 			dup2(outPipe[1], STDOUT_FILENO);
+			dup2(stderrPipe[1], STDERR_FILENO);
 
 			close(inPipe[0]);
 			close(inPipe[1]);
 			close(outPipe[0]);
 			close(outPipe[1]);
+			close(stderrPipe[0]);
+			close(stderrPipe[1]);
 			close(errPipe[0]);
 			fcntl(errPipe[1], F_SETFD, FD_CLOEXEC);
 
@@ -100,6 +119,7 @@ struct Process::Impl final : public io::Stream{
 		{
 			close(inPipe[0]);
 			close(outPipe[1]);
+			close(stderrPipe[1]);
 			close(errPipe[1]);
 
 			int error;
@@ -110,12 +130,15 @@ struct Process::Impl final : public io::Stream{
 			{
 				close(inPipe[1]);
 				close(outPipe[0]);
+				close(stderrPipe[0]);
 				waitpid(m_pid, nullptr, 0);
 				throw ProcessError(strerror(error));
 			}
 
 			m_stdinWrite = inPipe[1];
 			m_stdoutRead = outPipe[0];
+			m_stderrRead = stderrPipe[0];
+			fcntl(m_stderrRead, F_SETFL, O_NONBLOCK);
 		}
 	}
 
@@ -142,6 +165,12 @@ struct Process::Impl final : public io::Stream{
 		{
 			close(m_stdoutRead);
 			m_stdoutRead = -1;
+		}
+
+		if(m_stderrRead != -1)
+		{
+			close(m_stderrRead);
+			m_stderrRead = -1;
 		}
 	}
 
@@ -221,6 +250,39 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
+	std::string readAvailableStdErr()
+	{
+		if(m_stderrRead == -1)
+			return {};
+
+		auto result = std::string();
+		char buffer[4096];
+
+		for(;;)
+		{
+			const auto bytesRead = ::read(m_stderrRead, buffer, sizeof(buffer));
+
+			if(bytesRead > 0)
+			{
+				result.append(buffer, static_cast<std::size_t>(bytesRead));
+				continue;
+			}
+
+			if(bytesRead == 0)
+				break;
+
+			if(errno == EAGAIN || errno == EWOULDBLOCK)
+				break;
+
+			if(errno == EINTR)
+				continue;
+
+			throw io::Error(std::string("Failed to read from process stderr: ") + strerror(errno));
+		}
+
+		return result;
+	}
+
 	void write(const char* buffer, std::size_t size) override
 	{
 		std::size_t totalBytesWritten = 0;
@@ -245,6 +307,8 @@ struct Process::Impl final : public io::Stream{
 	HANDLE              m_stdinWrite   = nullptr;
 	HANDLE              m_stdoutRead   = nullptr;
 	HANDLE              m_stdoutWrite  = nullptr;
+	HANDLE              m_stderrRead   = nullptr;
+	HANDLE              m_stderrWrite  = nullptr;
 	PROCESS_INFORMATION m_processInfo  = {};
 
 	static std::string escapeArg(const std::string& arg)
@@ -330,12 +394,25 @@ struct Process::Impl final : public io::Stream{
 
 		SetHandleInformation(m_stdoutRead, HANDLE_FLAG_INHERIT, 0);
 
+		if(!CreatePipe(&m_stderrRead, &m_stderrWrite, &securityAttributes, 0))
+		{
+			CloseHandle(m_stdinRead);
+			CloseHandle(m_stdinWrite);
+			CloseHandle(m_stdoutRead);
+			CloseHandle(m_stdoutWrite);
+
+			throw ProcessError("Failed to create stderr pipe");
+		}
+
+		SetHandleInformation(m_stderrRead, HANDLE_FLAG_INHERIT, 0);
+
 		auto cmdLine = buildCmdLine(executable, args);
 		auto startupInfo = STARTUPINFOW{};
 		startupInfo.cb         = sizeof(startupInfo);
 		startupInfo.dwFlags    = STARTF_USESTDHANDLES;
 		startupInfo.hStdInput  = m_stdinRead;
 		startupInfo.hStdOutput = m_stdoutWrite;
+		startupInfo.hStdError  = m_stderrWrite;
 
 		if(!CreateProcessW(nullptr, cmdLine.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &m_processInfo))
 		{
@@ -343,6 +420,8 @@ struct Process::Impl final : public io::Stream{
 			CloseHandle(m_stdinWrite);
 			CloseHandle(m_stdoutRead);
 			CloseHandle(m_stdoutWrite);
+			CloseHandle(m_stderrRead);
+			CloseHandle(m_stderrWrite);
 
 			throw ProcessError("Failed to start process");
 		}
@@ -359,10 +438,14 @@ struct Process::Impl final : public io::Stream{
 		CloseHandle(m_stdinWrite);
 		CloseHandle(m_stdoutRead);
 		CloseHandle(m_stdoutWrite);
+		CloseHandle(m_stderrRead);
+		CloseHandle(m_stderrWrite);
 		m_stdinRead   = nullptr;
 		m_stdinWrite  = nullptr;
 		m_stdoutRead  = nullptr;
 		m_stdoutWrite = nullptr;
+		m_stderrRead  = nullptr;
+		m_stderrWrite = nullptr;
 	}
 
 	[[nodiscard]]
@@ -442,6 +525,34 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
+	std::string readAvailableStdErr()
+	{
+		if(!m_stderrRead)
+			return {};
+
+		DWORD bytesAvailable = 0;
+
+		if(!PeekNamedPipe(m_stderrRead, nullptr, 0, nullptr, &bytesAvailable, nullptr))
+		{
+			if(GetLastError() == ERROR_BROKEN_PIPE)
+				return {};
+
+			throw io::Error("Failed to peek process stderr");
+		}
+
+		if(bytesAvailable == 0)
+			return {};
+
+		auto  result    = std::string(bytesAvailable, '\0');
+		DWORD bytesRead = 0;
+
+		if(!ReadFile(m_stderrRead, result.data(), bytesAvailable, &bytesRead, nullptr))
+			throw io::Error("Failed to read from process stderr");
+
+		result.resize(bytesRead);
+		return result;
+	}
+
 	void write(const char* buffer, std::size_t size) override
 	{
 		std::size_t totalBytesWritten = 0;
@@ -503,6 +614,14 @@ int Process::id()
 		return -1;
 
 	return m_impl->id();
+}
+
+std::string Process::readAvailableStdErr()
+{
+	if(!m_impl)
+		return {};
+
+	return m_impl->readAvailableStdErr();
 }
 
 void Process::wait()

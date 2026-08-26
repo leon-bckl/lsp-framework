@@ -49,6 +49,8 @@ public:
 	[[nodiscard]] bool isRunning() const;
 	[[nodiscard]] io::Stream& stdIO();
 	[[nodiscard]] int id();
+	[[nodiscard]] std::string readAvailableStdErr();
+
 	void wait();
 	void terminate();
 
