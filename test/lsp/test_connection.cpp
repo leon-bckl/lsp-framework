@@ -398,7 +398,7 @@ int main(int argc, char** argv)
 				auto rw = batch.writeResponse(jsonrpc::MessageId(json::Integer(1)));
 				rw.writeData([](std::string_view key, const int& value, json::ObjectWriter& writer)
 				{
-					toJson(key, value, writer);
+					writeJson(key, value, writer);
 				}, 1);
 			}
 

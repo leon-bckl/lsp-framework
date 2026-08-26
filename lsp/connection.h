@@ -72,7 +72,7 @@ public:
 			jsonrpc::RequestWriter::writeParams(
 				[](std::string_view key, const T& value, json::ObjectWriter& writer)
 				{
-					toJson(key, value, writer);
+					writeJson(key, value, writer);
 				}, value);
 		}
 
@@ -96,7 +96,7 @@ public:
 			jsonrpc::ResponseWriter::writeData(
 				[](std::string_view key, const T& value, json::ObjectWriter& writer)
 				{
-					toJson(key, value, writer);
+					writeJson(key, value, writer);
 				}, value);
 		}
 

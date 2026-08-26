@@ -62,7 +62,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<
 				responseWriter.writeData(
 					[](std::string_view key, const auto& value, json::ObjectWriter& writer)
 					{
-						toJson(key, value, writer);
+						writeJson(key, value, writer);
 					}, future.get());
 			}
 			else
@@ -102,7 +102,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestC
 				responseWriter.writeData(
 					[](std::string_view key, const auto& value, json::ObjectWriter& writer)
 					{
-						toJson(key, value, writer);
+						writeJson(key, value, writer);
 					}, future.get());
 			}
 			else

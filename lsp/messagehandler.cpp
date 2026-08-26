@@ -189,7 +189,7 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericMessageCallb
 					responseWriter.writeData(
 						[](std::string_view key, const auto& value, json::ObjectWriter& writer)
 						{
-							toJson(key, value, writer);
+							writeJson(key, value, writer);
 						}, result);
 				}
 			}
@@ -220,7 +220,7 @@ MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessage
 					responseWriter.writeData(
 						[](std::string_view key, const auto& value, json::ObjectWriter& writer)
 						{
-							toJson(key, value, writer);
+							writeJson(key, value, writer);
 						}, future.get());
 				}
 			}

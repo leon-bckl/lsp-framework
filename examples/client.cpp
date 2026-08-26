@@ -48,7 +48,7 @@ void printMessagePayload(const typename MessageType::Result& result)
 {
 	auto json   = std::string();
 	auto writer = lsp::json::Writer(json, "\t");
-	lsp::toJson(result, writer);
+	lsp::writeJson(result, writer);
 	std::cerr << "payload: " << json << std::endl;
 }
 

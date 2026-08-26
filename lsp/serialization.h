@@ -18,82 +18,82 @@
 namespace lsp{
 
 /*
- * toJson
+ * writeJson
  */
 
 template<typename T, json::SimpleWriter WriterType>
-void toJson(const T& value, WriterType& writer);
+void writeJson(const T& value, WriterType& writer);
 template<typename T>
-void toJson(std::string_view key, const T& value, json::ObjectWriter& objectWriter);
+void writeJson(std::string_view key, const T& value, json::ObjectWriter& objectWriter);
 
-// std::vector toJson
+// std::vector writeJson
 
 template<typename T, json::SimpleWriter WriterType>
-void toJson(const std::vector<T>& values, WriterType& writer);
+void writeJson(const std::vector<T>& values, WriterType& writer);
 template<typename T>
-void toJson(std::string_view key, const std::vector<T>& values, json::ObjectWriter& objectWriter);
+void writeJson(std::string_view key, const std::vector<T>& values, json::ObjectWriter& objectWriter);
 
-// std::tuple toJson
+// std::tuple writeJson
 
 template<typename... Args, json::SimpleWriter WriterType>
-void toJson(const std::tuple<Args...>& tuple, WriterType& writer);
+void writeJson(const std::tuple<Args...>& tuple, WriterType& writer);
 template<typename... Args>
-void toJson(std::string_view key, const std::tuple<Args...>& tuple, json::ObjectWriter& objectWriter);
+void writeJson(std::string_view key, const std::tuple<Args...>& tuple, json::ObjectWriter& objectWriter);
 
-// std::unordered_map toJson
+// std::unordered_map writeJson
 
 template<typename K, typename V, json::SimpleWriter WriterType>
-void toJson(const std::unordered_map<K, V>& values, WriterType& writer);
+void writeJson(const std::unordered_map<K, V>& values, WriterType& writer);
 template<typename K, typename V>
-void toJson(std::string_view key, const std::unordered_map<K, V>& values, json::ObjectWriter& objectWriter);
+void writeJson(std::string_view key, const std::unordered_map<K, V>& values, json::ObjectWriter& objectWriter);
 
-// std::variant toJson
-
-template<typename... Args, json::SimpleWriter WriterType>
-void toJson(const std::variant<Args...>& variant, WriterType& writer);
-template<typename... Args>
-void toJson(std::string_view key, const std::variant<Args...>& variant, json::ObjectWriter& objectWriter);
-
-// std::optional toJson
-
-template<typename T, json::SimpleWriter WriterType>
-void toJson(const std::optional<T>& opt, WriterType& writer);
-template<typename T>
-void toJson(std::string_view key, const std::optional<T>& opt, json::ObjectWriter& objectWriter);
-
-// std::unique_ptr toJson
-
-template<typename T, json::SimpleWriter WriterType>
-void toJson(const std::unique_ptr<T>& opt, WriterType& writer);
-template<typename T>
-void toJson(std::string_view key, const std::unique_ptr<T>& opt, json::ObjectWriter& objectWriter);
-
-// Nullable toJson
-
-template<typename T, json::SimpleWriter WriterType>
-void toJson(const Nullable<T>& nullable, WriterType& writer);
-template<typename T>
-void toJson(std::string_view key, const Nullable<T>& nullable, json::ObjectWriter& objectWriter);
-
-// NullableVariant toJson
+// std::variant writeJson
 
 template<typename... Args, json::SimpleWriter WriterType>
-void toJson(const NullableVariant<Args...>& nullable, WriterType& writer);
+void writeJson(const std::variant<Args...>& variant, WriterType& writer);
 template<typename... Args>
-void toJson(std::string_view key, const NullableVariant<Args...>& nullable, json::ObjectWriter& objectWriter);
+void writeJson(std::string_view key, const std::variant<Args...>& variant, json::ObjectWriter& objectWriter);
 
-// Enumeration toJson
+// std::optional writeJson
+
+template<typename T, json::SimpleWriter WriterType>
+void writeJson(const std::optional<T>& opt, WriterType& writer);
+template<typename T>
+void writeJson(std::string_view key, const std::optional<T>& opt, json::ObjectWriter& objectWriter);
+
+// std::unique_ptr writeJson
+
+template<typename T, json::SimpleWriter WriterType>
+void writeJson(const std::unique_ptr<T>& opt, WriterType& writer);
+template<typename T>
+void writeJson(std::string_view key, const std::unique_ptr<T>& opt, json::ObjectWriter& objectWriter);
+
+// Nullable writeJson
+
+template<typename T, json::SimpleWriter WriterType>
+void writeJson(const Nullable<T>& nullable, WriterType& writer);
+template<typename T>
+void writeJson(std::string_view key, const Nullable<T>& nullable, json::ObjectWriter& objectWriter);
+
+// NullableVariant writeJson
+
+template<typename... Args, json::SimpleWriter WriterType>
+void writeJson(const NullableVariant<Args...>& nullable, WriterType& writer);
+template<typename... Args>
+void writeJson(std::string_view key, const NullableVariant<Args...>& nullable, json::ObjectWriter& objectWriter);
+
+// Enumeration writeJson
 
 template<typename E, typename T, json::SimpleWriter WriterType>
-void toJson(const Enumeration<E, T>& enumeration, WriterType& writer);
+void writeJson(const Enumeration<E, T>& enumeration, WriterType& writer);
 template<typename E, typename T>
-void toJson(std::string_view key, const Enumeration<E, T>& enumeration, json::ObjectWriter& objectWriter);
+void writeJson(std::string_view key, const Enumeration<E, T>& enumeration, json::ObjectWriter& objectWriter);
 
-// Uri toJson
+// Uri writeJson
 
-void toJson(const Uri& uri, json::Writer& writer);
-void toJson(const Uri& uri, json::ArrayWriter& arrayWriter);
-void toJson(std::string_view key, const Uri& uri, json::ObjectWriter& objectWriter);
+void writeJson(const Uri& uri, json::Writer& writer);
+void writeJson(const Uri& uri, json::ArrayWriter& arrayWriter);
+void writeJson(std::string_view key, const Uri& uri, json::ObjectWriter& objectWriter);
 
 /*
  * fromJson
@@ -373,11 +373,11 @@ void variantFromJson(json::Value&& json, VariantType& variant, const std::size_t
 } // namespace impl
 
 /*
- * toJson
+ * writeJson
  */
 
 template<typename T, json::SimpleWriter WriterType>
-void toJson(const T& value, WriterType& writer)
+void writeJson(const T& value, WriterType& writer)
 {
 	if constexpr(json::JsonPrimitive<T>)
 	{
@@ -386,12 +386,12 @@ void toJson(const T& value, WriterType& writer)
 	else
 	{
 		auto objectWriter = writer.beginObject();
-		toJson(value, objectWriter);
+		writeJson(value, objectWriter);
 	}
 }
 
 template<typename T>
-void toJson(std::string_view key, const T& value, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const T& value, json::ObjectWriter& objectWriter)
 {
 	if constexpr(json::JsonPrimitive<T>)
 	{
@@ -400,231 +400,231 @@ void toJson(std::string_view key, const T& value, json::ObjectWriter& objectWrit
 	else
 	{
 		auto nestedObjectWriter = objectWriter.beginObject(key);
-		toJson(value, nestedObjectWriter);
+		writeJson(value, nestedObjectWriter);
 	}
 }
 
 /*
- * std::vector toJson
+ * std::vector writeJson
  */
 
 template<typename T, json::SimpleWriter WriterType>
-void toJson(const std::vector<T>& values, WriterType& writer)
+void writeJson(const std::vector<T>& values, WriterType& writer)
 {
 	auto arrayWriter = writer.beginArray();
 
 	for(const auto& v : values)
-		toJson(v, arrayWriter);
+		writeJson(v, arrayWriter);
 }
 
 template<typename T>
-void toJson(std::string_view key, const std::vector<T>& values, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const std::vector<T>& values, json::ObjectWriter& objectWriter)
 {
 	auto arrayWriter = objectWriter.beginArray(key);
 
 	for(const auto& v : values)
-		toJson(v, arrayWriter);
+		writeJson(v, arrayWriter);
 }
 
 /*
- * std::tuple toJson
+ * std::tuple writeJson
  */
 
 template<typename... Args, json::SimpleWriter WriterType>
-void toJson(const std::tuple<Args...>& tuple, WriterType& writer)
+void writeJson(const std::tuple<Args...>& tuple, WriterType& writer)
 {
 	auto arrayWriter = writer.beginArray();
 
 	std::apply([&arrayWriter](auto&&... tupleArgs){
-		(toJson(tupleArgs, arrayWriter), ...);
+		(writeJson(tupleArgs, arrayWriter), ...);
 	}, tuple);
 }
 
 template<typename... Args>
-void toJson(std::string_view key, const std::tuple<Args...>& tuple, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const std::tuple<Args...>& tuple, json::ObjectWriter& objectWriter)
 {
 	auto arrayWriter = objectWriter.beginArray(key);
 
 	std::apply([&arrayWriter](auto&&... tupleArgs){
-		(toJson(tupleArgs, arrayWriter), ...);
+		(writeJson(tupleArgs, arrayWriter), ...);
 	}, tuple);
 }
 
 /*
- * std::unordered_map toJson
+ * std::unordered_map writeJson
  */
 
 template<typename K, typename V, json::SimpleWriter WriterType>
-void toJson(const std::unordered_map<K, V>& values, WriterType& writer)
+void writeJson(const std::unordered_map<K, V>& values, WriterType& writer)
 {
 	auto objectWriter = writer.beginObject();
 
 	for(const auto& [k, v] : values)
-		toJson(impl::mapKey(k), v, objectWriter);
+		writeJson(impl::mapKey(k), v, objectWriter);
 }
 
 template<typename K, typename V>
-void toJson(std::string_view key, const std::unordered_map<K, V>& values, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const std::unordered_map<K, V>& values, json::ObjectWriter& objectWriter)
 {
 	auto nestedObjectWriter = objectWriter.beginObject(key);
 
 	for(const auto& [k, v] : values)
-		toJson(impl::mapKey(k), v, nestedObjectWriter);
+		writeJson(impl::mapKey(k), v, nestedObjectWriter);
 }
 
 /*
- * std::variant toJson
+ * std::variant writeJson
  */
 
 template<typename... Args, json::SimpleWriter WriterType>
-void toJson(const std::variant<Args...>& variant, WriterType& writer)
+void writeJson(const std::variant<Args...>& variant, WriterType& writer)
 {
-	std::visit([&writer](const auto& v){ toJson(v, writer); }, variant);
+	std::visit([&writer](const auto& v){ writeJson(v, writer); }, variant);
 }
 
 template<typename... Args>
-void toJson(std::string_view key, const std::variant<Args...>& variant, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const std::variant<Args...>& variant, json::ObjectWriter& objectWriter)
 {
-	std::visit([key, &objectWriter](const auto& v){ toJson(key, v, objectWriter); }, variant);
+	std::visit([key, &objectWriter](const auto& v){ writeJson(key, v, objectWriter); }, variant);
 }
 
 /*
- * Nullable toJson
+ * Nullable writeJson
  */
 
 template<typename T, json::SimpleWriter WriterType>
-void toJson(const Nullable<T>& nullable, WriterType& writer)
+void writeJson(const Nullable<T>& nullable, WriterType& writer)
 {
 	if(nullable.isNull())
 		writer.write(nullptr);
 	else
-		toJson(nullable.value(), writer);
+		writeJson(nullable.value(), writer);
 }
 
 template<typename T>
-void toJson(std::string_view key, const Nullable<T>& nullable, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const Nullable<T>& nullable, json::ObjectWriter& objectWriter)
 {
 	if(nullable.isNull())
 		objectWriter.write(key, nullptr);
 	else
-		toJson(key, nullable.value(), objectWriter);
+		writeJson(key, nullable.value(), objectWriter);
 }
 
 /*
- * NullableVariant toJson
+ * NullableVariant writeJson
  */
 
 template<typename... Args, json::SimpleWriter WriterType>
-void toJson(const NullableVariant<Args...>& nullable, WriterType& writer)
+void writeJson(const NullableVariant<Args...>& nullable, WriterType& writer)
 {
 	if(nullable.isNull())
 		writer.write(nullptr);
 	else
-		toJson(nullable.value(), writer);
+		writeJson(nullable.value(), writer);
 }
 
 template<typename... Args>
-void toJson(std::string_view key, const NullableVariant<Args...>& nullable, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const NullableVariant<Args...>& nullable, json::ObjectWriter& objectWriter)
 {
 	if(nullable.isNull())
 		objectWriter.write(key, nullptr);
 	else
-		toJson(key, nullable.value(), objectWriter);
+		writeJson(key, nullable.value(), objectWriter);
 }
 
 /*
- * Enumeration toJson
+ * Enumeration writeJson
  */
 
 template<typename E, typename T, json::SimpleWriter WriterType>
-void toJson(const Enumeration<E, T>& enumeration, WriterType& writer)
+void writeJson(const Enumeration<E, T>& enumeration, WriterType& writer)
 {
-	toJson(enumeration.value(), writer);
+	writeJson(enumeration.value(), writer);
 }
 
 template<typename E, typename T>
-void toJson(std::string_view key, const Enumeration<E, T>& enumeration, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const Enumeration<E, T>& enumeration, json::ObjectWriter& objectWriter)
 {
-	toJson(key, enumeration.value(), objectWriter);
+	writeJson(key, enumeration.value(), objectWriter);
 }
 
 /*
- * Uri toJson
+ * Uri writeJson
  */
 
-inline void toJson(const Uri& uri, json::Writer& writer)
+inline void writeJson(const Uri& uri, json::Writer& writer)
 {
 	writer.write(uri.toString());
 }
 
-inline void toJson(std::string_view key, const Uri& uri, json::ObjectWriter& objectWriter)
+inline void writeJson(std::string_view key, const Uri& uri, json::ObjectWriter& objectWriter)
 {
 	objectWriter.write(key, uri.toString());
 }
 
-inline void toJson(const Uri& uri, json::ArrayWriter& arrayWriter)
+inline void writeJson(const Uri& uri, json::ArrayWriter& arrayWriter)
 {
 	arrayWriter.write(uri.toString());
 }
 
 /*
- * std::optional toJson
+ * std::optional writeJson
  */
 
 template<typename T>
-void toJson(const std::optional<T>& opt, json::Writer& writer)
+void writeJson(const std::optional<T>& opt, json::Writer& writer)
 {
 	if(opt.has_value())
-		toJson(opt.value(), writer);
+		writeJson(opt.value(), writer);
 	else
 		writer.write(nullptr);
 }
 
 template<typename T>
-void toJson(const std::optional<T>& opt, json::ArrayWriter& arrayWriter)
+void writeJson(const std::optional<T>& opt, json::ArrayWriter& arrayWriter)
 {
 	if(opt.has_value())
-		toJson(opt.value(), arrayWriter);
+		writeJson(opt.value(), arrayWriter);
 	else
 		arrayWriter.write(nullptr);
 }
 
 template<typename T>
-void toJson(std::string_view key, const std::optional<T>& opt, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const std::optional<T>& opt, json::ObjectWriter& objectWriter)
 {
 	if(opt.has_value())
-		toJson(key, opt.value(), objectWriter);
+		writeJson(key, opt.value(), objectWriter);
 	else
 		objectWriter.write(key, nullptr);
 }
 
 /*
- * std::unique_ptr toJson
+ * std::unique_ptr writeJson
  */
 
 template<typename T>
-void toJson(const std::unique_ptr<T>& opt, json::Writer& writer)
+void writeJson(const std::unique_ptr<T>& opt, json::Writer& writer)
 {
 	if(opt)
-		toJson(*opt, writer);
+		writeJson(*opt, writer);
 	else
 		writer.write(nullptr);
 }
 
 template<typename T>
-void toJson(const std::unique_ptr<T>& opt, json::ArrayWriter& arrayWriter)
+void writeJson(const std::unique_ptr<T>& opt, json::ArrayWriter& arrayWriter)
 {
 	if(opt)
-		toJson(*opt, arrayWriter);
+		writeJson(*opt, arrayWriter);
 	else
 		arrayWriter.write(nullptr);
 }
 
 template<typename T>
-void toJson(std::string_view key, const std::unique_ptr<T>& opt, json::ObjectWriter& objectWriter)
+void writeJson(std::string_view key, const std::unique_ptr<T>& opt, json::ObjectWriter& objectWriter)
 {
 	if(opt)
-		toJson(key, *opt, objectWriter);
+		writeJson(key, *opt, objectWriter);
 	else
 		objectWriter.write(key, nullptr);
 }
