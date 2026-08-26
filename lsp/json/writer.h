@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <variant>
 #include <vector>
 #include <string>
 #include <string_view>
