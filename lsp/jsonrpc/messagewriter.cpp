@@ -119,23 +119,32 @@ void BatchWriter::finalize()
 	m_writer.finalize();
 }
 
+bool BatchWriter::batchIsEmpty() const
+{
+	return m_empty;
+}
+
 RequestWriter BatchWriter::writeRequest( const MessageId& id, std::string_view method)
 {
+	m_empty = false;
 	return RequestWriter::writeRequest(m_writer.beginObject(), id, method);
 }
 
 RequestWriter BatchWriter::writeNotification(std::string_view method)
 {
+	m_empty = false;
 	return RequestWriter::writeNotification(m_writer.beginObject(), method);
 }
 
 ResponseWriter BatchWriter::writeResponse(const MessageId& id)
 {
+	m_empty = false;
 	return ResponseWriter::writeResponse(m_writer.beginObject(), id);
 }
 
 ResponseWriter BatchWriter::writeError(const MessageId& id, int code, std::string_view message)
 {
+	m_empty = false;
 	return ResponseWriter::writeError(m_writer.beginObject(), id, code, message);
 }
 

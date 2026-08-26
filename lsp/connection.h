@@ -41,6 +41,9 @@ public:
 	 */
 
 	class MessageSender{
+	public:
+		void discard();
+
 	protected:
 		MessageSender(Connection& connection);
 		~MessageSender();

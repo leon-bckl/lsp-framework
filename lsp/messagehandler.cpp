@@ -38,8 +38,10 @@ void MessageHandler::processNextMessage()
 				processResponse(std::move(std::get<jsonrpc::Response>(msg)));
 		}
 
-		// FIXME: Don't send if batch is empty
-		batchSender.submit();
+		if(batchSender.batchIsEmpty())
+			batchSender.discard();
+		else
+			batchSender.submit();
 	}
 }
 

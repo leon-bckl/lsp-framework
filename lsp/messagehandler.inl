@@ -5,7 +5,7 @@
 namespace lsp{
 
 /*
- * createResponse
+ * sendResponse
  */
 
 template<typename T>
@@ -186,8 +186,8 @@ MessageId MessageHandler::sendRequest(const typename M::Params& params, F&& then
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
 		std::forward<F>(then), std::forward<E>(error));
-	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = m_connection.request(M::Method, requestId);
+	const auto requestId     = nextUniqueRequestId();
+	auto       requestSender = m_connection.request(M::Method, requestId);
 
 	requestSender.writeParams(params);
 	requestSender.submit();
@@ -201,8 +201,8 @@ MessageId MessageHandler::sendRequest(F&& then, E&& error) requires SendNoParams
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
 		std::forward<F>(then), std::forward<E>(error));
-	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = m_connection.request(M::Method, requestId);
+	const auto requestId     = nextUniqueRequestId();
+	auto       requestSender = m_connection.request(M::Method, requestId);
 
 	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
@@ -213,10 +213,10 @@ MessageId MessageHandler::sendRequest(F&& then, E&& error) requires SendNoParams
 template<typename M>
 FutureResponse<M> MessageHandler::sendRequest(const typename M::Params& params) requires message::IsRequest<M> && message::HasParams<M>
 {
-	auto       result         = std::make_unique<FutureRequestResult<typename M::Result>>();
-	auto       future         = result->future();
-	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = m_connection.request(M::Method, requestId);
+	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
+	auto       future        = result->future();
+	const auto requestId     = nextUniqueRequestId();
+	auto       requestSender = m_connection.request(M::Method, requestId);
 
 	requestSender.writeParams(params);
 	requestSender.submit();
@@ -228,10 +228,10 @@ FutureResponse<M> MessageHandler::sendRequest(const typename M::Params& params) 
 template<typename M>
 FutureResponse<M> MessageHandler::sendRequest() requires message::IsRequest<M> && (!message::HasParams<M>)
 {
-	auto       result         = std::make_unique<FutureRequestResult<typename M::Result>>();
-	auto       future         = result->future();
-	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = m_connection.request(M::Method, requestId);
+	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
+	auto       future        = result->future();
+	const auto requestId     = nextUniqueRequestId();
+	auto       requestSender = m_connection.request(M::Method, requestId);
 
 	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);

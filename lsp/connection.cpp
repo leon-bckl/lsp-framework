@@ -376,6 +376,11 @@ void Connection::MessageSender::submit()
 	}
 }
 
+void Connection::MessageSender::discard()
+{
+	m_connection = nullptr;
+}
+
 /*
  * Connection::RequestSender
  */

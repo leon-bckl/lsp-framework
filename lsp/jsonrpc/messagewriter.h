@@ -77,6 +77,7 @@ public:
 	BatchWriter(json::ArrayWriter&& writer);
 
 	void finalize();
+	bool batchIsEmpty() const;
 
 	[[nodiscard]] RequestWriter  writeRequest(const MessageId& id, std::string_view method);
 	[[nodiscard]] RequestWriter  writeNotification(std::string_view method);
@@ -84,6 +85,7 @@ public:
 	[[nodiscard]] ResponseWriter writeError(const MessageId& id, int code, std::string_view message);
 
 private:
+	bool              m_empty = true;
 	json::ArrayWriter m_writer;
 };
 
