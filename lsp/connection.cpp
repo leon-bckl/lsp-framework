@@ -1,6 +1,8 @@
 #include <algorithm>
+#include <cassert>
 #include <charconv>
 #include <cstring>
+#include <exception>
 #include <mutex>
 #include <optional>
 #include <string_view>
@@ -205,13 +207,13 @@ Connection::Message Connection::readMessage()
 	catch(const json::ParseError& e)
 	{
 		auto responseSender = errorResponse(json::Null(), MessageError::ParseError, e.what());
-		responseSender.submit(*this);
+		responseSender.submit();
 		throw; // FIXME: This shouldn't abort the connection
 	}
 	catch(const jsonrpc::ProtocolError& e)
 	{
 		auto responseSender = errorResponse(json::Null(), MessageError::InvalidRequest, e.what());
-		responseSender.submit(*this);
+		responseSender.submit();
 		throw; // FIXME: This shouldn't abort the connection
 	}
 	catch(const ConnectionError&)
@@ -314,35 +316,36 @@ std::string Connection::messageHeaderString(const MessageHeader& header)
 
 Connection::RequestSender Connection::request(std::string_view method, const jsonrpc::MessageId& id)
 {
-	return RequestSender(method, id);
+	return RequestSender(*this, method, id);
 }
 
 Connection::RequestSender Connection::notification(std::string_view method)
 {
-	return RequestSender(method);
+	return RequestSender(*this, method);
 }
 
 Connection::ResponseSender Connection::response(const jsonrpc::MessageId& id)
 {
-	return ResponseSender(id);
+	return ResponseSender(*this, id);
 }
 
 Connection::ResponseSender Connection::errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message)
 {
-	return ResponseSender(id, code, message);
+	return ResponseSender(*this, id, code, message);
 }
 
 Connection::BatchSender Connection::messageBatch()
 {
-	return BatchSender();
+	return BatchSender(*this);
 }
 
 /*
  * Connection::MessageSender
  */
 
-Connection::MessageSender::MessageSender()
-	: m_writer{m_buffer
+Connection::MessageSender::MessageSender(Connection& connection)
+	: m_connection{&connection}
+	, m_writer{m_buffer
 #if LSP_MESSAGE_DEBUG_LOG
 		, "\t"
 #endif
@@ -350,9 +353,10 @@ Connection::MessageSender::MessageSender()
 {
 }
 
-std::string_view Connection::MessageSender::buffer()
+Connection::MessageSender::~MessageSender()
 {
-	return m_buffer;
+	// Message was not submitted if connection is not nullptr
+	assert(!m_connection || std::uncaught_exceptions() > 0);
 }
 
 json::Writer& Connection::MessageSender::writer()
@@ -360,68 +364,78 @@ json::Writer& Connection::MessageSender::writer()
 	return m_writer;
 }
 
+void Connection::MessageSender::submit()
+{
+	if(m_connection)
+	{
+#if LSP_MESSAGE_DEBUG_LOG
+		debugLogMessageJson("outgoing", std::string(m_buffer));
+#endif
+		m_connection->writeMessageData(m_buffer);
+		m_connection = nullptr;
+	}
+}
+
 /*
  * Connection::RequestSender
  */
 
-Connection::RequestSender::RequestSender(std::string_view method, const jsonrpc::MessageId& id)
-	: jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeRequest(writer().beginObject(), id, method)}
+Connection::RequestSender::RequestSender(
+	Connection& connection, std::string_view method, const jsonrpc::MessageId& id)
+	: MessageSender{connection}
+	, jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeRequest(writer().beginObject(), id, method)}
 {
 }
 
-Connection::RequestSender::RequestSender(std::string_view method)
-	: jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeNotification(writer().beginObject(), method)}
+Connection::RequestSender::RequestSender(Connection& connection, std::string_view method)
+	: MessageSender{connection}
+	, jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeNotification(writer().beginObject(), method)}
 {
 }
 
-void Connection::RequestSender::submit(Connection& connection)
+void Connection::RequestSender::submit()
 {
 	finalize();
-#if LSP_MESSAGE_DEBUG_LOG
-	debugLogMessageJson("outgoing", std::string(buffer()));
-#endif
-	connection.writeMessageData(buffer());
+	MessageSender::submit();
 }
 
 /*
  * Connection::ResponseSender
  */
 
-Connection::ResponseSender::ResponseSender(const jsonrpc::MessageId& id)
-	: jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeResponse(writer().beginObject(), id)}
+Connection::ResponseSender::ResponseSender(Connection& connection, const jsonrpc::MessageId& id)
+	: MessageSender{connection}
+	, jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeResponse(writer().beginObject(), id)}
 {
 }
 
-Connection::ResponseSender::ResponseSender(const jsonrpc::MessageId& id, int code, std::string_view message)
-	: jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeError(writer().beginObject(), id, code, message)}
+Connection::ResponseSender::ResponseSender(
+	Connection& connection, const jsonrpc::MessageId& id, int code, std::string_view message)
+	: MessageSender{connection}
+	, jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeError(writer().beginObject(), id, code, message)}
 {
 }
 
-void Connection::ResponseSender::submit(Connection& connection)
+void Connection::ResponseSender::submit()
 {
 	finalize();
-#if LSP_MESSAGE_DEBUG_LOG
-	debugLogMessageJson("outgoing", std::string(buffer()));
-#endif
-	connection.writeMessageData(buffer());
+	MessageSender::submit();
 }
 
 /*
  * Connection::BatchSender
  */
 
-Connection::BatchSender::BatchSender()
-	: jsonrpc::BatchWriter{writer().beginArray()}
+Connection::BatchSender::BatchSender(Connection& connection)
+	: MessageSender{connection}
+	, jsonrpc::BatchWriter{writer().beginArray()}
 {
 }
 
-void Connection::BatchSender::submit(Connection& connection)
+void Connection::BatchSender::submit()
 {
 	finalize();
-#if LSP_MESSAGE_DEBUG_LOG
-	debugLogMessageJson("outgoing", std::string(buffer()));
-#endif
-	connection.writeMessageData(buffer());
+	MessageSender::submit();
 }
 
 } // namespace lsp

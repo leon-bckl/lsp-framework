@@ -11,9 +11,9 @@ namespace lsp{
 template<typename T>
 void MessageHandler::sendResponse(const MessageId& messageId, const T& result)
 {
-	auto responseSender = Connection::response(messageId);
+	auto responseSender = m_connection.response(messageId);
 	responseSender.writeData(result);
-	responseSender.submit(m_connection);
+	responseSender.submit();
 }
 
 template<typename M>
@@ -187,10 +187,10 @@ MessageId MessageHandler::sendRequest(const typename M::Params& params, F&& then
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
 		std::forward<F>(then), std::forward<E>(error));
 	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = Connection::request(M::Method, requestId);
+	auto       requestSender  = m_connection.request(M::Method, requestId);
 
 	requestSender.writeParams(params);
-	requestSender.submit(m_connection);
+	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
 	return requestId;
@@ -202,9 +202,9 @@ MessageId MessageHandler::sendRequest(F&& then, E&& error) requires SendNoParams
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
 		std::forward<F>(then), std::forward<E>(error));
 	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = Connection::request(M::Method, requestId);
+	auto       requestSender  = m_connection.request(M::Method, requestId);
 
-	requestSender.submit(m_connection);
+	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
 	return requestId;
@@ -216,10 +216,10 @@ FutureResponse<M> MessageHandler::sendRequest(const typename M::Params& params) 
 	auto       result         = std::make_unique<FutureRequestResult<typename M::Result>>();
 	auto       future         = result->future();
 	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = Connection::request(M::Method, requestId);
+	auto       requestSender  = m_connection.request(M::Method, requestId);
 
 	requestSender.writeParams(params);
-	requestSender.submit(m_connection);
+	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
 	return {requestId, std::move(future)};
@@ -231,9 +231,9 @@ FutureResponse<M> MessageHandler::sendRequest() requires message::IsRequest<M> &
 	auto       result         = std::make_unique<FutureRequestResult<typename M::Result>>();
 	auto       future         = result->future();
 	const auto requestId      = nextUniqueRequestId();
-	auto       requestSender  = Connection::request(M::Method, requestId);
+	auto       requestSender  = m_connection.request(M::Method, requestId);
 
-	requestSender.submit(m_connection);
+	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
 	return {requestId, std::move(future)};
@@ -246,16 +246,16 @@ FutureResponse<M> MessageHandler::sendRequest() requires message::IsRequest<M> &
 template<typename M>
 void MessageHandler::sendNotification(const typename M::Params& params) requires SendNotification<M>
 {
-	auto notificationSender = Connection::notification(M::Method);
+	auto notificationSender = m_connection.notification(M::Method);
 	notificationSender.writeParams(params);
-	notificationSender.submit(m_connection);
+	notificationSender.submit();
 }
 
 template<typename M>
 void MessageHandler::sendNotification() requires SendNoParamsNotification<M>
 {
-	auto notificationSender = Connection::notification(M::Method);
-	notificationSender.submit(m_connection);
+	auto notificationSender = m_connection.notification(M::Method);
+	notificationSender.submit();
 }
 
 /*

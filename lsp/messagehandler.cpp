@@ -28,7 +28,7 @@ void MessageHandler::processNextMessage()
 	else
 	{
 		auto& batch       = std::get<jsonrpc::MessageBatch>(messageOrBatch);
-		auto  batchSender = Connection::messageBatch();
+		auto  batchSender = m_connection.messageBatch();
 
 		for(auto& msg : batch)
 		{
@@ -39,7 +39,7 @@ void MessageHandler::processNextMessage()
 		}
 
 		// FIXME: Don't send if batch is empty
-		batchSender.submit(m_connection);
+		batchSender.submit();
 	}
 }
 
@@ -249,12 +249,12 @@ MessageId MessageHandler::sendRequest(std::string_view method, const json::Value
 	auto result = std::make_unique<CallbackRequestResult<json::Value, decltype(then), decltype(error)>>(
 		std::move(then), std::move(error));
 	const auto requestId     = nextUniqueRequestId();
-	auto       requestSender = Connection::request(method, requestId);
+	auto       requestSender = m_connection.request(method, requestId);
 
 	if(!params.isNull())
 		requestSender.writeParams(params);
 
-	requestSender.submit(m_connection);
+	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
 	return requestId;
@@ -265,34 +265,34 @@ FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::
 	auto       result        = std::make_unique<FutureRequestResult<json::Value>>();
 	auto       future        = result->future();
 	const auto requestId     = nextUniqueRequestId();
-	auto       requestSender = Connection::request(method, requestId);
+	auto       requestSender = m_connection.request(method, requestId);
 
 	if(!params.isNull())
 		requestSender.writeParams(params);
 
-	requestSender.submit(m_connection);
+	requestSender.submit();
 
 	return {requestId, std::move(future)};
 }
 
 void MessageHandler::sendNotification(std::string_view method, const json::Value& params)
 {
-	auto notificationSender = Connection::notification(method);
+	auto notificationSender = m_connection.notification(method);
 
 	if(!params.isNull())
 		notificationSender.writeParams(params);
 
-	notificationSender.submit(m_connection);
+	notificationSender.submit();
 }
 
 void MessageHandler::sendErrorResponse(const MessageId& messageId, int errorCode, std::string_view errorMessage, const std::optional<json::Value>& errorData )
 {
-	auto errorResponse = Connection::errorResponse(messageId, errorCode, errorMessage);
+	auto errorResponse = m_connection.errorResponse(messageId, errorCode, errorMessage);
 
 	if(errorData.has_value())
 		errorResponse.writeData(errorData.value());
 
-	errorResponse.submit(m_connection);
+	errorResponse.submit();
 }
 
 json::Integer MessageHandler::nextUniqueRequestId()

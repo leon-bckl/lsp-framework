@@ -261,7 +261,7 @@ int main(int argc, char** argv)
 
 		test::expectException<ConnectionError>([&](){
 			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
-			sender.submit(connection);
+			sender.submit();
 		}, "Write failed");
 	});
 
@@ -271,7 +271,7 @@ int main(int argc, char** argv)
 		auto moved    = Connection(std::move(original));
 
 		auto sender = moved.request("foo", jsonrpc::MessageId(json::Integer(1)));
-		sender.submit(moved);
+		sender.submit();
 
 		test::compare(parseMessageBody(stream.output()), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
 	});
@@ -285,7 +285,7 @@ int main(int argc, char** argv)
 		connectionB = std::move(connectionA);
 
 		auto sender = connectionB.request("foo", jsonrpc::MessageId(json::Integer(1)));
-		sender.submit(connectionB);
+		sender.submit();
 
 		test::compare(parseMessageBody(streamA.output()), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
 		test::check(streamB.output().empty(), "streamBUntouched");
@@ -294,7 +294,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/Request", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo"})"));
@@ -304,7 +304,7 @@ int main(int argc, char** argv)
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
 			sender.writeParams(std::unordered_map<std::string, int>{{"x", 1}});
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo","params":{"x":1}})"));
@@ -314,7 +314,7 @@ int main(int argc, char** argv)
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.request("foo", jsonrpc::MessageId(json::Integer(1)));
 			sender.writeParams(std::vector<int>{1, 2});
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"method":"foo","params":[1,2]})"));
@@ -323,7 +323,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/Notification", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.notification("foo");
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","method":"foo"})"));
@@ -333,7 +333,7 @@ int main(int argc, char** argv)
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.notification("foo");
 			sender.writeParams(std::unordered_map<std::string, int>{{"x", 1}});
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","method":"foo","params":{"x":1}})"));
@@ -342,7 +342,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/ResponseNoDataDefaultsToNull", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.response(jsonrpc::MessageId(json::Integer(1)));
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"result":null})"));
@@ -352,7 +352,7 @@ int main(int argc, char** argv)
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.response(jsonrpc::MessageId(json::Integer(1)));
 			sender.writeData(42);
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"result":42})"));
@@ -362,7 +362,7 @@ int main(int argc, char** argv)
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.response(jsonrpc::MessageId(json::Integer(1)));
 			sender.writeData(std::unordered_map<std::string, int>{{"a", 1}});
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"result":{"a":1}})"));
@@ -371,7 +371,7 @@ int main(int argc, char** argv)
 	app.addTest("Send/ErrorResponse", [](){
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.errorResponse(jsonrpc::MessageId(json::Integer(1)), jsonrpc::Error::InvalidParams, "Invalid params");
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}})"));
@@ -381,7 +381,7 @@ int main(int argc, char** argv)
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.errorResponse(jsonrpc::MessageId(json::Integer(1)), jsonrpc::Error::InvalidParams, "Invalid params");
 			sender.writeData(std::unordered_map<std::string, std::string>{{"field", "x"}});
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"({"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params","data":{"field":"x"}}})"));
@@ -402,7 +402,7 @@ int main(int argc, char** argv)
 				}, 1);
 			}
 
-			batch.submit(connection);
+			batch.submit();
 		});
 
 		test::compare(parseMessageBody(out), json::parse(R"([{"jsonrpc":"2.0","method":"foo"},{"jsonrpc":"2.0","id":1,"result":1}])"));
@@ -412,7 +412,7 @@ int main(int argc, char** argv)
 		const auto out = sendMessage([](Connection& connection){
 			auto sender = connection.request("textDocument/foo", jsonrpc::MessageId(json::String("abc")));
 			sender.writeParams(std::unordered_map<std::string, int>{{"x", 1}});
-			sender.submit(connection);
+			sender.submit();
 		});
 
 		auto readStream     = MemoryStream(out);

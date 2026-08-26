@@ -42,12 +42,14 @@ public:
 
 	class MessageSender{
 	protected:
-		MessageSender();
+		MessageSender(Connection& connection);
+		~MessageSender();
 
-		std::string_view buffer();
 		json::Writer&    writer();
+		void             submit();
 
 	private:
+		Connection*  m_connection = nullptr;
 		std::string  m_buffer;
 		json::Writer m_writer;
 	};
@@ -59,7 +61,7 @@ public:
 	class RequestSender : public MessageSender, public jsonrpc::RequestWriter{
 		friend class Connection;
 	public:
-		void submit(Connection& connection);
+		void submit();
 
 		template<typename T>
 		void writeParams(const T& value)
@@ -72,8 +74,8 @@ public:
 		}
 
 	private:
-		RequestSender(std::string_view method, const jsonrpc::MessageId& id);
-		RequestSender(std::string_view method);
+		RequestSender(Connection& connection, std::string_view method, const jsonrpc::MessageId& id);
+		RequestSender(Connection& connection, std::string_view method);
 	};
 
 	/*
@@ -83,7 +85,7 @@ public:
 	class ResponseSender : public MessageSender, public jsonrpc::ResponseWriter{
 		friend class Connection;
 	public:
-		void submit(Connection& connection);
+		void submit();
 
 		template<typename T>
 		void writeData(const T& value)
@@ -96,8 +98,8 @@ public:
 		}
 
 	private:
-		ResponseSender(const jsonrpc::MessageId& id);
-		ResponseSender(const jsonrpc::MessageId& id, int code, std::string_view message);
+		ResponseSender(Connection& connection, const jsonrpc::MessageId& id);
+		ResponseSender(Connection& connection, const jsonrpc::MessageId& id, int code, std::string_view message);
 	};
 
 	/*
@@ -107,17 +109,17 @@ public:
 	class BatchSender : public MessageSender, public jsonrpc::BatchWriter{
 		friend class Connection;
 	public:
-		void submit(Connection& connection);
+		void submit();
 
 	private:
-		BatchSender();
+		BatchSender(Connection& connection);
 	};
 
-	[[nodiscard]] static RequestSender  request(std::string_view method, const jsonrpc::MessageId& id);
-	[[nodiscard]] static RequestSender  notification(std::string_view method);
-	[[nodiscard]] static ResponseSender response(const jsonrpc::MessageId& id);
-	[[nodiscard]] static ResponseSender errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message);
-	[[nodiscard]] static BatchSender    messageBatch();
+	[[nodiscard]] RequestSender  request(std::string_view method, const jsonrpc::MessageId& id);
+	[[nodiscard]] RequestSender  notification(std::string_view method);
+	[[nodiscard]] ResponseSender response(const jsonrpc::MessageId& id);
+	[[nodiscard]] ResponseSender errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message);
+	[[nodiscard]] BatchSender    messageBatch();
 
 private:
 	struct Internal;
