@@ -53,7 +53,13 @@ endif()
 
 # lspgen
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp lsp/json/parser.cpp lsp/json/writer.cpp)
+add_executable(lspgen
+	lspgen/lspgen.cpp
+	lspgen/metamodel.cpp
+	lsp/json/json.cpp
+	lsp/json/parser.cpp
+	lsp/json/writer.cpp
+)
 target_include_directories(lspgen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # liblsp
