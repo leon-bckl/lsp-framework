@@ -33,7 +33,7 @@ int main(int argc, char** argv)
 			}
 		});
 
-		test::compare(out, std::string_view(R"([{"a":1},{"b":2}])"));
+		test::compare(out, R"([{"a":1},{"b":2}])");
 	});
 
 	app.addTest("ArrayWriter/ArrayElements", [&build](){
@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 			}
 		});
 
-		test::compare(out, std::string_view("[[1],[2]]"));
+		test::compare(out, "[[1],[2]]");
 	});
 
 	app.addTest("ArrayWriter/ObjectElementsFormatted", [&build](){
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 			}
 		});
 
-		test::compare(out, std::string_view("[\n\t{\n\t\t\"a\": 1\n\t},\n\t{\n\t\t\"b\": 2\n\t}\n]"));
+		test::compare(out, "[\n\t{\n\t\t\"a\": 1\n\t},\n\t{\n\t\t\"b\": 2\n\t}\n]");
 	});
 
 	app.addTest("ObjectWriter/MoveConstruct", [&build](){
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 			ow2.write("b", 2);
 		});
 
-		test::compare(out, std::string_view(R"({"a":1,"b":2})"));
+		test::compare(out, R"({"a":1,"b":2})");
 	});
 
 	app.addTest("ArrayWriter/MoveConstruct", [&build](){
@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 			aw2.write(2);
 		});
 
-		test::compare(out, std::string_view("[1,2]"));
+		test::compare(out, "[1,2]");
 	});
 
 	app.addTest("ObjectWriter/MoveAssign", [](){
@@ -107,8 +107,8 @@ int main(int argc, char** argv)
 			ow.write("y", 2);
 		}
 
-		test::compare(outA, std::string_view(R"({"x":1})"));
-		test::compare(outB, std::string_view(R"({"y":2})"));
+		test::compare(outA, R"({"x":1})");
+		test::compare(outB, R"({"y":2})");
 	});
 
 	app.addTest("ArrayWriter/MoveAssign", [](){
@@ -124,8 +124,8 @@ int main(int argc, char** argv)
 			aw.write(2);
 		}
 
-		test::compare(outA, std::string_view("[1]"));
-		test::compare(outB, std::string_view("[2]"));
+		test::compare(outA, "[1]");
+		test::compare(outB, "[2]");
 	});
 
 	app.addTest("Object/ManualFinalize", [&build](){
@@ -137,7 +137,7 @@ int main(int argc, char** argv)
 			ow.write("done", true);
 		});
 
-		test::compare(out, std::string_view(R"({"nested":{"a":1},"done":true})"));
+		test::compare(out, R"({"nested":{"a":1},"done":true})");
 	});
 
 	app.addTest("Array/ManualFinalize", [&build](){
@@ -150,7 +150,7 @@ int main(int argc, char** argv)
 			ow.write("done", true);
 		});
 
-		test::compare(out, std::string_view(R"({"items":[1,2],"done":true})"));
+		test::compare(out, R"({"items":[1,2],"done":true})");
 	});
 
 	app.addTest("ObjectWriter/FinalizeIsIdempotent", [&build](){
@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 			ow.finalize();
 		});
 
-		test::compare(out, std::string_view(R"({"a":1})"));
+		test::compare(out, R"({"a":1})");
 	});
 
 	app.addTest("ArrayWriter/FinalizeIsIdempotent", [&build](){
@@ -172,7 +172,7 @@ int main(int argc, char** argv)
 			aw.finalize();
 		});
 
-		test::compare(out, std::string_view("[1]"));
+		test::compare(out, "[1]");
 	});
 
 	app.addTest("Array/Empty", [&build](){
@@ -180,7 +180,7 @@ int main(int argc, char** argv)
 			auto aw = writer.beginArray();
 		});
 
-		test::compare(out, std::string_view("[]"));
+		test::compare(out, "[]");
 	});
 
 	app.addTest("Array/SingleElement", [&build](){
@@ -189,7 +189,7 @@ int main(int argc, char** argv)
 			aw.write(1);
 		});
 
-		test::compare(out, std::string_view("[1]"));
+		test::compare(out, "[1]");
 	});
 
 	app.addTest("Array/MultiElement", [&build](){
@@ -200,7 +200,7 @@ int main(int argc, char** argv)
 			aw.write(3);
 		});
 
-		test::compare(out, std::string_view("[1,2,3]"));
+		test::compare(out, "[1,2,3]");
 	});
 
 	app.addTest("Array/Nested", [&build](){
@@ -219,7 +219,7 @@ int main(int argc, char** argv)
 			}
 		});
 
-		test::compare(out, std::string_view("[[1,2],[3,4]]"));
+		test::compare(out, "[[1,2],[3,4]]");
 	});
 
 	app.addTest("Array/Mixed", [&build](){
@@ -231,7 +231,7 @@ int main(int argc, char** argv)
 			aw.write(nullptr);
 		});
 
-		test::compare(out, std::string_view(R"([1,"two",true,null])"));
+		test::compare(out, R"([1,"two",true,null])");
 	});
 
 	app.addTest("Object/Empty", [&build](){
@@ -239,7 +239,7 @@ int main(int argc, char** argv)
 			auto ow = writer.beginObject();
 		});
 
-		test::compare(out, std::string_view("{}"));
+		test::compare(out, "{}");
 	});
 
 	app.addTest("Object/SingleKey", [&build](){
@@ -248,7 +248,7 @@ int main(int argc, char** argv)
 			ow.write("a", 1);
 		});
 
-		test::compare(out, std::string_view(R"({"a":1})"));
+		test::compare(out, R"({"a":1})");
 	});
 
 	app.addTest("Object/MultiKey", [&build](){
@@ -259,7 +259,7 @@ int main(int argc, char** argv)
 			ow.write("c", 3);
 		});
 
-		test::compare(out, std::string_view(R"({"a":1,"b":2,"c":3})"));
+		test::compare(out, R"({"a":1,"b":2,"c":3})");
 	});
 
 	app.addTest("Object/Nested", [&build](){
@@ -269,7 +269,7 @@ int main(int argc, char** argv)
 			inner.write("inner", 42);
 		});
 
-		test::compare(out, std::string_view(R"({"outer":{"inner":42}})"));
+		test::compare(out, R"({"outer":{"inner":42}})");
 	});
 
 	app.addTest("Object/KeyEscaping", [&build](){
@@ -278,7 +278,7 @@ int main(int argc, char** argv)
 			ow.write("a\"b", 1);
 		});
 
-		test::compare(out, std::string_view(R"({"a\"b":1})"));
+		test::compare(out, R"({"a\"b":1})");
 	});
 
 	app.addTest("Object/StringValueTypes", [&build](){
@@ -292,18 +292,31 @@ int main(int argc, char** argv)
 			ow.write("b", str);
 		});
 
-		test::compare(out, std::string_view(R"({"a":"cstr","b":"str"})"));
+		test::compare(out, R"({"a":"cstr","b":"str"})");
 	});
 
-	app.addTest("Number/IntegralTypes", [&build](){
+	app.addTest("Number/Short", [&build](){
 		const auto out = build({}, [](Writer& writer){
-			auto aw = writer.beginArray();
-			aw.write(short{-7});
-			aw.write(static_cast<unsigned int>(300));
-			aw.write(std::numeric_limits<std::uint64_t>::max());
+			writer.write(short{-7});
 		});
 
-		test::compare(out, std::string_view("[-7,300,18446744073709551615]"));
+		test::compare(out, "-7");
+	});
+
+	app.addTest("Number/UnsignedInt", [&build](){
+		const auto out = build({}, [](Writer& writer){
+			writer.write(static_cast<unsigned int>(300));
+		});
+
+		test::compare(out, "300");
+	});
+
+	app.addTest("Number/UInt64Max", [&build](){
+		const auto out = build({}, [](Writer& writer){
+			writer.write(std::numeric_limits<std::uint64_t>::max());
+		});
+
+		test::compare(out, "18446744073709551615");
 	});
 
 	app.addTest("Object/EmbeddedValue", [&build](){
@@ -314,7 +327,7 @@ int main(int argc, char** argv)
 			ow.write("c", Array({1, 2}));
 		});
 
-		test::compare(out, std::string_view(R"({"a":42,"b":{"x":1},"c":[1,2]})"));
+		test::compare(out, R"({"a":42,"b":{"x":1},"c":[1,2]})");
 	});
 
 	app.addTest("Array/EmbeddedValue", [&build](){
@@ -325,20 +338,19 @@ int main(int argc, char** argv)
 			aw.write(Array({1, 2}));
 		});
 
-		test::compare(out, std::string_view(R"([42,{"x":1},[1,2]])"));
+		test::compare(out, R"([42,{"x":1},[1,2]])");
 	});
 
 	app.addTest("Number/NanInf", [&build](double value, std::string_view expected){
 		const auto out = build({}, [value](Writer& writer){
-			auto aw = writer.beginArray();
-			aw.write(value);
+			writer.write(value);
 		});
 
 		test::compare(out, expected);
 	})({
-		{"NaN",              {std::numeric_limits<double>::quiet_NaN(), "[null]"}},
-		{"Infinity",         {std::numeric_limits<double>::infinity(),  "[null]"}},
-		{"NegativeInfinity", {-std::numeric_limits<double>::infinity(), "[null]"}},
+		{"NaN",              {std::numeric_limits<double>::quiet_NaN(), "null"}},
+		{"Infinity",         {std::numeric_limits<double>::infinity(),  "null"}},
+		{"NegativeInfinity", {-std::numeric_limits<double>::infinity(), "null"}},
 	});
 
 	app.addTest("Scalar", [&build](Value value, std::string_view expected){
@@ -393,7 +405,7 @@ int main(int argc, char** argv)
 			ow.write("c", nullptr);
 		});
 
-		test::compare(out, std::string_view(R"({"a":[1,2,{"b":true}],"c":null})"));
+		test::compare(out, R"({"a":[1,2,{"b":true}],"c":null})");
 	});
 
 	app.addTest("Format/EmptyObject", [&build](){
@@ -401,7 +413,7 @@ int main(int argc, char** argv)
 			auto ow = writer.beginObject();
 		});
 
-		test::compare(out, std::string_view("{}"));
+		test::compare(out, "{}");
 	});
 
 	app.addTest("Format/EmptyArray", [&build](){
@@ -409,7 +421,7 @@ int main(int argc, char** argv)
 			auto aw = writer.beginArray();
 		});
 
-		test::compare(out, std::string_view("[]"));
+		test::compare(out, "[]");
 	});
 
 	app.addTest("Format/SingleKeyObject", [&build](){
@@ -418,7 +430,7 @@ int main(int argc, char** argv)
 			ow.write("a", 1);
 		});
 
-		test::compare(out, std::string_view("{\n\t\"a\": 1\n}"));
+		test::compare(out, "{\n\t\"a\": 1\n}");
 	});
 
 	app.addTest("Format/SingleElementArray", [&build](){
@@ -427,7 +439,7 @@ int main(int argc, char** argv)
 			aw.write(1);
 		});
 
-		test::compare(out, std::string_view("[\n\t1\n]"));
+		test::compare(out, "[\n\t1\n]");
 	});
 
 	app.addTest("Format/NestedObject", [&build](){
@@ -439,7 +451,7 @@ int main(int argc, char** argv)
 			aw.write(2);
 		});
 
-		test::compare(out, std::string_view("{\n\t\"a\": 1,\n\t\"b\": [\n\t\t1,\n\t\t2\n\t]\n}"));
+		test::compare(out, "{\n\t\"a\": 1,\n\t\"b\": [\n\t\t1,\n\t\t2\n\t]\n}");
 	});
 
 	app.addTest("Format/MixedArray", [&build](){
@@ -455,7 +467,7 @@ int main(int argc, char** argv)
 			aw.write(std::string_view("s"));
 		});
 
-		test::compare(out, std::string_view("[\n\t1,\n\t{\n\t\t\"x\": true\n\t},\n\t\"s\"\n]"));
+		test::compare(out, "[\n\t1,\n\t{\n\t\t\"x\": true\n\t},\n\t\"s\"\n]");
 	});
 
 	app.addTest("Format/NestedEmptyObject", [&build](){
@@ -464,7 +476,7 @@ int main(int argc, char** argv)
 			auto inner = ow.beginObject("a");
 		});
 
-		test::compare(out, std::string_view("{\n\t\"a\": {}\n}"));
+		test::compare(out, "{\n\t\"a\": {}\n}");
 	});
 
 	app.addTest("Format/NestedEmptyArray", [&build](){
@@ -473,7 +485,7 @@ int main(int argc, char** argv)
 			auto inner = aw.beginArray();
 		});
 
-		test::compare(out, std::string_view("[\n\t[]\n]"));
+		test::compare(out, "[\n\t[]\n]");
 	});
 
 	return app.main(argc, argv);
