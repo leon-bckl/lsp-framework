@@ -54,6 +54,7 @@ endif()
 # lspgen
 
 add_executable(lspgen
+	lspgen/cppgenerator.cpp
 	lspgen/lspgen.cpp
 	lspgen/metamodel.cpp
 	lsp/json/json.cpp
