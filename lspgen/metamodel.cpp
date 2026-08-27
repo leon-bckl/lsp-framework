@@ -1,11 +1,14 @@
+#include <algorithm>
 #include <cassert>
 #include <stdexcept>
+#include <utility>
 #include "metamodel.h"
 #include "util.h"
 
 namespace lspgen{
+namespace{
 
-std::string extractDocumentation(const json::Object& json)
+auto extractDocumentation(const json::Object& json) -> std::string
 {
 	if(const auto* doc = json.find("documentation"))
 		return doc->string();
@@ -13,17 +16,19 @@ std::string extractDocumentation(const json::Object& json)
 	return {};
 }
 
+} // namespace
+
 /*
  * Type
  */
 
-bool Type::isLiteral() const
+auto Type::isLiteral() const -> bool
 {
 	const auto cat = category();
 	return cat == StructureLiteral || cat == StringLiteral || cat == IntegerLiteral || cat == BooleanLiteral;
 }
 
-Type::Category Type::categoryFromString(std::string_view str)
+auto Type::categoryFromString(std::string_view str) -> Category
 {
 	for(std::size_t i = 0; i < std::size(TypeCategoryStrings); ++i)
 	{
@@ -34,7 +39,7 @@ Type::Category Type::categoryFromString(std::string_view str)
 	throw std::runtime_error('\'' + std::string(str) + "' is not a valid type kind");
 }
 
-TypePtr Type::createFromJson(const json::Object& json)
+auto Type::createFromJson(const json::Object& json) -> TypePtr
 {
 	TypePtr result;
 	auto category = categoryFromString(json.get("kind").string());
@@ -94,7 +99,7 @@ void BaseType::extract(const json::Object& json)
 	kind = kindFromString(json.get("name").string());
 }
 
-BaseType::Kind BaseType::kindFromString(std::string_view str)
+auto BaseType::kindFromString(std::string_view str) -> Kind
 {
 	for(std::size_t i = 0; i < std::size(BaseTypeStrings); ++i)
 	{
@@ -234,7 +239,7 @@ void StructureProperty::extract(const json::Object& json)
 	documentation = extractDocumentation(json);
 }
 
-StructurePropertyList extractStructureProperties(const json::Array& json)
+auto extractStructureProperties(const json::Array& json) -> StructurePropertyList
 {
 	StructurePropertyList result;
 	result.reserve(json.size());
@@ -416,9 +421,9 @@ void MetaModel::extract(const json::Object& json)
 	extractMessages(json);
 }
 
-std::variant<const Enumeration*, const Structure*, const TypeAlias*> MetaModel::typeForName(std::string_view name) const
+auto MetaModel::typeForName(std::string_view name) const -> TypeVariant
 {
-	if(auto it = m_typesByName.find(std::string{name}); it != m_typesByName.end())
+	if(auto it = m_typesByName.find(std::string(name)); it != m_typesByName.end())
 	{
 		switch(it->second.type)
 		{
@@ -431,10 +436,10 @@ std::variant<const Enumeration*, const Structure*, const TypeAlias*> MetaModel::
 		}
 	}
 
-	throw std::runtime_error{"Type with name '" + std::string{name} + "' does not exist"};
+	throw std::runtime_error("Type with name '" + std::string(name) + "' does not exist");
 }
 
-const std::map<std::string, Message>& MetaModel::messagesByName(MessageType type) const
+auto MetaModel::messagesByName(MessageType type) const -> const std::map<std::string, Message>&
 {
 	if(type == MessageType::Request)
 		return m_requestsByMethod;
@@ -472,7 +477,7 @@ void MetaModel::extractRequests(const json::Object& json)
 		const auto& method = obj.get("method").string();
 
 		if(m_requestsByMethod.contains(method))
-			throw std::runtime_error{"Duplicate request method: " + method};
+			throw std::runtime_error("Duplicate request method: " + method);
 
 		m_requestsByMethod[method].extract(obj);
 	}
@@ -488,7 +493,7 @@ void MetaModel::extractNotifications(const json::Object& json)
 		const auto& method = obj.get("method").string();
 
 		if(m_notificationsByMethod.contains(method))
-			throw std::runtime_error{"Duplicate request method: " + method};
+			throw std::runtime_error("Duplicate request method: " + method);
 
 		m_notificationsByMethod[method].extract(obj);
 	}
@@ -497,9 +502,9 @@ void MetaModel::extractNotifications(const json::Object& json)
 void MetaModel::insertType(const std::string& name, Type type, std::size_t index)
 {
 	if(m_typesByName.contains(name))
-		throw std::runtime_error{"Duplicate type '" + name + '\"'};
+		throw std::runtime_error("Duplicate type '" + name + '\"');
 
-	auto it = m_typesByName.insert(std::pair(name, TypeIndex{type, index})).first;
+	auto it = m_typesByName.insert(std::pair(name, TypeIndex(type, index))).first;
 	m_typeNames.push_back(it->first);
 }
 

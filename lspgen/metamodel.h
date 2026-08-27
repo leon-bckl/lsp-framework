@@ -47,31 +47,31 @@ struct Type{
 		"booleanLiteral"
 	};
 
-	virtual Category category() const = 0;
+	virtual auto category() const -> Category = 0;
 	virtual void extract(const json::Object& json) = 0;
 
-	bool isLiteral() const;
-	static Category categoryFromString(std::string_view str);
+	auto isLiteral() const -> bool;
+	static auto categoryFromString(std::string_view str) -> Category;
 
 	template<typename T>
-	bool isA() const
+	auto isA() const -> bool
 	{
 		return dynamic_cast<const T*>(this) != nullptr;
 	}
 
 	template<typename T>
-	T& as()
+	auto as() -> T&
 	{
 		return dynamic_cast<T&>(*this);
 	}
 
 	template<typename T>
-	const T& as() const
+	auto as() const -> const T&
 	{
 		return dynamic_cast<const T&>(*this);
 	}
 
-	static TypePtr createFromJson(const json::Object& json);
+	static auto createFromJson(const json::Object& json) -> TypePtr;
 };
 
 /*
@@ -107,10 +107,10 @@ struct BaseType : Type{
 
 	Kind kind = {};
 
-	Category category() const override{ return Category::Base; }
+	auto category() const -> Category override{ return Category::Base; }
 
 	void extract(const json::Object& json) override;
-	static Kind kindFromString(std::string_view str);
+	static auto kindFromString(std::string_view str) -> Kind;
 };
 
 /*
@@ -120,7 +120,7 @@ struct BaseType : Type{
 struct ReferenceType : Type{
 	std::string name;
 
-	Category category() const override{ return Category::Reference; }
+	auto category() const -> Category override{ return Category::Reference; }
 	void extract(const json::Object& json) override;
 };
 
@@ -131,7 +131,7 @@ struct ReferenceType : Type{
 struct ArrayType : Type{
 	TypePtr elementType;
 
-	Category category() const override{ return Category::Array; }
+	auto category() const -> Category override{ return Category::Array; }
 	void extract(const json::Object& json) override;
 };
 
@@ -143,7 +143,7 @@ struct MapType : Type{
 	TypePtr keyType;
 	TypePtr valueType;
 
-	Category category() const override{ return Category::Map; }
+	auto category() const -> Category override{ return Category::Map; }
 	void extract(const json::Object& json) override;
 };
 
@@ -154,7 +154,7 @@ struct MapType : Type{
 struct AndType : Type{
 	std::vector<TypePtr> typeList;
 
-	Category category() const override{ return Category::And; }
+	auto category() const -> Category override{ return Category::And; }
 	void extract(const json::Object& json) override;
 };
 
@@ -165,7 +165,7 @@ struct AndType : Type{
 struct OrType : Type{
 	std::vector<TypePtr> typeList;
 
-	Category category() const override{ return Category::Or; }
+	auto category() const -> Category override{ return Category::Or; }
 	void extract(const json::Object& json) override;
 };
 
@@ -176,7 +176,7 @@ struct OrType : Type{
 struct TupleType : Type{
 	std::vector<TypePtr> typeList;
 
-	Category category() const override{ return Category::Tuple; }
+	auto category() const -> Category override{ return Category::Tuple; }
 	void extract(const json::Object& json) override;
 };
 
@@ -195,7 +195,7 @@ struct StructureProperty{
 
 using StructurePropertyList = std::vector<StructureProperty>;
 
-StructurePropertyList extractStructureProperties(const json::Array& json);
+auto extractStructureProperties(const json::Array& json) -> StructurePropertyList;
 
 /*
  * StructureLiteralType
@@ -204,7 +204,7 @@ StructurePropertyList extractStructureProperties(const json::Array& json);
 struct StructureLiteralType : Type{
 	StructurePropertyList properties;
 
-	Category category() const override{ return Category::StructureLiteral; }
+	auto category() const -> Category override{ return Category::StructureLiteral; }
 	void extract(const json::Object& json) override;
 };
 
@@ -215,7 +215,7 @@ struct StructureLiteralType : Type{
 struct StringLiteralType : Type{
 	std::string stringValue;
 
-	Category category() const override{ return Category::StringLiteral; }
+	auto category() const -> Category override{ return Category::StringLiteral; }
 	void extract(const json::Object& json) override;
 };
 
@@ -226,7 +226,7 @@ struct StringLiteralType : Type{
 struct IntegerLiteralType : Type{
 	json::Integer integerValue = 0;
 
-	Category category() const override{ return Category::IntegerLiteral; }
+	auto category() const -> Category override{ return Category::IntegerLiteral; }
 	void extract(const json::Object& json) override;
 };
 
@@ -237,7 +237,7 @@ struct IntegerLiteralType : Type{
 struct BooleanLiteralType : Type{
 	bool booleanValue = false;
 
-	Category category() const override{ return Category::BooleanLiteral; }
+	auto category() const -> Category override{ return Category::BooleanLiteral; }
 	void extract(const json::Object& json) override;
 };
 
@@ -322,24 +322,24 @@ public:
 	using TypeVariant = std::variant<const Enumeration*, const Structure*, const TypeAlias*>;
 
 	void extract(const json::Object& json);
-	TypeVariant typeForName(std::string_view name) const;
+	auto typeForName(std::string_view name) const -> TypeVariant;
 
 	enum class MessageType{
 		Request,
 		Notification
 	};
 
-	const std::map<std::string, Message>& messagesByName(MessageType type) const;
+	auto messagesByName(MessageType type) const -> const std::map<std::string, Message>&;
 
 	struct MetaData{
 		std::string version;
 	};
 
-	const MetaData& metaData() const{ return m_metaData; }
-	const std::vector<std::string_view>& typeNames() const{ return m_typeNames; }
-	const std::vector<Enumeration>& enumerations() const{ return m_enumerations; }
-	const std::vector<Structure>& structures() const{ return m_structures; }
-	const std::vector<TypeAlias>& typeAliases() const{ return m_typeAliases; }
+	auto metaData() const -> const MetaData&{ return m_metaData; }
+	auto typeNames() const -> const std::vector<std::string_view>&{ return m_typeNames; }
+	auto enumerations() const -> const std::vector<Enumeration>&{ return m_enumerations; }
+	auto structures() const -> const std::vector<Structure>&{ return m_structures; }
+	auto typeAliases() const -> const std::vector<TypeAlias>&{ return m_typeAliases; }
 
 private:
 	MetaData m_metaData;
