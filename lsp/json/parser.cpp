@@ -134,7 +134,7 @@ Value Parser::parse()
 	skipWhitespace();
 
 	if(!atEnd())
-		throw ParseError("Trailing characters in json", currentTextOffset());
+		throw ParseError("Trailing characters", currentTextOffset());
 
 	return result;
 }
@@ -282,7 +282,7 @@ void Parser::skipWhitespace()
 String Parser::parseString()
 {
 	if(atEnd() || *m_pos != '\"')
-		throw ParseError("String expected", currentTextOffset());
+		throw ParseError("Expected string", currentTextOffset());
 
 	const char* const stringStart = m_pos++;
 	auto              hasEscape   = false;
@@ -320,12 +320,6 @@ String Parser::parseString()
 			++i;
 			switch(str[i])
 			{
-			case '0':
-				result += '\0';
-				break;
-			case 'a':
-				result += '\a';
-				break;
 			case 'b':
 				result += '\b';
 				break;
@@ -335,14 +329,20 @@ String Parser::parseString()
 			case 'n':
 				result += '\n';
 				break;
-			case 'v':
-				result += '\v';
-				break;
 			case 'f':
 				result += '\f';
 				break;
 			case 'r':
 				result += '\r';
+				break;
+			case '"':
+				result += '"';
+				break;
+			case '/':
+				result += '/';
+				break;
+			case '\\':
+				result += '\\';
 				break;
 			case 'u':
 				{
@@ -358,26 +358,28 @@ String Parser::parseString()
 						{
 							appendCodePointAsUtf8(result, codepoint);
 							i += 4;
-						}
-						else
-						{
-							const auto len = static_cast<std::size_t>(std::distance(first, ptr));
-							result += "\\u";
-							result += std::string_view(first, len);
-							i += len;
+							break;
 						}
 					}
-					else
-					{
-						const auto len = static_cast<std::size_t>(std::distance(first, str.data() + str.size()));
-						result += "\\u";
-						result += std::string_view(first, len);
-						i += len;
-					}
-					break;
 				}
+				[[fallthrough]];
 			default:
-				result += str[i];
+				{
+					const char* invalidEscapeStart = stringStart + i;
+					const char* invalidEscapeEnd   = invalidEscapeStart + 2;
+
+					if(str[i] == 'u')
+					{
+						invalidEscapeEnd += 4;
+
+						if(invalidEscapeEnd > str.data() + str.size())
+							invalidEscapeEnd = str.data() + str.size();
+					}
+
+					throw ParseError(
+						"Invalid escape sequence '" + std::string(invalidEscapeStart, invalidEscapeEnd) + '\'',
+						textOffset(invalidEscapeStart));
+				}
 			}
 		}
 		else
@@ -414,7 +416,7 @@ Value Parser::parseNumber()
 		const Decimal decimal = std::stod(std::string{numberStart, m_pos}, &idx);
 
 		if(idx < static_cast<std::size_t>(std::distance(numberStart, m_pos)))
-			throw ParseError("Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(numberStart));
+			throw ParseError("Invalid number value '" + std::string{numberStart, m_pos} + "'", textOffset(numberStart));
 
 		return decimal;
 	}
@@ -423,7 +425,7 @@ Value Parser::parseNumber()
 	const auto [ptr, ec] = std::from_chars(numberStart, m_pos, intValue);
 
 	if(ec != std::errc{} || ptr != m_pos)
-		throw ParseError("Invalid number value: '" + std::string{numberStart, m_pos} + "'", textOffset(numberStart));
+		throw ParseError("Invalid number value '" + std::string{numberStart, m_pos} + "'", textOffset(numberStart));
 
 	if(intValue < std::numeric_limits<json::Integer>::min() || intValue > std::numeric_limits<json::Integer>::max())
 		return static_cast<json::Decimal>(intValue);
@@ -463,7 +465,7 @@ Value Parser::parseSimpleValue()
 	if(isAlpha(*m_pos))
 		return parseIdentifier();
 
-	throw ParseError("Unexpected token", currentTextOffset());
+	throw ParseError(std::string("Unexpected '") + * m_pos + "'", currentTextOffset());
 }
 
 } // namespace lsp::json
