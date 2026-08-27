@@ -298,7 +298,7 @@ int main(int argc, char** argv)
 	});
 
 	/*
-	 * Struct (stand-in for a generated type)
+	 * Struct
 	 */
 
 	app.addTest("ToJson/Struct/TopLevel", [](){

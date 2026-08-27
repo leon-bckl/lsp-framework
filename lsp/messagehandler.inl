@@ -51,6 +51,15 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<
 		typename M::Params params;
 		fromJson(std::move(json), params);
 		const auto& id = currentRequestId();
+		const auto  writeBatchMessage = [batchSender, &id](const auto& result)
+		{
+			auto responseWriter = batchSender->writeResponse(id);
+			responseWriter.writeData(
+				[](std::string_view key, const auto& value, json::ObjectWriter& writer)
+				{
+					writeJson(key, value, writer);
+				}, result);
+		};
 
 		if constexpr(IsCallbackResult<AsyncRequestResult<M>, typename M::Params, F>)
 		{
@@ -58,12 +67,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<
 
 			if(batchSender)
 			{
-				auto responseWriter = batchSender->writeResponse(id);
-				responseWriter.writeData(
-					[](std::string_view key, const auto& value, json::ObjectWriter& writer)
-					{
-						writeJson(key, value, writer);
-					}, future.get());
+				writeBatchMessage(future.get());
 			}
 			else
 			{
@@ -75,9 +79,10 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<
 		}
 		else
 		{
-			(void)this;
-			(void)batchSender;
-			sendResponse(id, f(std::move(params)));
+			if(batchSender)
+				writeBatchMessage(f(std::move(params)));
+			else
+				sendResponse(id, f(std::move(params)));
 		}
 	});
 
@@ -90,7 +95,16 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestC
 	addHandler(M::Method,
 	[this, f = std::forward<F>(handlerFunc)](json::Value&&, Connection::BatchSender* batchSender)
 	{
-		const auto& id = currentRequestId();
+		const auto& id                = currentRequestId();
+		const auto  writeBatchMessage = [batchSender, &id](const auto& result)
+		{
+			auto responseWriter = batchSender->writeResponse(id);
+			responseWriter.writeData(
+				[](std::string_view key, const auto& value, json::ObjectWriter& writer)
+				{
+					writeJson(key, value, writer);
+				}, result);
+		};
 
 		if constexpr(IsNoParamsCallbackResult<AsyncRequestResult<M>, F>)
 		{
@@ -98,12 +112,7 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestC
 
 			if(batchSender)
 			{
-				auto responseWriter = batchSender->writeResponse(id);
-				responseWriter.writeData(
-					[](std::string_view key, const auto& value, json::ObjectWriter& writer)
-					{
-						writeJson(key, value, writer);
-					}, future.get());
+				writeBatchMessage(future.get());
 			}
 			else
 			{
@@ -115,9 +124,10 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestC
 		}
 		else
 		{
-			(void)this;
-			(void)batchSender;
-			sendResponse(id, f());
+			if(batchSender)
+				writeBatchMessage(f());
+			else
+				sendResponse(id, f());
 		}
 	});
 

@@ -1,5 +1,6 @@
 lsp_add_test(connection)
 lsp_add_test(enumeration)
+lsp_add_test(messagehandler)
 lsp_add_test(nullable)
 lsp_add_test(serialization)
 add_executable(TestProcess test_process.cpp)

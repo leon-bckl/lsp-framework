@@ -52,7 +52,6 @@ void MessageHandler::setConnection(Connection connection)
 
 const MessageId& MessageHandler::currentRequestId()
 {
-	assert(t_currentRequestId);
 	if(!t_currentRequestId)
 		throw std::logic_error("MessageHandler::currentRequestId called outside of a request context");
 
@@ -273,6 +272,7 @@ FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::
 		requestSender.writeParams(params);
 
 	requestSender.submit();
+	addPendingRequest(std::move(result), requestId);
 
 	return {requestId, std::move(future)};
 }
