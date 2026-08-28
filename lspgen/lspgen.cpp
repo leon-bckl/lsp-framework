@@ -1,23 +1,47 @@
-#include <cassert>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <lsp/json/json.h>
-#include "cppgenerator.h"
-#include "metamodel.h"
+#include "cppmessagegenerator.h"
 #include "cpptypegenerator.h"
-
-/*
- * This is a huge mess because it started out as an experiment only.
- * But it works and should keep on working with upcoming lsp versions
- * unless there are fundamental changes to the meta model in which case
- * everything should be rewritten from scratch...
- */
+#include "metamodel.h"
 
 using namespace lsp;
 using namespace lspgen;
 
-int main(int argc, char** argv)
+namespace{
+
+auto readFileContent(const std::string& fileName) -> std::string
+{
+	auto file = std::ifstream(fileName, std::ios::binary);
+
+	if(!file)
+		throw std::runtime_error("Failed to read file '" + fileName + '\'');
+
+	file.seekg(0, std::ios::end);
+	const auto fileSize = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	std::string text;
+	text.resize(static_cast<std::string::size_type>(fileSize));
+	file.read(&text[0], fileSize);
+
+	return text;
+}
+
+auto writeFileContent(const std::string& fileName, std::string_view content)
+{
+	auto file = std::ofstream(fileName, std::ios::trunc | std::ios::binary);
+
+	if(!file)
+		throw std::runtime_error("Failed to write file '" + fileName + '\'');
+
+	file.write(content.data(), static_cast<std::streamsize>(content.size()));
+}
+
+} // namespace
+
+auto main(int argc, char** argv) -> int
 {
 	if(argc != 2)
 	{
@@ -25,52 +49,42 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	int ExitCode = EXIT_SUCCESS;
-	const char* inputFileName = argv[1];
+	int exitCode = EXIT_SUCCESS;
 
-	if(std::ifstream in{inputFileName, std::ios::binary})
+	try
 	{
-		try
-		{
-			in.seekg(0, std::ios::end);
-			std::streamsize size = in.tellg();
-			in.seekg(0, std::ios::beg);
-			std::string jsonText;
-			jsonText.resize(static_cast<std::string::size_type>(size));
-			in.read(&jsonText[0], size);
-			in.close();
-			auto json = json::parse(jsonText).object();
-			MetaModel metaModel;
-			metaModel.extract(json);
-			CppGenerator generator{&metaModel};
-			generator.generate();
-			generator.writeFiles();
+		const auto metaModel = MetaModel(json::parse(readFileContent(argv[1])).object());
 
+		{
 			auto typeGenerator = CppTypeGenerator();
 			typeGenerator.generate(metaModel);
-			typeGenerator.writeFiles();
+
+			writeFileContent("types.h", typeGenerator.headerText());
+			writeFileContent("types.cpp", typeGenerator.sourceText());
 		}
-		catch(const json::ParseError& e)
+
 		{
-			std::cerr << "JSON parse error at offset " << e.textPos() << ": " << e.what() << std::endl;
-			ExitCode = EXIT_FAILURE;
-		}
-		catch(const std::exception& e)
-		{
-			std::cerr << "Error: " << e.what() << std::endl;
-			ExitCode = EXIT_FAILURE;
-		}
-		catch(...)
-		{
-			std::cerr << "Unknown error" << std::endl;
-			ExitCode = EXIT_FAILURE;
+			auto messageGenerator = CppMessageGenerator();
+			messageGenerator.generate(metaModel);
+
+			writeFileContent("messages.h", messageGenerator.headerText());
 		}
 	}
-	else
+	catch(const json::ParseError& e)
 	{
-		std::cerr << "Failed to open " << inputFileName << std::endl;
-		ExitCode = EXIT_FAILURE;
+		std::cerr << "JSON parse error at offset " << e.textPos() << ": " << e.what() << std::endl;
+		exitCode = EXIT_FAILURE;
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "Error: " << e.what() << std::endl;
+		exitCode = EXIT_FAILURE;
+	}
+	catch(...)
+	{
+		std::cerr << "Unknown error" << std::endl;
+		exitCode = EXIT_FAILURE;
 	}
 
-	return ExitCode;
+	return exitCode;
 }

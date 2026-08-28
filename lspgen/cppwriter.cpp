@@ -70,11 +70,15 @@ void CppWriter::writeNamespaceStart(std::string_view name)
 	m_text += "{\n\n";
 }
 
-void CppWriter::writeNamespaceEnd(std::string_view name)
+void CppWriter::writeNamespaceEnd(std::string_view name, bool addEmptyLine)
 {
 	m_text += "} // namespace ";
 	m_text += name;
-	m_text += "\n\n";
+
+	if(addEmptyLine)
+		writeEmptyLine();
+	else
+		m_text += '\n';
 }
 
 void CppWriter::writeBlockStart(bool newLine)

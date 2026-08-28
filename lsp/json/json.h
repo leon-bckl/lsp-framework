@@ -124,8 +124,11 @@ public:
 	constexpr Value(Decimal d) : m_variant{d}{}
 	Value(const char* s)       : m_variant{String(s)}{}
 	Value(std::string_view s)  : m_variant{String(s)}{}
+	Value(const String& s)     : m_variant{s}{}
 	Value(String&& s)          : m_variant{std::move(s)}{}
+	Value(const Array& a)      : m_variant{a}{}
 	Value(Array&& a)           : m_variant{std::move(a)}{}
+	Value(const Object& o)     : m_variant{o}{}
 	Value(Object&& o)          : m_variant{std::move(o)}{}
 
 	[[nodiscard]] constexpr bool isNull()    const{ return std::holds_alternative<Null>(m_variant); }

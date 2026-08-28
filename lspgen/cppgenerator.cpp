@@ -127,7 +127,7 @@ void CppGenerator::generateMessages()
 
 	m_messagesHeaderFileContent += namespaceStr;
 
-	for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Request))
+	for(const auto& [method, message] : m_metaModel.messagesByType(MetaModel::MessageType::Request))
 		generateMessage(method, message, false);
 
 	namespaceStr = "} // namespace requests\n\n"
@@ -139,7 +139,7 @@ void CppGenerator::generateMessages()
 
 	m_messagesHeaderFileContent += namespaceStr;
 
-	for(const auto& [method, message] : m_metaModel.messagesByName(MetaModel::MessageType::Notification))
+	for(const auto& [method, message] : m_metaModel.messagesByType(MetaModel::MessageType::Notification))
 		generateMessage(method, message, true);
 
 	namespaceStr = "} // namespace notifications\n";

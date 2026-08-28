@@ -6,17 +6,17 @@
 
 namespace lspgen{
 
-inline char toUpper(char c)
+inline auto toUpper(char c) -> char
 {
 	return c >= 'a' && c <= 'z' ? c - 32 : c;
 }
 
-inline char toLower(char c)
+inline auto toLower(char c) -> char
 {
 	return c >= 'A' && c <= 'Z' ? c + 32 : c;
 }
 
-inline std::string capitalizeString(std::string_view str)
+inline auto capitalizeString(std::string_view str) -> std::string
 {
 	auto result = std::string(str);
 
@@ -26,7 +26,7 @@ inline std::string capitalizeString(std::string_view str)
 	return result;
 }
 
-inline std::string uncapitalizeString(std::string_view str)
+inline auto uncapitalizeString(std::string_view str) -> std::string
 {
 	auto result = std::string(str);
 
@@ -36,7 +36,7 @@ inline std::string uncapitalizeString(std::string_view str)
 	return result;
 }
 
-inline std::string replaceString(std::string_view str, std::string_view pattern, std::string_view replacement)
+inline auto replaceString(std::string_view str, std::string_view pattern, std::string_view replacement) -> std::string
 {
 	auto result = std::string();
 	result.reserve(str.size() + replacement.size());
@@ -54,7 +54,7 @@ inline std::string replaceString(std::string_view str, std::string_view pattern,
 	return result;
 }
 
-inline std::vector<std::string_view> splitStringView(std::string_view str, std::string_view separator, bool skipEmpty = false)
+inline auto splitStringView(std::string_view str, std::string_view separator, bool skipEmpty = false) -> std::vector<std::string_view>
 {
 	auto        result = std::vector<std::string_view>();
 	std::size_t srcIdx = 0;
@@ -78,7 +78,7 @@ inline std::vector<std::string_view> splitStringView(std::string_view str, std::
 
 template<typename T, typename F = std::string_view(*)(std::string_view)>
 requires std::convertible_to<T, std::string_view>
-inline std::string joinStrings(const std::vector<T>& strings, const std::string& separator, F&& transform = [](std::string_view s){ return s; })
+auto joinStrings(const std::vector<T>& strings, const std::string& separator, F&& transform = [](std::string_view s){ return s; }) -> std::string
 {
 	auto result = std::string();
 

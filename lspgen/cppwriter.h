@@ -16,7 +16,7 @@ public:
 	void writeDocComment(std::string_view title, std::string_view description);
 	void writeEmptyLine();
 	void writeNamespaceStart(std::string_view name);
-	void writeNamespaceEnd(std::string_view name);
+	void writeNamespaceEnd(std::string_view name, bool addEmptyLine = true);
 	void writeBlockStart(bool newLine);
 	void writeBlockEnd(bool addSemicolon, bool addEmptyLine);
 	void writeEnumStart(std::string_view name);

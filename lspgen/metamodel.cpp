@@ -441,6 +441,12 @@ void Message::extract(const json::Object& json)
 		return {};
 	};
 
+	if(const auto* clientCap = json.find("clientCapability"))
+		clientCapabilityName = clientCap->string();
+
+	if(const auto* serverCap = json.find("serverCapability"))
+		serverCapabilityName = serverCap->string();
+
 	paramsTypeName              = memberTypeName(json, "params");
 	resultTypeName              = memberTypeName(json, "result");
 	partialResultTypeName       = memberTypeName(json, "partialResult");
@@ -451,6 +457,13 @@ void Message::extract(const json::Object& json)
 /*
  * MetaModel
  */
+
+MetaModel::MetaModel() = default;
+
+MetaModel::MetaModel(const json::Object& json)
+{
+	extract(json);
+}
 
 void MetaModel::extract(const json::Object& json)
 {
@@ -477,7 +490,7 @@ auto MetaModel::typeForName(std::string_view name) const -> TypeVariant
 	throw std::runtime_error("Type with name '" + std::string(name) + "' does not exist");
 }
 
-auto MetaModel::messagesByName(MessageType type) const -> const std::map<std::string, Message>&
+auto MetaModel::messagesByType(MessageType type) const -> const std::map<std::string, Message>&
 {
 	if(type == MessageType::Request)
 		return m_requestsByMethod;

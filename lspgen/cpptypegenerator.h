@@ -7,8 +7,6 @@
 #include <vector>
 #include "cppwriter.h"
 
-#include <fstream>
-
 namespace lspgen{
 
 struct Type;
@@ -24,17 +22,6 @@ public:
 	void generate(const MetaModel& metaModel);
 	auto headerText() const -> std::string;
 	auto sourceText() const -> std::string;
-
-	void writeFiles() const
-	{
-		auto file = std::ofstream("types.h", std::ios::trunc | std::ios::binary);
-		auto text = headerText();
-		file.write(text.data(), static_cast<std::streamsize>(text.size()));
-
-		file = std::ofstream("types.cpp", std::ios::trunc | std::ios::binary);
-		text = sourceText();
-		file.write(text.data(), static_cast<std::streamsize>(text.size()));
-	}
 
 private:
 	const MetaModel*                             m_metaModel;

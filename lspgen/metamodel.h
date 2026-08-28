@@ -305,6 +305,9 @@ struct Message{
 
 	std::string documentation;
 	Direction   direction;
+	std::string clientCapabilityName;
+	std::string serverCapabilityName;
+
 	// Those should be omitted if the strings are empty
 	std::string paramsTypeName;
 	std::string resultTypeName;
@@ -321,7 +324,8 @@ struct Message{
 
 class MetaModel{
 public:
-	MetaModel() = default;
+	MetaModel();
+	MetaModel(const json::Object& json);
 
 	using TypeVariant = std::variant<const Enumeration*, const Structure*, const TypeAlias*>;
 
@@ -333,7 +337,7 @@ public:
 		Notification
 	};
 
-	auto messagesByName(MessageType type) const -> const std::map<std::string, Message>&;
+	auto messagesByType(MessageType type) const -> const std::map<std::string, Message>&;
 
 	struct MetaData{
 		std::string version;
