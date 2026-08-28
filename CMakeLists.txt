@@ -54,12 +54,14 @@ endif()
 # lspgen
 
 add_executable(lspgen
-	lspgen/cppgenerator.cpp
-	lspgen/lspgen.cpp
-	lspgen/metamodel.cpp
 	lsp/json/json.cpp
 	lsp/json/parser.cpp
 	lsp/json/writer.cpp
+	lspgen/cppgenerator.cpp
+	lspgen/cpptypegenerator.cpp
+	lspgen/cppwriter.cpp
+	lspgen/lspgen.cpp
+	lspgen/metamodel.cpp
 )
 target_include_directories(lspgen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
