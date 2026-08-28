@@ -7,6 +7,8 @@
 #include <vector>
 #include "cppwriter.h"
 
+#include <fstream>
+
 namespace lspgen{
 
 struct Type;
@@ -20,6 +22,19 @@ using TypePtr = std::unique_ptr<Type>;
 class CppTypeGenerator{
 public:
 	void generate(const MetaModel& metaModel);
+	auto headerText() const -> std::string;
+	auto sourceText() const -> std::string;
+
+	void writeFiles() const
+	{
+		auto file = std::ofstream("types.h", std::ios::trunc | std::ios::binary);
+		auto text = headerText();
+		file.write(text.data(), static_cast<std::streamsize>(text.size()));
+
+		file = std::ofstream("types.cpp", std::ios::trunc | std::ios::binary);
+		text = sourceText();
+		file.write(text.data(), static_cast<std::streamsize>(text.size()));
+	}
 
 private:
 	const MetaModel*                             m_metaModel;
@@ -28,7 +43,8 @@ private:
 	std::unordered_map<const Type*, std::string> m_generatedTypeNames;
 	CppWriter                                    m_typeWriter;
 	CppWriter                                    m_declWriter;
-	CppWriter                                    m_implWriter;
+	CppWriter                                    m_deserializationWriter;
+	CppWriter                                    m_serializationWriter;
 
 	void generateNamedType(std::string_view name);
 	void generate(const Enumeration& enumeration);
@@ -38,7 +54,7 @@ private:
 	void generateAggregateTypeList(const std::vector<TypePtr>& typeList, const std::string& baseName);
 	auto collectRequiredProperties(const Structure& structure) -> std::vector<std::string>;
 	auto collectLiteralProperties(const Structure& structure) -> std::vector<std::pair<std::string, std::string>>;
-	void generateStructureProperty(const Structure& structure, const StructureProperty& property);
+	void generateStructureProperty(const Structure& structure, const StructureProperty& p);
 
 	auto cppTypeName(const Type& type, bool optional = false) -> std::string;
 };

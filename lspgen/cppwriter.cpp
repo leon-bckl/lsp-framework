@@ -181,9 +181,15 @@ void CppWriter::writeFuncSig(std::string_view name, std::string_view returnType,
 	if(kind & FuncStatic)
 		write("static ");
 
+	const auto returnsVoid = returnType == "void";
+
 	if(!returnType.empty())
 	{
-		write(returnType);
+		if(returnsVoid)
+			write(returnType);
+		else
+			write("auto");
+
 		write(" ");
 	}
 
@@ -214,6 +220,12 @@ void CppWriter::writeFuncSig(std::string_view name, std::string_view returnType,
 
 	if(kind & FuncOverride)
 		write(" override");
+
+	if(!returnsVoid && !returnType.empty())
+	{
+		write(" -> ");
+		write(returnType);
+	}
 }
 
 auto CppWriter::text() const -> std::string_view

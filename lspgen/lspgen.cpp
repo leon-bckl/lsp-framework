@@ -5,6 +5,7 @@
 #include <lsp/json/json.h>
 #include "cppgenerator.h"
 #include "metamodel.h"
+#include "cpptypegenerator.h"
 
 /*
  * This is a huge mess because it started out as an experiment only.
@@ -44,6 +45,10 @@ int main(int argc, char** argv)
 			CppGenerator generator{&metaModel};
 			generator.generate();
 			generator.writeFiles();
+
+			auto typeGenerator = CppTypeGenerator();
+			typeGenerator.generate(metaModel);
+			typeGenerator.writeFiles();
 		}
 		catch(const json::ParseError& e)
 		{

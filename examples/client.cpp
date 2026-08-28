@@ -156,7 +156,7 @@ public:
 
 	void openDocument(lsp::DocumentUri uri, std::string text, std::string languageId)
 	{
-		m_messageHandler.sendNotification<lsp::notifications::TextDocument_DidOpen>(
+		m_messageHandler.sendNotification<lsp::notifications::TextDocumentDidOpen>(
 			{
 				.textDocument = {
 					.uri        = std::move(uri),
@@ -167,20 +167,20 @@ public:
 			});
 	}
 
-	lsp::requests::TextDocument_Hover::Result hover(lsp::DocumentUri uri, const lsp::Position& position)
+	lsp::requests::TextDocumentHover::Result hover(lsp::DocumentUri uri, const lsp::Position& position)
 	{
 		try
 		{
-			auto hoverParams             = lsp::requests::TextDocument_Hover::Params();
+			auto hoverParams             = lsp::requests::TextDocumentHover::Params();
 			hoverParams.textDocument.uri = std::move(uri);
 			hoverParams.position         = position;
 
 			auto hoverRequest =
-				m_messageHandler.sendRequest<lsp::requests::TextDocument_Hover>(hoverParams);
+				m_messageHandler.sendRequest<lsp::requests::TextDocumentHover>(hoverParams);
 
 			const auto hoverResult = hoverRequest.result.get();
 
-			printResponse<lsp::requests::TextDocument_Hover>(hoverResult);
+			printResponse<lsp::requests::TextDocumentHover>(hoverResult);
 
 			return hoverResult;
 		}

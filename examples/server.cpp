@@ -133,15 +133,15 @@ public:
 		};
 	}
 
-	void textDocumentDidOpen(lsp::notifications::TextDocument_DidOpen::Params&&)
+	void textDocumentDidOpen(lsp::notifications::TextDocumentDidOpen::Params&&)
 	{
 		verifyInitialized();
 		// Do something with the openend document here...
 	}
 
-	auto hover(lsp::requests::TextDocument_Hover::Params&& params) -> lsp::AsyncRequestResult<lsp::requests::TextDocument_Hover>
+	auto hover(lsp::requests::TextDocumentHover::Params&& params) -> lsp::AsyncRequestResult<lsp::requests::TextDocumentHover>
 	{
-		printMessage<lsp::requests::TextDocument_Hover>(params);
+		printMessage<lsp::requests::TextDocumentHover>(params);
 		verifyInitialized();
 
 		// Verify that the server actually knows the document from the request
@@ -163,14 +163,14 @@ public:
 				std::this_thread::sleep_for(std::chrono::seconds(2));
 
 				// return the result
-				// TextDocument_Hover::Result is NullOr<Hover>
+				// TextDocumentHover::Result is NullOr<Hover>
 				auto hover = lsp::Hover{
 					.contents = lsp::MarkupContent{
 						.kind  = lsp::MarkupKind::PlainText,
 						.value = "Hover test"
 					}
 				};
-				return lsp::requests::TextDocument_Hover::Result(std::move(hover));
+				return lsp::requests::TextDocumentHover::Result(std::move(hover));
 			}
 		);
 	}
@@ -217,13 +217,13 @@ private:
 			{
 				return initialize(std::move(params));
 			}
-		).add<lsp::notifications::TextDocument_DidOpen>(
-			[this](lsp::notifications::TextDocument_DidOpen::Params&& params)
+		).add<lsp::notifications::TextDocumentDidOpen>(
+			[this](lsp::notifications::TextDocumentDidOpen::Params&& params)
 			{
 				textDocumentDidOpen(std::move(params));
 			}
-		).add<lsp::requests::TextDocument_Hover>(
-			[this](lsp::requests::TextDocument_Hover::Params&& params)
+		).add<lsp::requests::TextDocumentHover>(
+			[this](lsp::requests::TextDocumentHover::Params&& params)
 			{
 				return hover(std::move(params));
 			}

@@ -10,6 +10,101 @@
 namespace lspgen{
 namespace{
 
+static constexpr auto TypesHeaderBegin = std::string_view(
+R"(#pragma once
+
+/*#############################################################
+ * NOTE: This is a generated file and it shouldn't be modified!
+ *#############################################################*/
+
+#include <memory>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <variant>
+#include <vector>
+#include <lsp/enumeration.h>
+#include <lsp/json/json.h>
+#include <lsp/nullable.h>
+#include <lsp/serialization.h>
+#include <lsp/uri.h>
+#include <lsp/version.h>
+
+namespace lsp{
+
+#define LSP_PROTOCOL_VERSION_MAJOR 3// ${LSP_PROTOCOL_VERSION_MAJOR}
+#define LSP_PROTOCOL_VERSION_MINOR 18// ${LSP_PROTOCOL_VERSION_MINOR}
+#define LSP_PROTOCOL_VERSION_PATCH 0// ${LSP_PROTOCOL_VERSION_PATCH}
+#define LSP_PROTOCOL_VERSION LSP_INT_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
+#define LSP_PROTOCOL_VERSION_STR LSP_STRINGIFY_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
+
+using Null        = std::nullptr_t;
+using uint        = unsigned int;
+using String      = std::string;
+using DocumentUri = Uri;
+using LSPArray    = json::Array;
+using LSPObject   = json::Object;
+using LSPAny      = json::Value;
+
+template<typename T>
+using Opt = std::optional<T>;
+
+template<typename T>
+using Ptr = std::unique_ptr<T>;
+
+template<typename... Args>
+using Tuple = std::tuple<Args...>;
+
+template<typename... Args>
+using OneOf = std::variant<Args...>;
+
+template<typename T>
+using NullOr = Nullable<T>;
+
+template<typename... Args>
+using NullOrOneOf = NullableVariant<Args...>;
+
+template<typename T>
+using Array = std::vector<T>;
+
+template<typename K, typename T>
+using Map = std::unordered_map<K, T>;
+
+)");
+
+static constexpr auto TypesHeaderEnd = std::string_view(
+R"(
+} // namespace lsp
+)");
+
+static constexpr auto TypesSourceBegin = std::string_view(
+R"(#include "types.h"
+
+/*#############################################################
+ * NOTE: This is a generated file and it shouldn't be modified!
+ *#############################################################*/
+
+namespace lsp{
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4100) // unreferenced formal parameter
+#endif
+
+)");
+
+static constexpr auto TypesSourceEnd = std::string_view(
+R"(#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+} // namespace lsp
+)");
+
 static auto baseTypeName(BaseType::Kind kind) -> std::string_view
 {
 	switch(kind)
@@ -66,13 +161,38 @@ void CppTypeGenerator::generate(const MetaModel& metaModel)
 	m_typesBeingProcessed = {};
 	m_typeWriter.reset();
 	m_declWriter.reset();
-	m_implWriter.reset();
+	m_deserializationWriter.reset();
+	m_serializationWriter.reset();
 
 	m_declWriter.writeDocComment("Serialization boilerplate", {});
 	m_declWriter.writeEmptyLine();
 
 	for(const auto& name : m_metaModel->typeNames())
 		generateNamedType(name);
+}
+
+auto CppTypeGenerator::headerText() const -> std::string
+{
+	auto text = std::string();
+
+	text += TypesHeaderBegin;
+	text += m_typeWriter.text();
+	text += m_declWriter.text();
+	text += TypesHeaderEnd;
+
+	return text;
+}
+
+auto CppTypeGenerator::sourceText() const -> std::string
+{
+	auto text = std::string();
+
+	text += TypesSourceBegin;
+	text += m_deserializationWriter.text();
+	text += m_serializationWriter.text();
+	text += TypesSourceEnd;
+
+	return text;
 }
 
 void CppTypeGenerator::generateNamedType(std::string_view name)
@@ -100,22 +220,33 @@ void CppTypeGenerator::generate(const Enumeration& enumeration)
 	m_typeWriter.writeDocComment(enumeration.name, enumeration.documentation);
 	m_typeWriter.writeEnumStart(enumTypeCppName);
 
+	const auto enumCppName = enumTypeCppName + "Enum";
+	const auto valuesVar   = std::format("const {0}::ConstInitType {0}::s_values[]", enumCppName);
+
+	m_deserializationWriter.writeLine("template<>");
+	m_deserializationWriter.write(valuesVar);
+	m_deserializationWriter.write(" = ");
+	m_deserializationWriter.writeBlockStart(false);
+
 	for(const auto& value : enumeration.values)
 	{
 		m_typeWriter.writeDocComment({}, value.documentation);
 		m_typeWriter.writeLine(CppWriter::upperCaseIdentifier(value.name) + ',');
+		m_deserializationWriter.writeLine(json::stringify(value.value) + ",");
 	}
+
+	m_deserializationWriter.writeBlockEnd(true, true);
 
 	m_typeWriter.writeLine("MAX_VALUE");
 	m_typeWriter.writeEnumEnd();
 
 	const auto enumCppTemplateType = std::format("Enumeration<{}, {}>", enumTypeCppName, baseType);
-	const auto enumCppName         = enumTypeCppName + "Enum";
 	m_typeWriter.writeTypedef(enumCppName, enumCppTemplateType);
 	m_typeWriter.writeEmptyLine();
 
 	m_declWriter.writeLine("template<>");
-	m_declWriter.writeLine(std::format("const {0}::ConstInitType {0}::s_values[];", enumCppName));
+	m_declWriter.write(valuesVar);
+	m_declWriter.writeLine(";");
 }
 
 void CppTypeGenerator::generate(const Structure& structure)
@@ -145,12 +276,20 @@ void CppTypeGenerator::generate(const Structure& structure)
 	m_typeWriter.writeDocComment(structure.name, structure.documentation);
 	m_typeWriter.writeStructStart(structCppName, joinStrings(extendsList, ", "));
 
-	auto       inheritedLiterals     = std::vector<const StructureProperty*>();
-	const auto checkInheritedLiteral = [&](const StructureProperty& p)
-		{
-			if(p.type->isLiteral() && !!structure.findBaseProperty(p.name, *m_metaModel))
-				inheritedLiterals.push_back(&p);
-		};
+	const auto fromJsonParams = CppWriter::FuncParamList{
+		{CppWriter::type("json::Value", CppWriter::TypeRvalue), "json"},
+		{CppWriter::type(structCppName, CppWriter::TypeRef), "value"}};
+
+	m_declWriter.writeFuncSig("fromJson", "void", fromJsonParams);
+	m_declWriter.writeLine(";");
+
+	m_deserializationWriter.writeFuncSig(
+		CppWriter::lowerCaseIdentifier(structCppName + "FromJson"),
+		"void",
+		{{CppWriter::type("json::Object", CppWriter::TypeRef), "json"},
+		 {CppWriter::type(structCppName, CppWriter::TypeRef), "value"}},
+		CppWriter::FuncStatic);
+	m_deserializationWriter.writeBlockStart(true);
 
 	const auto writeJsonParams = CppWriter::FuncParamList{
 		{CppWriter::type(structCppName, CppWriter::TypeConst | CppWriter::TypeRef), "value"},
@@ -159,11 +298,21 @@ void CppTypeGenerator::generate(const Structure& structure)
 	m_declWriter.writeFuncSig("writeJson", "void", writeJsonParams);
 	m_declWriter.writeLine(";");
 
-	m_implWriter.writeFuncSig("writeJson", "void", writeJsonParams);
-	m_implWriter.writeBlockStart(true);
+	m_serializationWriter.writeFuncSig("writeJson", "void", writeJsonParams);
+	m_serializationWriter.writeBlockStart(true);
 
 	for(const auto& ext : extendsList)
-		m_implWriter.writeLine("writeJson(static_cast<const " + ext + "&>(value), objectWriter);");
+	{
+		m_serializationWriter.writeLine("writeJson(static_cast<const " + ext + "&>(value), objectWriter);");
+		m_deserializationWriter.writeLine(CppWriter::lowerCaseIdentifier(ext + "FromJson") + "(json, value);");
+	}
+
+	auto       inheritedLiterals     = std::vector<const StructureProperty*>();
+	const auto checkInheritedLiteral = [&](const StructureProperty& p)
+		{
+			if(p.type->isLiteral() && !!structure.findBaseProperty(p.name, *m_metaModel))
+				inheritedLiterals.push_back(&p);
+		};
 
 	for(const auto& mixin : structure.mixins)
 	{
@@ -184,6 +333,13 @@ void CppTypeGenerator::generate(const Structure& structure)
 		checkInheritedLiteral(property);
 	}
 
+	m_deserializationWriter.writeBlockEnd(false, true);
+	m_deserializationWriter.writeFuncSig("fromJson", "void", fromJsonParams);
+	m_deserializationWriter.writeBlockStart(true);
+	m_deserializationWriter.writeLine("auto& obj = json.object();");
+	m_deserializationWriter.writeLine(CppWriter::lowerCaseIdentifier(structCppName + "FromJson") + "(obj, value);");
+	m_deserializationWriter.writeBlockEnd(false, true);
+
 	// Write constructor to initialize inherited literal properties
 	if(!inheritedLiterals.empty())
 	{
@@ -203,7 +359,7 @@ void CppTypeGenerator::generate(const Structure& structure)
 	}
 
 	m_typeWriter.writeStructEnd();
-	m_implWriter.writeBlockEnd(false, true);
+	m_serializationWriter.writeBlockEnd(false, true);
 
 	const auto requiredProperties = collectRequiredProperties(structure);
 
@@ -218,51 +374,51 @@ void CppTypeGenerator::generate(const Structure& structure)
 		writeSig(m_declWriter);
 		m_declWriter.writeLine(";");
 
-		writeSig(m_implWriter);
-		m_implWriter.writeBlockStart(true);
-		m_implWriter.writeVariable("properties[]", "const char**", {}, CppWriter::VarStatic | CppWriter::VarConst, false);
-		m_implWriter.write(" = ");
-		m_implWriter.writeBlockStart(false);
+		writeSig(m_deserializationWriter);
+		m_deserializationWriter.writeBlockStart(true);
+		m_deserializationWriter.writeVariable("properties[]", "char*", {}, CppWriter::VarStatic | CppWriter::VarConst, false);
+		m_deserializationWriter.write(" = ");
+		m_deserializationWriter.writeBlockStart(false);
 
 		for(const auto& required : requiredProperties)
-			m_implWriter.writeLine("\"" + required + "\",");
+			m_deserializationWriter.writeLine("\"" + required + "\",");
 
-		m_implWriter.writeLine("nullptr");
-		m_implWriter.writeBlockEnd(true, false);
-		m_implWriter.writeLine("return properties;");
-		m_implWriter.writeBlockEnd(false, true);
+		m_deserializationWriter.writeLine("nullptr");
+		m_deserializationWriter.writeBlockEnd(true, false);
+		m_deserializationWriter.writeLine("return properties;");
+		m_deserializationWriter.writeBlockEnd(false, true);
 	}
 
 	const auto literalProperties = collectLiteralProperties(structure);
 
 	if(!literalProperties.empty())
 	{
-		const auto pairType = CppWriter::type("std::pair<const char*, json::Value>", CppWriter::TypeConst);
+		const auto pairType = "std::pair<const char*, json::Value>";
 		const auto writeSig = [&](CppWriter& writer)
 		{
 			writer.writeLine("template<>");
 			writer.writeFuncSig(
 				"literalProperties<" + structCppName + '>',
-				CppWriter::type(pairType, CppWriter::TypePtr),
+				CppWriter::type(pairType, CppWriter::TypeConst | CppWriter::TypePtr),
 				{});
 		};
 
 		writeSig(m_declWriter);
 		m_declWriter.writeLine(";");
 
-		writeSig(m_implWriter);
-		m_implWriter.writeBlockStart(true);
-		m_implWriter.writeVariable("properties[]", pairType, {}, CppWriter::VarStatic | CppWriter::VarConst, false);
-		m_implWriter.write(" = ");
-		m_implWriter.writeBlockStart(false);
+		writeSig(m_deserializationWriter);
+		m_deserializationWriter.writeBlockStart(true);
+		m_deserializationWriter.writeVariable("properties[]", pairType, {}, CppWriter::VarStatic | CppWriter::VarConst, false);
+		m_deserializationWriter.write(" = ");
+		m_deserializationWriter.writeBlockStart(false);
 
 		for(const auto& literal : literalProperties)
-			m_implWriter.writeLine("{\"" + literal.first + "\", " + literal.second + "},");
+			m_deserializationWriter.writeLine("{\"" + literal.first + "\", " + literal.second + "},");
 
-		m_implWriter.writeLine("{nullptr, {}}");
-		m_implWriter.writeBlockEnd(true, false);
-		m_implWriter.writeLine("return properties;");
-		m_implWriter.writeBlockEnd(false, true);
+		m_deserializationWriter.writeLine("{nullptr, {}}");
+		m_deserializationWriter.writeBlockEnd(true, false);
+		m_deserializationWriter.writeLine("return properties;");
+		m_deserializationWriter.writeBlockEnd(false, true);
 	}
 }
 
@@ -424,36 +580,53 @@ auto CppTypeGenerator::collectLiteralProperties(const Structure& structure) -> s
 
 	return literal;
 }
-void CppTypeGenerator::generateStructureProperty(const Structure& structure, const StructureProperty& property)
+void CppTypeGenerator::generateStructureProperty(const Structure& structure, const StructureProperty& p)
 {
-	const auto isLiteral          = property.type->isLiteral();
-	const auto isInheritedLiteral = isLiteral && !!structure.findBaseProperty(property.name, *m_metaModel);
+	const auto isLiteral          = p.type->isLiteral();
+	const auto isInheritedLiteral = isLiteral && !!structure.findBaseProperty(p.name, *m_metaModel);
 
 	// Don't write literal properties with the same name as an inherited property.
 	// Instead initialize the inherited property in the constructor later.
 	if(!isInheritedLiteral)
 	{
-		m_typeWriter.writeDocComment({}, property.documentation);
+		m_typeWriter.writeDocComment({}, p.documentation);
 
 		auto initializer = std::string();
 
 		if(isLiteral)
-			initializer = literalPropertyValue(property);
-		else if(property.isOptional)
+			initializer = literalPropertyValue(p);
+		else if(p.isOptional)
 			initializer = "{}"; // Explicitly initialize optionals to avoid warnings with designated initializers that omit them
 
-		m_typeWriter.writeVariable(property.name, cppTypeName(*property.type, property.isOptional), initializer);
+		m_typeWriter.writeVariable(p.name, cppTypeName(*p.type, p.isOptional), initializer);
 
-		if(property.isOptional)
+		if(p.isOptional)
 		{
-			m_implWriter.writeLine("if(value." + property.name + ")");
-			m_implWriter.indent();
+			m_serializationWriter.writeLine("if(value." + p.name + ")");
+			m_serializationWriter.indent();
+
+			m_deserializationWriter.writeLine("if(auto* const v = json.find(\"" + p.name + "\"))");
+			m_deserializationWriter.indent();
+			m_deserializationWriter.writeLine("fromJson(std::move(*v), value." + p.name + ");");
+			m_deserializationWriter.outdent();
+		}
+		else
+		{
+			m_deserializationWriter.writeLine("fromJson(std::move(json.get(\"" + p.name + "\")), value." + p.name + ");");
 		}
 
-		m_implWriter.writeLine("writeJson(\"" + property.name + "\", value." + property.name + ", objectWriter);");
+		m_serializationWriter.writeLine("writeJson(\"" + p.name + "\", value." + p.name + ", objectWriter);");
 
-		if(property.isOptional)
-			m_implWriter.outdent();
+		if(p.isOptional)
+			m_serializationWriter.outdent();
+
+		if(isLiteral)
+		{
+			m_deserializationWriter.writeLine("if(value. " + p.name + " != " + initializer + ")");
+			m_deserializationWriter.indent();
+			m_deserializationWriter.writeLine("throw json::TypeError(\"Invalid value for literal property '" + p.name + "'\");");
+			m_deserializationWriter.outdent();
+		}
 	}
 }
 

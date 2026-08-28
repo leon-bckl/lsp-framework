@@ -13,11 +13,12 @@ R"(#pragma once
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
+#include <memory>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <variant>
 #include <vector>
-#include <unordered_map>
 #include <lsp/enumeration.h>
 #include <lsp/json/json.h>
 #include <lsp/nullable.h>
@@ -44,6 +45,9 @@ using LSPAny      = json::Value;
 template<typename T>
 using Opt = std::optional<T>;
 
+template<typename T>
+using Ptr = std::unique_ptr<T>;
+
 template<typename... Args>
 using Tuple = std::tuple<Args...>;
 
@@ -62,39 +66,6 @@ using Array = std::vector<T>;
 template<typename K, typename T>
 using Map = std::unordered_map<K, T>;
 
-)";
-
-static constexpr const char* TypesHeaderEnd =
-R"(
-} // namespace lsp
-)";
-
-static constexpr const char* TypesSourceBegin =
-R"(#include "types.h"
-
-/*#############################################################
- * NOTE: This is a generated file and it shouldn't be modified!
- *#############################################################*/
-
-namespace lsp{
-
-#if defined(__clang__) || defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable: 4100) // unreferenced formal parameter
-#endif
-
-)";
-
-static constexpr const char* TypesSourceEnd =
-R"(#if defined(__clang__) || defined(__GNUC__)
-#pragma GCC diagnostic pop
-#elif defined(_MSC_VER)
-#pragma warning(pop)
-#endif
-} // namespace lsp
 )";
 
 static constexpr const char* MessagesHeaderBegin =
@@ -133,8 +104,6 @@ void CppGenerator::writeFiles()
 	typesHeader      = replaceString(typesHeader,      "${LSP_PROTOCOL_VERSION_MINOR}", versionParts[1]);
 	typesHeader      = replaceString(typesHeader,      "${LSP_PROTOCOL_VERSION_PATCH}", versionParts[2]);
 
-	writeFile("types.h", typesHeader + m_typesHeaderFileContent + m_typesBoilerPlateHeaderFileContent + TypesHeaderEnd);
-	writeFile("types.cpp", TypesSourceBegin + m_typesSourceFileContent + m_typesBoilerPlateSourceFileContent + TypesSourceEnd);
 	writeFile("messages.h", MessagesHeaderBegin + m_messagesHeaderFileContent + MessagesHeaderEnd);
 }
 
@@ -240,7 +209,7 @@ std::string CppGenerator::upperCaseIdentifier(std::string_view str)
 		str.remove_prefix(1);
 
 	auto parts = splitStringView(str, "/", true);
-	auto id = joinStrings(parts, "_", [](auto&& s){ return capitalizeString(s); });
+	auto id = joinStrings(parts, "", [](auto&& s){ return capitalizeString(s); });
 
 	std::transform(id.cbegin(), id.cend(), id.begin(), [](char c)
 	{
@@ -635,7 +604,7 @@ void CppGenerator::generateStructureProperties(const std::vector<StructureProper
 
 			if(!literalValue.empty())
 				m_typesHeaderFileContent += " = " + literalValue;
-			else if (p.isOptional)
+			else if(p.isOptional)
 				m_typesHeaderFileContent += " = {}";
 
 			m_typesHeaderFileContent += ";\n";
