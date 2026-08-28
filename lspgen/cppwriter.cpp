@@ -148,7 +148,7 @@ void CppWriter::writeIndent()
 	}
 }
 
-void CppWriter::writeVariable(std::string_view name, std::string_view type, std::string_view initializer, int kind)
+void CppWriter::writeVariable(std::string_view name, std::string_view type, std::string_view initializer, int kind, bool addSemicolon)
 {
 	if(kind & VarStatic)
 		write("static ");
@@ -169,7 +169,8 @@ void CppWriter::writeVariable(std::string_view name, std::string_view type, std:
 		write(initializer);
 	}
 
-	writeLine(";");
+	if(addSemicolon)
+		writeLine(";");
 }
 
 void CppWriter::writeFuncSig(std::string_view name, std::string_view returnType, const FuncParamList& params, int kind)

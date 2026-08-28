@@ -33,7 +33,7 @@ public:
 		VarStaticConstExpr = VarStatic | VarConstExpr
 	};
 
-	void writeVariable(std::string_view name, std::string_view type, std::string_view initializer = {}, int kind = VarPlain);
+	void writeVariable(std::string_view name, std::string_view type, std::string_view initializer = {}, int kind = VarPlain, bool addSemicolon = true);
 
 	struct FuncParam{
 		std::string type;

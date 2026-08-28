@@ -204,6 +204,66 @@ void CppTypeGenerator::generate(const Structure& structure)
 
 	m_typeWriter.writeStructEnd();
 	m_implWriter.writeBlockEnd(false, true);
+
+	const auto requiredProperties = collectRequiredProperties(structure);
+
+	if(!requiredProperties.empty())
+	{
+		const auto writeSig = [&](CppWriter& writer)
+		{
+			writer.writeLine("template<>");
+			writer.writeFuncSig("requiredProperties<" + structCppName + '>', "const char**", {});
+		};
+
+		writeSig(m_declWriter);
+		m_declWriter.writeLine(";");
+
+		writeSig(m_implWriter);
+		m_implWriter.writeBlockStart(true);
+		m_implWriter.writeVariable("properties[]", "const char**", {}, CppWriter::VarStatic | CppWriter::VarConst, false);
+		m_implWriter.write(" = ");
+		m_implWriter.writeBlockStart(false);
+
+		for(const auto& required : requiredProperties)
+			m_implWriter.writeLine("\"" + required + "\",");
+
+		m_implWriter.writeLine("nullptr");
+		m_implWriter.writeBlockEnd(true, false);
+		m_implWriter.writeLine("return properties;");
+		m_implWriter.writeBlockEnd(false, true);
+	}
+
+	const auto literalProperties = collectLiteralProperties(structure);
+
+	if(!literalProperties.empty())
+	{
+		const auto pairType = CppWriter::type("std::pair<const char*, json::Value>", CppWriter::TypeConst);
+		const auto writeSig = [&](CppWriter& writer)
+		{
+			writer.writeLine("template<>");
+			writer.writeFuncSig(
+				"literalProperties<" + structCppName + '>',
+				CppWriter::type(pairType, CppWriter::TypePtr),
+				{});
+		};
+
+		writeSig(m_declWriter);
+		m_declWriter.writeLine(";");
+
+		writeSig(m_implWriter);
+		m_implWriter.writeBlockStart(true);
+		m_implWriter.writeVariable("properties[]", pairType, {}, CppWriter::VarStatic | CppWriter::VarConst, false);
+		m_implWriter.write(" = ");
+		m_implWriter.writeBlockStart(false);
+
+		for(const auto& literal : literalProperties)
+			m_implWriter.writeLine("{\"" + literal.first + "\", " + literal.second + "},");
+
+		m_implWriter.writeLine("{nullptr, {}}");
+		m_implWriter.writeBlockEnd(true, false);
+		m_implWriter.writeLine("return properties;");
+		m_implWriter.writeBlockEnd(false, true);
+	}
 }
 
 void CppTypeGenerator::generate(const TypeAlias& typeAlias)
@@ -286,6 +346,84 @@ void CppTypeGenerator::generateAggregateTypeList(const std::vector<TypePtr>& typ
 	}
 }
 
+auto CppTypeGenerator::collectRequiredProperties(const Structure& structure) -> std::vector<std::string>
+{
+	auto required = std::vector<std::string>();
+
+	const auto collect = [&](const Structure& structure, const auto& self) -> void
+	{
+		for(const auto& ext : structure.extends)
+		{
+			const auto& extTypeName   = ext->as<ReferenceType>().name;
+			const auto& extStructType = m_metaModel->typeForName(extTypeName);
+			const auto* extStruct     = std::get<const Structure*>(extStructType);
+			self(*extStruct, self);
+		}
+
+		for(const auto& mixin : structure.mixins)
+		{
+			const auto& mixinTypeName   = mixin->as<ReferenceType>().name;
+			const auto& mixinStructType = m_metaModel->typeForName(mixinTypeName);
+			const auto* mixinStruct     = std::get<const Structure*>(mixinStructType);
+			self(*mixinStruct, self);
+		}
+
+		for(const auto& property : structure.properties)
+		{
+			if(!property.isOptional)
+				required.push_back(property.name);
+		}
+	};
+
+	collect(structure, collect);
+
+	return required;
+}
+
+auto CppTypeGenerator::collectLiteralProperties(const Structure& structure) -> std::vector<std::pair<std::string, std::string>>
+{
+	auto literal = std::vector<std::pair<std::string, std::string>>();
+
+	const auto collect = [&](const Structure& structure, const auto& self) -> void
+	{
+		for(const auto& ext : structure.extends)
+		{
+			const auto& extTypeName   = ext->as<ReferenceType>().name;
+			const auto& extStructType = m_metaModel->typeForName(extTypeName);
+			const auto* extStruct     = std::get<const Structure*>(extStructType);
+			self(*extStruct, self);
+		}
+
+		for(const auto& mixin : structure.mixins)
+		{
+			const auto& mixinTypeName   = mixin->as<ReferenceType>().name;
+			const auto& mixinStructType = m_metaModel->typeForName(mixinTypeName);
+			const auto* mixinStruct     = std::get<const Structure*>(mixinStructType);
+			self(*mixinStruct, self);
+		}
+
+		for(const auto& property : structure.properties)
+		{
+			if(property.type->isLiteral())
+			{
+				const auto inherited = std::ranges::find_if(literal,
+					[&](const auto& pair)
+					{
+						return pair.first == property.name;
+					});
+
+				if(inherited == literal.end())
+					literal.emplace_back(property.name, literalPropertyValue(property));
+				else
+					inherited->second = literalPropertyValue(property);
+			}
+		}
+	};
+
+	collect(structure, collect);
+
+	return literal;
+}
 void CppTypeGenerator::generateStructureProperty(const Structure& structure, const StructureProperty& property)
 {
 	const auto isLiteral          = property.type->isLiteral();
