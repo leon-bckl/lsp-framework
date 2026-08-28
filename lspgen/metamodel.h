@@ -9,6 +9,8 @@ namespace lspgen{
 
 namespace json = lsp::json;
 
+class MetaModel;
+
 /*
  * Type
  */
@@ -274,6 +276,8 @@ struct Structure{
 	std::string           documentation;
 
 	void extract(const json::Object& json);
+	auto findBaseProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*;
+	auto findProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*;
 };
 
 /*

@@ -5,6 +5,7 @@
 #include <variant>
 #include "metamodel.h"
 #include "cpptypegenerator.h"
+#include "util.h"
 
 namespace lspgen{
 namespace{
@@ -136,18 +137,13 @@ void CppTypeGenerator::generate(const Structure& structure)
 			generateType(p.type, structCppName + CppWriter::upperCaseIdentifier(p.name));
 	}
 
-	auto extendsList = std::string();
+	auto extendsList = std::vector<std::string>();
 
 	for(const auto& ext : structure.extends)
-	{
-		if(!extendsList.empty())
-			extendsList += ", ";
-
-		extendsList += CppWriter::upperCaseIdentifier(ext->as<ReferenceType>().name);
-	}
+		extendsList.push_back(CppWriter::upperCaseIdentifier(ext->as<ReferenceType>().name));
 
 	m_typeWriter.writeDocComment(structure.name, structure.documentation);
-	m_typeWriter.writeStructStart(structCppName, extendsList);
+	m_typeWriter.writeStructStart(structCppName, joinStrings(extendsList, ", "));
 
 	auto       inheritedLiterals     = std::vector<const StructureProperty*>();
 	const auto checkInheritedLiteral = [&](const StructureProperty& p)
@@ -155,6 +151,19 @@ void CppTypeGenerator::generate(const Structure& structure)
 			if(p.type->isLiteral() && !!structure.findBaseProperty(p.name, *m_metaModel))
 				inheritedLiterals.push_back(&p);
 		};
+
+	const auto writeJsonParams = CppWriter::FuncParamList{
+		{CppWriter::type(structCppName, CppWriter::TypeConst | CppWriter::TypeRef), "value"},
+		{CppWriter::type("json::ObjectWriter", CppWriter::TypeRef), "objectWriter"}};
+
+	m_declWriter.writeFuncSig("writeJson", "void", writeJsonParams);
+	m_declWriter.writeLine(";");
+
+	m_implWriter.writeFuncSig("writeJson", "void", writeJsonParams);
+	m_implWriter.writeBlockStart(true);
+
+	for(const auto& ext : extendsList)
+		m_implWriter.writeLine("writeJson(static_cast<const " + ext + "&>(value), objectWriter);");
 
 	for(const auto& mixin : structure.mixins)
 	{
@@ -179,9 +188,8 @@ void CppTypeGenerator::generate(const Structure& structure)
 	if(!inheritedLiterals.empty())
 	{
 		m_typeWriter.writeEmptyLine();
-		m_typeWriter.write(structCppName);
-		m_typeWriter.writeLine("()");
-		m_typeWriter.writeBlockStart();
+		m_typeWriter.writeFuncSig(structCppName, {}, {});
+		m_typeWriter.writeBlockStart(true);
 
 		for(const auto* p : inheritedLiterals)
 		{
@@ -195,6 +203,7 @@ void CppTypeGenerator::generate(const Structure& structure)
 	}
 
 	m_typeWriter.writeStructEnd();
+	m_implWriter.writeBlockEnd(false, true);
 }
 
 void CppTypeGenerator::generate(const TypeAlias& typeAlias)
@@ -293,9 +302,20 @@ void CppTypeGenerator::generateStructureProperty(const Structure& structure, con
 		if(isLiteral)
 			initializer = literalPropertyValue(property);
 		else if(property.isOptional)
-			initializer = "{}";
+			initializer = "{}"; // Explicitly initialize optionals to avoid warnings with designated initializers that omit them
 
 		m_typeWriter.writeVariable(property.name, cppTypeName(*property.type, property.isOptional), initializer);
+
+		if(property.isOptional)
+		{
+			m_implWriter.writeLine("if(value." + property.name + ")");
+			m_implWriter.indent();
+		}
+
+		m_implWriter.writeLine("writeJson(\"" + property.name + "\", value." + property.name + ", objectWriter);");
+
+		if(property.isOptional)
+			m_implWriter.outdent();
 	}
 }
 

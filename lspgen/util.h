@@ -76,7 +76,9 @@ inline std::vector<std::string_view> splitStringView(std::string_view str, std::
 	return result;
 }
 
-inline std::string joinStrings(const std::vector<std::string_view>& strings, const std::string& separator, auto transform = [](std::string_view s){ return s; })
+template<typename T, typename F = std::string_view(*)(std::string_view)>
+requires std::convertible_to<T, std::string_view>
+inline std::string joinStrings(const std::vector<T>& strings, const std::string& separator, F&& transform = [](std::string_view s){ return s; })
 {
 	auto result = std::string();
 
@@ -87,7 +89,8 @@ inline std::string joinStrings(const std::vector<std::string_view>& strings, con
 
 		while(it != strings.end())
 		{
-			result += separator + transform(*it);
+			result += separator;
+			result += transform(*it);
 			++it;
 		}
 	}

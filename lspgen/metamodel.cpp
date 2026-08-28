@@ -359,6 +359,44 @@ void Structure::extract(const json::Object& json)
 	documentation = extractDocumentation(json);
 }
 
+static auto findStructureProperty(const std::vector<TypePtr>& types, std::string_view name, const MetaModel& metaModel) -> const StructureProperty*
+{
+	for(const auto& type : types)
+	{
+		if(!type->isA<ReferenceType>())
+			continue;
+
+		const auto typeName   = static_cast<const ReferenceType&>(*type).name;
+		const auto structType = metaModel.typeForName(typeName);
+
+		if(const auto* structure = std::get_if<const Structure*>(&structType))
+		{
+			const auto* prop = (*structure)->findProperty(name, metaModel);
+
+			if(prop)
+				return prop;
+		}
+	}
+
+	return nullptr;
+}
+
+auto Structure::findBaseProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*
+{
+	return findStructureProperty(extends, name, metaModel);
+}
+
+auto Structure::findProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*
+{
+	for(const auto& prop : properties)
+	{
+		if(prop.name == name)
+			return &prop;
+	}
+
+	return findStructureProperty(mixins, name, metaModel);
+}
+
 /*
  * TypeAlias
  */

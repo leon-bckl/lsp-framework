@@ -1,5 +1,6 @@
 #pragma once
 
+#include <initializer_list>
 #include <string>
 #include <string_view>
 
@@ -16,7 +17,7 @@ public:
 	void writeEmptyLine();
 	void writeNamespaceStart(std::string_view name);
 	void writeNamespaceEnd(std::string_view name);
-	void writeBlockStart();
+	void writeBlockStart(bool newLine);
 	void writeBlockEnd(bool addSemicolon, bool addEmptyLine);
 	void writeEnumStart(std::string_view name);
 	void writeEnumEnd();
@@ -32,9 +33,37 @@ public:
 		VarStaticConstExpr = VarStatic | VarConstExpr
 	};
 
-	void writeVariable(std::string_view name, std::string_view type, std::string_view initializer = {}, VariableKind kind = VarPlain);
+	void writeVariable(std::string_view name, std::string_view type, std::string_view initializer = {}, int kind = VarPlain);
+
+	struct FuncParam{
+		std::string type;
+		std::string name;
+	};
+
+	enum FunctionKind{
+		FuncPlain    = 0x0,
+		FuncInline   = 0x1,
+		FuncStatic   = 0x2,
+		FuncConst    = 0x4,
+		FuncNoexcept = 0x8,
+		FuncOverride = 0x10,
+	};
+
+	using FuncParamList = std::initializer_list<FuncParam>;
+
+	void writeFuncSig(std::string_view name, std::string_view returnType, const FuncParamList& params, int kind = FuncPlain);
+	void indent(){ ++m_indent; }
+	void outdent(){ --m_indent; }
 	auto text() const -> std::string_view;
 
+	enum TypeKind{
+		TypeConst  = 0x1,
+		TypePtr    = 0x2,
+		TypeRef    = 0x4,
+		TypeRvalue = 0x10,
+	};
+
+	static auto type(std::string_view baseName, int kind) -> std::string;
 	static auto upperCaseIdentifier(std::string_view str) -> std::string;
 	static auto lowerCaseIdentifier(std::string_view str) -> std::string;
 

@@ -51,6 +51,9 @@ void CppWriter::writeDocComment(std::string_view title, std::string_view descrip
 
 void CppWriter::writeEmptyLine()
 {
+	if(m_text.empty() || m_text.back() != '\n')
+		m_text += '\n';
+
 	m_text += '\n';
 }
 
@@ -74,15 +77,18 @@ void CppWriter::writeNamespaceEnd(std::string_view name)
 	m_text += "\n\n";
 }
 
-void CppWriter::writeBlockStart()
+void CppWriter::writeBlockStart(bool newLine)
 {
+	if(newLine)
+		writeLine("");
+
 	writeLine("{");
-	++m_indent;
+	indent();
 }
 
 void CppWriter::writeBlockEnd(bool addSemicolon, bool addEmptyLine)
 {
-	--m_indent;
+	outdent();
 
 	if(addSemicolon)
 		writeLine("};");
@@ -97,7 +103,7 @@ void CppWriter::writeEnumStart(std::string_view name)
 {
 	write("enum class ");
 	write(name);
-	writeBlockStart();
+	writeBlockStart(false);
 }
 
 void CppWriter::writeEnumEnd()
@@ -116,7 +122,7 @@ void CppWriter::writeStructStart(std::string_view name, std::string_view base)
 		write(base );
 	}
 
-	writeBlockStart();
+	writeBlockStart(false);
 }
 
 void CppWriter::writeStructEnd()
@@ -142,7 +148,7 @@ void CppWriter::writeIndent()
 	}
 }
 
-void CppWriter::writeVariable(std::string_view name, std::string_view type, std::string_view initializer, VariableKind kind)
+void CppWriter::writeVariable(std::string_view name, std::string_view type, std::string_view initializer, int kind)
 {
 	if(kind & VarStatic)
 		write("static ");
@@ -166,9 +172,73 @@ void CppWriter::writeVariable(std::string_view name, std::string_view type, std:
 	writeLine(";");
 }
 
+void CppWriter::writeFuncSig(std::string_view name, std::string_view returnType, const FuncParamList& params, int kind)
+{
+	if(kind & FuncInline)
+		write("inline ");
+
+	if(kind & FuncStatic)
+		write("static ");
+
+	if(!returnType.empty())
+	{
+		write(returnType);
+		write(" ");
+	}
+
+	write(name);
+
+	write("(");
+
+	bool first = true;
+
+	for(const auto& param : params)
+	{
+		if(!first)
+			write(", ");
+
+		first = false;
+		write(param.type);
+		write(" ");
+		write(param.name);
+	}
+
+	write(")");
+
+	if(kind & FuncConst)
+		write(" const");
+
+	if(kind & FuncNoexcept)
+		write(" noexcept");
+
+	if(kind & FuncOverride)
+		write(" override");
+}
+
 auto CppWriter::text() const -> std::string_view
 {
 	return m_text;
+}
+
+auto CppWriter::type(std::string_view baseName, int kind) -> std::string
+{
+	auto type = std::string();
+
+	if(kind & TypeConst)
+		type += "const ";
+
+	type += baseName;
+
+	if(kind & TypePtr)
+		type += "*";
+
+	if(kind & TypeRef)
+		type += "&";
+
+	if(kind & TypeRvalue)
+		type += "&&";
+
+	return type;
 }
 
 auto CppWriter::upperCaseIdentifier(std::string_view str) -> std::string
