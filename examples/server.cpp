@@ -35,7 +35,7 @@ namespace{
 template<typename MessageType>
 void printMessageMethod()
 {
-	const auto type = lsp::message::IsNotification<MessageType> ? "notification" : "request";
+	const auto type = MessageType::Kind == lsp::MessageKind::Notification ? "notification" : "request";
 	std::cerr << "Server received " << type << " '" << MessageType::Method << '\'' << std::endl;
 }
 
@@ -140,7 +140,7 @@ public:
 		// Do something with the openend document here...
 	}
 
-	auto hover(lsp::requests::TextDocumentHover::Params&& params) -> lsp::RequestFuture<lsp::requests::TextDocumentHover>
+	auto hover(lsp::requests::TextDocumentHover::Params&& params) -> std::future<lsp::requests::TextDocumentHover::Result>
 	{
 		printMessage<lsp::requests::TextDocumentHover>(params);
 		verifyInitialized();

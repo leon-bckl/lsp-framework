@@ -3,21 +3,11 @@
 #include <chrono>
 #include <future>
 #include <variant>
-#include <lsp/messagebase.h>
 #include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
 
 using MessageId = jsonrpc::MessageId;
-
-/*
- * The result returned from a request handler callback that does processing asynchronously
- */
-template<typename MessageType>
-requires message::HasResult<MessageType>
-using RequestFuture = std::future<typename MessageType::Result>;
-
-using NotificationFuture = std::future<void>;
 
 template<typename MessageType>
 class RequestResult{

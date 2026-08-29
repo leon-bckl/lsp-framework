@@ -19,7 +19,7 @@ using namespace lsp;
 
 struct TestRequest{
 	static constexpr auto Method = std::string_view("test/request");
-	static constexpr auto Type   = Message::Request;
+	static constexpr auto Kind   = MessageKind::Request;
 
 	using Params = std::unordered_map<std::string, int>;
 	using Result = int;
@@ -27,21 +27,21 @@ struct TestRequest{
 
 struct TestNoParamsRequest{
 	static constexpr auto Method = std::string_view("test/noParamsRequest");
-	static constexpr auto Type   = Message::Request;
+	static constexpr auto Kind   = MessageKind::Request;
 
 	using Result = std::vector<int>;
 };
 
 struct TestNotification{
 	static constexpr auto Method = std::string_view("test/notification");
-	static constexpr auto Type   = Message::Notification;
+	static constexpr auto Kind   = MessageKind::Notification;
 
 	using Params = std::vector<int>;
 };
 
 struct TestNoParamsNotification{
 	static constexpr auto Method = std::string_view("test/noParamsNotification");
-	static constexpr auto Type   = Message::Notification;
+	static constexpr auto Kind   = MessageKind::Notification;
 };
 
 class LoopbackStream : public io::Stream{
@@ -409,7 +409,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.on<TestNoParamsRequest>([&]() -> RequestFuture<TestNoParamsRequest>
+		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
 		{
 			called = true;
 			auto promise = std::promise<std::vector<int>>();
@@ -429,7 +429,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.on<TestNoParamsRequest>([&]() -> RequestFuture<TestNoParamsRequest>
+		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
 		{
 			auto promise = std::promise<std::vector<int>>();
 
@@ -478,7 +478,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.onCustom<GenericRequest>("generic/asyncRequest", [&](json::Value&&) -> RequestFuture<GenericRequest>
+		handler.onCustom<GenericRequest>("generic/asyncRequest", [&](json::Value&&) -> std::future<GenericRequest::Result>
 		{
 			called = true;
 			auto promise = std::promise<json::Value>();
@@ -486,7 +486,7 @@ int main(int argc, char** argv)
 			return promise.get_future();
 		});
 
-		auto response = handler.sendCustomRequest<GenericRequest>("generic/asyncRequest");
+		auto response = handler.sendCustomRequest<GenericRequestNoParams>("generic/asyncRequest");
 		handler.processNextMessage();
 		handler.processNextMessage();
 

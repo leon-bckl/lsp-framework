@@ -5,7 +5,6 @@
 #include <mutex>
 #include <utility>
 #include <unordered_map>
-#include <lsp/concepts.h>
 #include <lsp/connection.h>
 #include <lsp/error.h>
 #include <lsp/jsonrpc/jsonrpc.h>
@@ -17,6 +16,24 @@
 namespace lsp{
 
 using MessageId = jsonrpc::MessageId;
+
+template<typename M>
+concept MessageHasParams = requires{
+	typename M::Params;
+};
+
+template<typename M>
+concept MessageHasResult = requires{
+	typename M::Result;
+};
+
+template<typename M, typename F>
+concept IsResponseCallback =
+	(MessageHasResult<M> && std::invocable<F, typename M::Result>) ||
+	(!MessageHasResult<M> && std::invocable<F>);
+
+template<typename E>
+concept IsResponseErrorCallback = std::invocable<E, ResponseError>;
 
 /*
  * MessageHandler
@@ -38,19 +55,9 @@ public:
 	 */
 
 	template<typename M, typename F>
-	requires IsRequestCallback<M, F> || IsNoParamsRequestCallback<M, F>
 	auto on(F&& callback) -> MessageHandler&;
 
 	template<typename M, typename F>
-	requires IsRequestCallback<M, F> || IsNoParamsRequestCallback<M, F>
-	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
-
-	template<typename M, typename F>
-	requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
-	auto on(F&& callback) -> MessageHandler&;
-
-	template<typename M, typename F>
-	requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
 	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
 
 	void remove(const std::string& method);
@@ -62,35 +69,35 @@ public:
 	using ResponseErrorCallback = void(*)(const ResponseError&);
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires SendRequest<M, F, E>
+	requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 	auto sendRequest(const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires SendRequest<M, F, E>
+	requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 	auto sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires SendNoParamsRequest<M, F, E>
+	requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 	auto sendRequest(F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires SendNoParamsRequest<M, F, E>
+	requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 	auto sendCustomRequest(std::string_view method, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
 	template<typename M>
-	requires message::IsRequest<M> && message::HasParams<M>
+	requires MessageHasParams<M> && MessageHasResult<M>
 	[[nodiscard]] auto sendRequest(const typename M::Params& params) -> RequestResult<M>;
 
 	template<typename M>
-	requires message::IsRequest<M>
+	requires MessageHasParams<M> && MessageHasResult<M>
 	[[nodiscard]] auto sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<M>;
 
 	template<typename M>
-	requires message::IsRequest<M> && (!message::HasParams<M>)
+	requires (!MessageHasParams<M>) && MessageHasResult<M>
 	[[nodiscard]] auto sendRequest() -> RequestResult<M>;
 
 	template<typename M>
-	requires message::IsRequest<M>
+	requires (!MessageHasParams<M>) && MessageHasResult<M>
 	[[nodiscard]] auto sendCustomRequest(std::string_view method) -> RequestResult<M>;
 
 	/*
@@ -100,16 +107,20 @@ public:
 	void sendNotification(std::string_view method, const json::Value& params = {});
 
 	template<typename M>
-	void sendNotification(const typename M::Params& params) requires SendNotification<M>;
+	requires MessageHasParams<M> && (!MessageHasResult<M>)
+	void sendNotification(const typename M::Params& params);
 
 	template<typename M>
-	void sendCustomNotification(std::string_view method, const typename M::Params& params) requires SendNotification<M>;
+	requires MessageHasParams<M> && (!MessageHasResult<M>)
+	void sendCustomNotification(std::string_view method, const typename M::Params& params);
 
 	template<typename M>
-	void sendNotification() requires SendNoParamsNotification<M>;
+	requires (!MessageHasParams<M>) && (!MessageHasResult<M>)
+	void sendNotification();
 
 	template<typename M>
-	void sendCustomNotification(std::string_view method) requires SendNoParamsNotification<M>;
+	requires (!MessageHasParams<M>) && (!MessageHasResult<M>)
+	void sendCustomNotification(std::string_view method);
 
 private:
 	class ResponseResultBase;

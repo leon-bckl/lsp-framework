@@ -73,7 +73,6 @@ set(LSP_SRC_DIR ${LSP_DIR}/lsp)
 
 set(LSP_HEADERS
 	# lsp
-	concepts.h
 	connection.h
 	enumeration.h
 	error.h

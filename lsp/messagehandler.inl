@@ -55,77 +55,66 @@ void MessageHandler::handleRequestResult(const MessageId* messageId, RequestResu
  */
 
 template<typename M, typename F>
-requires IsRequestCallback<M, F> || IsNoParamsRequestCallback<M, F>
 auto MessageHandler::on(F&& callback) -> MessageHandler&
 {
 	return onCustom<M>(M::Method, std::forward<F>(callback));
 }
 
 template<typename M, typename F>
-requires IsRequestCallback<M, F> || IsNoParamsRequestCallback<M, F>
 auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
 {
 	addHandler(method,
 		[this, callback = std::forward<F>(callback)](json::Value&& json, Connection::BatchSender* batchSender) mutable
 		{
-			const auto& requestId = currentRequestId();
+			if constexpr(M::Kind == MessageKind::Request)
+			{
+				const auto& requestId = currentRequestId();
+				auto result =
+					[&json, &callback, requestId]() mutable
+					{
+						if constexpr(requires{typename M::Params;})
+						{
+							auto params = typename M::Params();
+							fromJson(std::move(json), params);
+							return RequestResult<M>(std::move(requestId), callback(std::move(params)));
+						}
+						else
+						{
+							(void)json;
+							return RequestResult<M>(std::move(requestId), callback());
+						}
+					}();
 
-			auto result =
-				[&json, &callback, requestId]() mutable
+				// Requests that are part of a batch cannot be handled asynchronously
+				if(batchSender || !result.isAsync())
 				{
-					if constexpr(requires{typename M::Params;})
-					{
-						auto params = typename M::Params();
-						fromJson(std::move(json), params);
-						return RequestResult<M>(std::move(requestId), callback(std::move(params)));
-					}
-					else
-					{
-						(void)json;
-						return RequestResult<M>(std::move(requestId), callback());
-					}
-				}();
-
-			if(result.isAsync() && !batchSender)
-			{
-				m_threadPool.addTask(
-					[this, requestId = requestId, result = std::move(result)]() mutable
-					{
-						handleRequestResult<M>(&requestId, result, nullptr);
-					});
+					handleRequestResult<M>(&requestId, result, batchSender);
+				}
+				else
+				{
+					m_threadPool.addTask(
+						[this, requestId = requestId, result = std::move(result)]() mutable
+						{
+							handleRequestResult<M>(&requestId, result, nullptr);
+						});
+				}
 			}
-			else
+			else // Notification
 			{
-				handleRequestResult<M>(&requestId, result, batchSender);
-			}
-		});
+				(void)this;
+				static_assert(M::Kind == MessageKind::Notification);
 
-	return *this;
-}
-
-template<typename M, typename F>
-requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
-auto MessageHandler::on(F&& callback) -> MessageHandler&
-{
-	return onCustom<M>(M::Method, std::forward<F>(callback));
-}
-
-template<typename M, typename F>
-requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
-auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
-{
-	addHandler(method,
-		[callback = std::forward<F>(callback)](json::Value&& json, Connection::BatchSender*)
-		{
-			if constexpr(requires{typename M::Params;})
-			{
-				auto params = typename M::Params();
-				fromJson(std::move(json), params);
-				callback(std::move(params));
-			}
-			else
-			{
-				callback();
+				// FIXME: Enable async notification callbacks
+				if constexpr(requires{typename M::Params;})
+				{
+					auto params = typename M::Params();
+					fromJson(std::move(json), params);
+					callback(std::move(params));
+				}
+				else
+				{
+					callback();
+				}
 			}
 		});
 
@@ -137,14 +126,14 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
  */
 
 template<typename M, typename F, typename E>
-requires SendRequest<M, F, E>
+requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 auto MessageHandler::sendRequest(const typename M::Params& params, F&& then, E&& error) -> MessageId
 {
 	return sendCustomRequest<M>(M::Method, params, std::forward<F>(then), std::forward<E>(error));
 }
 
 template<typename M, typename F, typename E>
-requires SendRequest<M, F, E>
+requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error) -> MessageId
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
@@ -160,14 +149,14 @@ auto MessageHandler::sendCustomRequest(std::string_view method, const typename M
 }
 
 template<typename M, typename F, typename E>
-requires SendNoParamsRequest<M, F, E>
+requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 auto MessageHandler::sendRequest(F&& then, E&& error) -> MessageId
 {
 	return sendCustomRequest<M>(M::Method, std::forward<F>(then), std::forward<E>(error));
 }
 
 template<typename M, typename F, typename E>
-requires SendNoParamsRequest<M, F, E>
+requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& error) -> MessageId
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
@@ -182,14 +171,14 @@ auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& er
 }
 
 template<typename M>
-requires message::IsRequest<M> && message::HasParams<M>
+requires MessageHasParams<M> && MessageHasResult<M>
 auto MessageHandler::sendRequest(const typename M::Params& params) -> RequestResult<M>
 {
 	return sendCustomRequest<M>(M::Method, params);
 }
 
 template<typename M>
-requires message::IsRequest<M>
+requires MessageHasParams<M> && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<M>
 {
 	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
@@ -205,14 +194,14 @@ auto MessageHandler::sendCustomRequest(std::string_view method, const typename M
 }
 
 template<typename M>
-requires message::IsRequest<M> && (!message::HasParams<M>)
+requires (!MessageHasParams<M>) && MessageHasResult<M>
 auto MessageHandler::sendRequest() -> RequestResult<M>
 {
 	return sendCustomRequest<M>(M::Method);
 }
 
 template<typename M>
-requires message::IsRequest<M>
+requires (!MessageHasParams<M>) && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult<M>
 {
 	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
@@ -231,13 +220,15 @@ auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult
  */
 
 template<typename M>
-void MessageHandler::sendNotification(const typename M::Params& params) requires SendNotification<M>
+requires MessageHasParams<M> && (!MessageHasResult<M>)
+void MessageHandler::sendNotification(const typename M::Params& params)
 {
 	sendCustomNotification<M>(M::Method, params);
 }
 
 template<typename M>
-void MessageHandler::sendCustomNotification(std::string_view method, const typename M::Params& params) requires SendNotification<M>
+requires MessageHasParams<M> && (!MessageHasResult<M>)
+void MessageHandler::sendCustomNotification(std::string_view method, const typename M::Params& params)
 {
 	auto notificationSender = m_connection.notification(method);
 	notificationSender.writeParams(params);
@@ -245,13 +236,15 @@ void MessageHandler::sendCustomNotification(std::string_view method, const typen
 }
 
 template<typename M>
-void MessageHandler::sendNotification() requires SendNoParamsNotification<M>
+requires (!MessageHasParams<M>) && (!MessageHasResult<M>)
+void MessageHandler::sendNotification()
 {
 	sendCustomNotification<M>(M::Method);
 }
 
 template<typename M>
-void MessageHandler::sendCustomNotification(std::string_view method) requires SendNoParamsNotification<M>
+requires (!MessageHasParams<M>) && (!MessageHasResult<M>)
+void MessageHandler::sendCustomNotification(std::string_view method)
 {
 	auto notificationSender = m_connection.notification(method);
 	notificationSender.submit();
