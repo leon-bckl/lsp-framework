@@ -9,180 +9,111 @@ namespace lsp{
  */
 
 template<typename T>
-void MessageHandler::sendResponse(const MessageId& messageId, const T& result)
+void MessageHandler::sendResponse(const MessageId& messageId, const T& result, Connection::BatchSender* batchSender)
 {
-	auto responseSender = m_connection.response(messageId);
-	responseSender.writeData(result);
-	responseSender.submit();
+	if(batchSender)
+	{
+		auto responseWriter = batchSender->writeResponse(messageId);
+		responseWriter.writeData(
+			[](std::string_view key, const T& value, json::ObjectWriter& objectWriter)
+			{
+				writeJson(key, value, objectWriter);
+			}, result);
+	}
+	else
+	{
+		auto responseSender = m_connection.response(messageId);
+		responseSender.writeData(result);
+		responseSender.submit();
+	}
 }
 
 template<typename M>
-void MessageHandler::handleAsyncResult(const MessageId* messageId, AsyncRequestResult<M>& result)
+void MessageHandler::handleRequestResult(const MessageId* messageId, RequestResult<M>& result, Connection::BatchSender* batchSender)
 {
 	try
 	{
-		const auto value = result.get();
-
 		if(messageId)
-			sendResponse(*messageId, value);
+			sendResponse(*messageId, result.get(), batchSender);
+		else
+			(void)result.get();
 	}
 	catch(const RequestError& e)
 	{
 		if(messageId)
-			sendErrorResponse(*messageId, e.code(), e.what(), e.data());
+			sendErrorResponse(*messageId, e.code(), e.what(), e.data(), batchSender);
 	}
 	catch(std::exception& e)
 	{
 		if(messageId)
-			sendErrorResponse(*messageId, MessageError::InternalError, e.what());
+			sendErrorResponse(*messageId, MessageError::InternalError, e.what(), {}, batchSender);
 	}
 }
 
 /*
- * add
+ * on
  */
 
 template<typename M, typename F>
-MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsRequestCallback<M, F>
+requires IsRequestCallback<M, F> || IsNoParamsRequestCallback<M, F>
+auto MessageHandler::on(F&& callback) -> MessageHandler&
 {
 	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Value&& json, Connection::BatchSender* batchSender)
-	{
-		typename M::Params params;
-		fromJson(std::move(json), params);
-		const auto& id = currentRequestId();
-		const auto  writeBatchMessage = [batchSender, &id](const auto& result)
+		[this, callback = std::forward<F>(callback)](json::Value&& json, Connection::BatchSender* batchSender) mutable
 		{
-			auto responseWriter = batchSender->writeResponse(id);
-			responseWriter.writeData(
-				[](std::string_view key, const auto& value, json::ObjectWriter& writer)
+			const auto& requestId = currentRequestId();
+
+			auto result =
+				[&json, &callback]() mutable
 				{
-					writeJson(key, value, writer);
-				}, result);
-		};
+					if constexpr(requires{typename M::Params;})
+					{
+						auto params = typename M::Params();
+						fromJson(std::move(json), params);
+						return RequestResult<M>(callback(std::move(params)));
+					}
+					else
+					{
+						(void)json;
+						return RequestResult<M>(callback());
+					}
+				}();
 
-		if constexpr(IsCallbackResult<AsyncRequestResult<M>, typename M::Params, F>)
-		{
-			auto future = f(std::move(params));
-
-			if(batchSender)
+			if(result.isAsync() && !batchSender)
 			{
-				writeBatchMessage(future.get());
+				m_threadPool.addTask(
+					[this, requestId = requestId, result = std::move(result)]() mutable
+					{
+						handleRequestResult<M>(&requestId, result, nullptr);
+					});
 			}
 			else
 			{
-				m_threadPool.addTask([this, id = id, future = std::move(future)]() mutable
-				{
-					handleAsyncResult<M>(&id, future);
-				});
+				handleRequestResult<M>(&requestId, result, batchSender);
 			}
-		}
-		else
-		{
-			if(batchSender)
-				writeBatchMessage(f(std::move(params)));
-			else
-				sendResponse(id, f(std::move(params)));
-		}
-	});
+		});
 
 	return *this;
 }
 
 template<typename M, typename F>
-MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsRequestCallback<M, F>
+requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
+auto MessageHandler::on(F&& callback) -> MessageHandler&
 {
 	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Value&&, Connection::BatchSender* batchSender)
-	{
-		const auto& id                = currentRequestId();
-		const auto  writeBatchMessage = [batchSender, &id](const auto& result)
+		[callback = std::forward<F>(callback)](json::Value&& json, Connection::BatchSender*)
 		{
-			auto responseWriter = batchSender->writeResponse(id);
-			responseWriter.writeData(
-				[](std::string_view key, const auto& value, json::ObjectWriter& writer)
-				{
-					writeJson(key, value, writer);
-				}, result);
-		};
-
-		if constexpr(IsNoParamsCallbackResult<AsyncRequestResult<M>, F>)
-		{
-			auto future = f();
-
-			if(batchSender)
+			if constexpr(requires{typename M::Params;})
 			{
-				writeBatchMessage(future.get());
+				auto params = typename M::Params();
+				fromJson(std::move(json), params);
+				callback(std::move(params));
 			}
 			else
 			{
-				m_threadPool.addTask([this, id = id, future = std::move(future)]() mutable
-				{
-					handleAsyncResult<M>(&id, future);
-				});
+				callback();
 			}
-		}
-		else
-		{
-			if(batchSender)
-				writeBatchMessage(f());
-			else
-				sendResponse(id, f());
-		}
-	});
-
-	return *this;
-}
-
-template<typename M, typename F>
-MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNotificationCallback<M, F>
-{
-	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Value&& json, Connection::BatchSender*)
-	{
-		typename M::Params params;
-		fromJson(std::move(json), params);
-
-		if constexpr(IsCallbackResult<AsyncNotificationResult, typename M::Params, F>)
-		{
-			auto future = f(std::move(params));
-
-			m_threadPool.addTask([future = std::move(future)]() mutable
-			{
-				future.get();
-			});
-		}
-		else
-		{
-			(void)this;
-			f(std::move(params));
-		}
-	});
-
-	return *this;
-}
-
-template<typename M, typename F>
-MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsNotificationCallback<M, F>
-{
-	addHandler(M::Method,
-	[this, f = std::forward<F>(handlerFunc)](json::Value&&, Connection::BatchSender*)
-	{
-		if constexpr(IsNoParamsCallbackResult<AsyncNotificationResult, F>)
-		{
-			auto future = f();
-
-			m_threadPool.addTask([future = std::move(future)]() mutable
-			{
-				future.get();
-			});
-		}
-		else
-		{
-			(void)this;
-			f();
-		}
-	});
+		});
 
 	return *this;
 }
@@ -192,7 +123,8 @@ MessageHandler& MessageHandler::add(F&& handlerFunc) requires IsNoParamsNotifica
  */
 
 template<typename M, typename F, typename E>
-MessageId MessageHandler::sendRequest(const typename M::Params& params, F&& then, E&& error) requires SendRequest<M, F, E>
+requires SendRequest<M, F, E>
+auto MessageHandler::sendRequest(const typename M::Params& params, F&& then, E&& error) -> MessageId
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
 		std::forward<F>(then), std::forward<E>(error));
@@ -207,7 +139,8 @@ MessageId MessageHandler::sendRequest(const typename M::Params& params, F&& then
 }
 
 template<typename M, typename F, typename E>
-MessageId MessageHandler::sendRequest(F&& then, E&& error) requires SendNoParamsRequest<M, F, E>
+requires SendNoParamsRequest<M, F, E>
+auto MessageHandler::sendRequest(F&& then, E&& error) -> MessageId
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
 		std::forward<F>(then), std::forward<E>(error));
@@ -221,7 +154,8 @@ MessageId MessageHandler::sendRequest(F&& then, E&& error) requires SendNoParams
 }
 
 template<typename M>
-FutureResponse<M> MessageHandler::sendRequest(const typename M::Params& params) requires message::IsRequest<M> && message::HasParams<M>
+requires message::IsRequest<M> && message::HasParams<M>
+auto MessageHandler::sendRequest(const typename M::Params& params) -> FutureResponse<M>
 {
 	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
 	auto       future        = result->future();
@@ -236,7 +170,8 @@ FutureResponse<M> MessageHandler::sendRequest(const typename M::Params& params) 
 }
 
 template<typename M>
-FutureResponse<M> MessageHandler::sendRequest() requires message::IsRequest<M> && (!message::HasParams<M>)
+requires message::IsRequest<M> && (!message::HasParams<M>)
+auto MessageHandler::sendRequest() -> FutureResponse<M>
 {
 	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
 	auto       future        = result->future();

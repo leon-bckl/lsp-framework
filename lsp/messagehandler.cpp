@@ -50,7 +50,7 @@ void MessageHandler::setConnection(Connection connection)
 	m_connection = std::move(connection);
 }
 
-const MessageId& MessageHandler::currentRequestId()
+auto MessageHandler::currentRequestId() -> const MessageId&
 {
 	if(!t_currentRequestId)
 		throw std::logic_error("MessageHandler::currentRequestId called outside of a request context");
@@ -96,17 +96,17 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 		catch(const RequestError& e)
 		{
 			if(!request.isNotification())
-				sendErrorResponse(*request.id, e.code(), e.what(), e.data());
+				sendErrorResponse(*request.id, e.code(), e.what(), e.data(), batchSender);
 		}
 		catch(const json::TypeError& e)
 		{
 			if(!request.isNotification())
-				sendErrorResponse(*request.id, MessageError::InvalidParams, e.what());
+				sendErrorResponse(*request.id, MessageError::InvalidParams, e.what(), {}, batchSender);
 		}
 		catch(const std::exception& e)
 		{
 			if(!request.isNotification())
-				sendErrorResponse(*request.id, MessageError::InternalError, e.what());
+				sendErrorResponse(*request.id, MessageError::InternalError, e.what(), {}, batchSender);
 		}
 		catch(...)
 		{
@@ -119,7 +119,7 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 	else
 	{
 		if(!request.isNotification())
-			sendErrorResponse(*request.id, MessageError::MethodNotFound, "Method not found");
+			sendErrorResponse(*request.id, MessageError::MethodNotFound, "Method not found", {}, nullptr);
 	}
 }
 
@@ -171,66 +171,27 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
-MessageHandler& MessageHandler::add(std::string_view method, GenericMessageCallback callback)
+auto MessageHandler::on(std::string_view method, GenericMessageCallback callback) -> MessageHandler&
 {
 	addHandler(method,
-		[this, f = std::move(callback)](json::Value&& params, Connection::BatchSender* batchSender)
+		[this, callback = std::move(callback)](json::Value&& params, Connection::BatchSender* batchSender)
 		{
 			const auto& requestId      = currentRequestId();
 			const auto  isNotification = std::holds_alternative<std::nullptr_t>(requestId);
-			const auto  result         = f(std::move(params));
+			auto        result         = callback(std::move(params));
 
-			if(batchSender)
+			if(result.isAsync() && !batchSender)
 			{
-				if(!isNotification)
-				{
-					auto responseWriter = batchSender->writeResponse(requestId);
-					responseWriter.writeData(
-						[](std::string_view key, const auto& value, json::ObjectWriter& writer)
-						{
-							writeJson(key, value, writer);
-						}, result);
-				}
-			}
-			else if(!isNotification)
-			{
-				sendResponse(requestId, result);
-			}
-		}
-	);
-
-	return *this;
-}
-
-MessageHandler& MessageHandler::add(std::string_view method, GenericAsyncMessageCallback callback)
-{
-	addHandler(method,
-		[this, f = std::move(callback)](json::Value&& params, Connection::BatchSender* batchSender)
-		{
-			const auto& requestId      = currentRequestId();
-			const auto  isNotification = std::holds_alternative<std::nullptr_t>(requestId);
-			auto        future         = f(std::move(params));
-
-			if(batchSender)
-			{
-				if(!isNotification)
-				{
-					auto responseWriter = batchSender->writeResponse(currentRequestId());
-					responseWriter.writeData(
-						[](std::string_view key, const auto& value, json::ObjectWriter& writer)
-						{
-							writeJson(key, value, writer);
-						}, future.get());
-				}
+				m_threadPool.addTask(
+					[this, result = std::move(result), isNotification = isNotification, requestId]() mutable
+					{
+						handleRequestResult<GenericMessage>(isNotification ? nullptr : &requestId, result, nullptr);
+					}
+				);
 			}
 			else
 			{
-				m_threadPool.addTask(
-					[this, future = std::move(future), isNotification = isNotification, requestId]() mutable
-					{
-						handleAsyncResult<GenericMessage>(isNotification ? nullptr : &requestId, future);
-					}
-				);
+				handleRequestResult(isNotification ? nullptr : &requestId, result, batchSender);
 			}
 		}
 	);
@@ -245,7 +206,7 @@ void MessageHandler::addPendingRequest(RequestResultPtr result, json::Integer id
 	m_pendingRequests[id] = std::move(result);
 }
 
-MessageId MessageHandler::sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error)
+auto MessageHandler::sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error) -> MessageId
 {
 	auto result = std::make_unique<CallbackRequestResult<json::Value, decltype(then), decltype(error)>>(
 		std::move(then), std::move(error));
@@ -261,7 +222,7 @@ MessageId MessageHandler::sendRequest(std::string_view method, const json::Value
 	return requestId;
 }
 
-FutureResponse<MessageHandler::GenericMessage> MessageHandler::sendRequest(std::string_view method, const json::Value& params)
+auto MessageHandler::sendRequest(std::string_view method, const json::Value& params) -> FutureResponse<MessageHandler::GenericMessage>
 {
 	auto       result        = std::make_unique<FutureRequestResult<json::Value>>();
 	auto       future        = result->future();
@@ -287,17 +248,38 @@ void MessageHandler::sendNotification(std::string_view method, const json::Value
 	notificationSender.submit();
 }
 
-void MessageHandler::sendErrorResponse(const MessageId& messageId, int errorCode, std::string_view errorMessage, const std::optional<json::Value>& errorData )
+void MessageHandler::sendErrorResponse(
+	const MessageId& messageId,
+	int errorCode,
+	std::string_view errorMessage,
+	const std::optional<json::Value>& errorData,
+	Connection::BatchSender* batchSender)
 {
-	auto errorResponse = m_connection.errorResponse(messageId, errorCode, errorMessage);
+	if(batchSender)
+	{
+		auto responseWriter = batchSender->writeError(messageId, errorCode, errorMessage);
 
-	if(errorData.has_value())
-		errorResponse.writeData(errorData.value());
+		if(errorData.has_value())
+		{
+			responseWriter.writeData(
+				[](std::string_view key, const json::Value& value, json::ObjectWriter& objectWriter)
+				{
+					objectWriter.write(key, value);
+				}, errorData.value());
+		}
+	}
+	else
+	{
+		auto errorResponse = m_connection.errorResponse(messageId, errorCode, errorMessage);
 
-	errorResponse.submit();
+		if(errorData.has_value())
+			errorResponse.writeData(errorData.value());
+
+		errorResponse.submit();
+	}
 }
 
-json::Integer MessageHandler::nextUniqueRequestId()
+auto MessageHandler::nextUniqueRequestId() -> json::Integer
 {
 	static std::atomic<json::Integer> s_uniqueRequestId = 0;
 	return ++s_uniqueRequestId;

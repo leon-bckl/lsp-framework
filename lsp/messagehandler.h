@@ -31,15 +31,14 @@ public:
 
 	// Only valid when called from within a request or response callback.
 	// Throws std::logic_error if not called in that context.
-	[[nodiscard]] static const MessageId& currentRequestId();
+	[[nodiscard]] static auto currentRequestId() -> const MessageId&;
 
 	struct GenericMessage{
 		using Params = json::Value;
 		using Result = json::Value;
 	};
 
-	using GenericMessageCallback       = std::function<json::Value(json::Value&&)>;
-	using GenericAsyncMessageCallback  = std::function<AsyncRequestResult<GenericMessage>(json::Value&&)>;
+	using GenericMessageCallback       = std::function<RequestResult<GenericMessage>(json::Value&&)>;
 	using GenericResponseCallback      = std::function<void(json::Value&&)>;
 	using GenericErrorResponseCallback = std::function<void(const ResponseError&)>;
 
@@ -48,19 +47,14 @@ public:
 	 */
 
 	template<typename M, typename F>
-	MessageHandler& add(F&& handlerFunc) requires IsRequestCallback<M, F>;
+	requires IsRequestCallback<M, F> || IsNoParamsRequestCallback<M, F>
+	auto on(F&& callback) -> MessageHandler&;
 
 	template<typename M, typename F>
-	MessageHandler& add(F&& handlerFunc) requires IsNoParamsRequestCallback<M, F>;
+	requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
+	auto on(F&& callback) -> MessageHandler&;
 
-	template<typename M, typename F>
-	MessageHandler& add(F&& handlerFunc) requires IsNotificationCallback<M, F>;
-
-	template<typename M, typename F>
-	MessageHandler& add(F&& handlerFunc) requires IsNoParamsNotificationCallback<M, F>;
-
-	MessageHandler& add(std::string_view method, GenericMessageCallback callback);
-	MessageHandler& add(std::string_view method, GenericAsyncMessageCallback callback);
+	auto on(std::string_view method, GenericMessageCallback callback) -> MessageHandler&;
 
 	void remove(const std::string& method);
 
@@ -71,19 +65,23 @@ public:
 	using ResponseErrorCallback = void(*)(const ResponseError&);
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	MessageId sendRequest(const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) requires SendRequest<M, F, E>;
+	requires SendRequest<M, F, E>
+	auto sendRequest(const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	MessageId sendRequest(F&& then, E&& error = [](const ResponseError&){}) requires SendNoParamsRequest<M, F, E>;
+	requires SendNoParamsRequest<M, F, E>
+	auto sendRequest(F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
 	template<typename M>
-	[[nodiscard]] FutureResponse<M> sendRequest(const typename M::Params& params) requires message::IsRequest<M> && message::HasParams<M>;
+	requires message::IsRequest<M> && message::HasParams<M>
+	[[nodiscard]] auto sendRequest(const typename M::Params& params) -> FutureResponse<M>;
 
 	template<typename M>
-	[[nodiscard]] FutureResponse<M> sendRequest() requires message::IsRequest<M> && (!message::HasParams<M>);
+	requires message::IsRequest<M> && (!message::HasParams<M>)
+	[[nodiscard]] auto sendRequest() -> FutureResponse<M>;
 
-	FutureResponse<GenericMessage> sendRequest(std::string_view method, const json::Value& params = {});
-	MessageId sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error);
+	auto sendRequest(std::string_view method, const json::Value& params = {}) -> FutureResponse<GenericMessage>;
+	auto sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error) -> MessageId;
 	void sendNotification(std::string_view method, const json::Value& params = {});
 
 	/*
@@ -114,18 +112,23 @@ private:
 	std::unordered_map<MessageId, RequestResultPtr>  m_pendingRequests;
 
 	template<typename T>
-	void sendResponse(const MessageId& messageId, const T& result);
+	void sendResponse(const MessageId& messageId, const T& result, Connection::BatchSender* batchSender);
 
 	template<typename M>
-	void handleAsyncResult(const MessageId* messageId, AsyncRequestResult<M>& result);
+	void handleRequestResult(const MessageId* messageId, RequestResult<M>& result, Connection::BatchSender* batchSender);
 
 	void processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender);
 	void processResponse(jsonrpc::Response&& response);
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
 	void addPendingRequest(RequestResultPtr result, json::Integer id);
-	void sendErrorResponse(const MessageId& messageId, int errorCode, std::string_view errorMessage, const std::optional<json::Value>& errorData = {});
+	void sendErrorResponse(
+		const MessageId& messageId,
+		int errorCode,
+		std::string_view errorMessage,
+		const std::optional<json::Value>& errorData,
+		Connection::BatchSender* batchSender);
 
-	static json::Integer nextUniqueRequestId();
+	static auto nextUniqueRequestId() -> json::Integer;
 
 	/*
 	 * Request result wrapper

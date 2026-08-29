@@ -213,27 +213,27 @@ private:
 
 	void registerCallbacks()
 	{
-		m_messageHandler.add<lsp::requests::Initialize>(
+		m_messageHandler.on<lsp::requests::Initialize>(
 			[this](lsp::requests::Initialize::Params&& params)
 			{
 				return initialize(std::move(params));
 			}
-		).add<lsp::notifications::TextDocumentDidOpen>(
+		).on<lsp::notifications::TextDocumentDidOpen>(
 			[this](lsp::notifications::TextDocumentDidOpen::Params&& params)
 			{
 				textDocumentDidOpen(std::move(params));
 			}
-		).add<lsp::requests::TextDocumentHover>(
+		).on<lsp::requests::TextDocumentHover>(
 			[this](lsp::requests::TextDocumentHover::Params&& params)
 			{
 				return hover(std::move(params));
 			}
-		).add<lsp::requests::Shutdown>(
+		).on<lsp::requests::Shutdown>(
 			[this]()
 			{
 				return shutdown();
 			}
-		).add<lsp::notifications::Exit>(
+		).on<lsp::notifications::Exit>(
 			[this]()
 			{
 				exit();

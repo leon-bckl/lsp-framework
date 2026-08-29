@@ -145,7 +145,7 @@ int main(int argc, char** argv)
 		auto called   = false;
 		auto received = std::unordered_map<std::string, int>();
 
-		handler.add<TestRequest>([&](std::unordered_map<std::string, int> params)
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int> params)
 		{
 			called   = true;
 			received = params;
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 		auto received   = std::unordered_map<std::string, int>();
 		auto thenResult = std::optional<int>();
 
-		handler.add<TestRequest>([&](std::unordered_map<std::string, int> params)
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int> params)
 		{
 			called   = true;
 			received = params;
@@ -193,7 +193,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.add<TestNoParamsRequest>([&]()
+		handler.on<TestNoParamsRequest>([&]()
 		{
 			called = true;
 			return std::vector<int>{1, 2, 3};
@@ -213,7 +213,7 @@ int main(int argc, char** argv)
 		auto called     = false;
 		auto thenResult = std::optional<std::vector<int>>();
 
-		handler.add<TestNoParamsRequest>([&]()
+		handler.on<TestNoParamsRequest>([&]()
 		{
 			called = true;
 			return std::vector<int>{1, 2, 3};
@@ -237,7 +237,7 @@ int main(int argc, char** argv)
 		auto called   = false;
 		auto received = std::vector<int>();
 
-		handler.add<TestNotification>([&](std::vector<int> params)
+		handler.on<TestNotification>([&](std::vector<int> params)
 		{
 			called   = true;
 			received = params;
@@ -255,7 +255,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.add<TestNoParamsNotification>([&]()
+		handler.on<TestNoParamsNotification>([&]()
 		{
 			called = true;
 		});
@@ -271,7 +271,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto ids     = std::vector<MessageId>();
 
-		handler.add<TestNoParamsRequest>([&]()
+		handler.on<TestNoParamsRequest>([&]()
 		{
 			ids.push_back(MessageHandler::currentRequestId());
 			return std::vector<int>{};
@@ -299,7 +299,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.add<TestNoParamsRequest>([&]() -> std::vector<int>
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
 		{
 			if(useRequestError)
 				throw RequestError(1234, "custom error");
@@ -321,7 +321,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.add<TestNoParamsRequest>([&]() -> std::vector<int>
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
 		{
 			if(useRequestError)
 				throw RequestError(1234, "custom error");
@@ -363,7 +363,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.add<TestNoParamsNotification>([&](){
+		handler.on<TestNoParamsNotification>([&](){
 			throw std::runtime_error("boom");
 		});
 
@@ -388,7 +388,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.add<TestNoParamsRequest>([&]()
+		handler.on<TestNoParamsRequest>([&]()
 		{
 			called = true;
 			return std::vector<int>{};
@@ -409,7 +409,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.add<TestNoParamsRequest>([&]() -> AsyncRequestResult<TestNoParamsRequest>
+		handler.on<TestNoParamsRequest>([&]() -> AsyncRequestResult<TestNoParamsRequest>
 		{
 			called = true;
 			auto promise = std::promise<std::vector<int>>();
@@ -429,7 +429,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.add<TestNoParamsRequest>([&]() -> AsyncRequestResult<TestNoParamsRequest>
+		handler.on<TestNoParamsRequest>([&]() -> AsyncRequestResult<TestNoParamsRequest>
 		{
 			auto promise = std::promise<std::vector<int>>();
 
@@ -457,7 +457,7 @@ int main(int argc, char** argv)
 		auto called   = false;
 		auto received = json::Value();
 
-		handler.add("generic/request", [&](json::Value&& params) -> json::Value
+		handler.on("generic/request", [&](json::Value&& params) -> json::Value
 		{
 			called   = true;
 			received = params;
@@ -478,7 +478,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.add("generic/asyncRequest", [&](json::Value&&) -> AsyncRequestResult<MessageHandler::GenericMessage>
+		handler.on("generic/asyncRequest", [&](json::Value&&) -> AsyncRequestResult<MessageHandler::GenericMessage>
 		{
 			called = true;
 			auto promise = std::promise<json::Value>();
@@ -499,7 +499,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.add("generic/requestCallback", [&](json::Value&& params) -> json::Value
+		handler.on("generic/requestCallback", [&](json::Value&& params) -> json::Value
 		{
 			called = true;
 			return json::Value(json::Integer(params.object().get("x").integer() * 2));
@@ -525,7 +525,7 @@ int main(int argc, char** argv)
 		auto called   = false;
 		auto received = json::Value();
 
-		handler.add("generic/notification", [&](json::Value&& params) -> json::Value
+		handler.on("generic/notification", [&](json::Value&& params) -> json::Value
 		{
 			called   = true;
 			received = params;
@@ -543,7 +543,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.add<TestNoParamsRequest>([&]() -> std::vector<int>
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
 		{
 			throw RequestError(1234, "custom error", json::Value(json::Object({{"detail", "x"}})));
 		});
@@ -569,7 +569,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.add<TestRequest>([&](std::unordered_map<std::string, int>)
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>)
 		{
 			return 42;
 		});
@@ -587,7 +587,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.add<TestRequest>([&](std::unordered_map<std::string, int> params)
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int> params)
 		{
 			return params.at("x");
 		});
@@ -611,19 +611,19 @@ int main(int argc, char** argv)
 		auto paramsRequestCalled = false;
 		auto notificationCalled  = false;
 
-		handler.add<TestNoParamsRequest>([&]()
+		handler.on<TestNoParamsRequest>([&]()
 		{
 			requestCalled = true;
 			return std::vector<int>{1, 2, 3};
 		});
 
-		handler.add<TestRequest>([&](std::unordered_map<std::string, int> params)
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int> params)
 		{
 			paramsRequestCalled = true;
 			return params.at("x") * 2;
 		});
 
-		handler.add<TestNoParamsNotification>([&]()
+		handler.on<TestNoParamsNotification>([&]()
 		{
 			notificationCalled = true;
 		});

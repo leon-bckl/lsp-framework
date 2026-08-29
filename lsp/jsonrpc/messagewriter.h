@@ -49,15 +49,15 @@ public:
 	[[nodiscard]] static ResponseWriter writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message);
 
 	template<typename F, typename T>
-	requires std::invocable<F, std::string_view, const T&, json::ObjectWriter&>
-	void writeData(F&& writer, const T& value)
+	requires std::invocable<F, std::string_view, T&&, json::ObjectWriter&>
+	void writeData(F&& writer, T&& value)
 	{
 		m_hasData = true;
 
 		if(m_errorWriter.has_value())
-			writer("data", value, *m_errorWriter);
+			writer("data", std::forward<T>(value), *m_errorWriter);
 		else
-			writer("result", value, m_resultWriter);
+			writer("result", std::forward<T>(value), m_resultWriter);
 	}
 
 private:

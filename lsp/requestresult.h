@@ -1,6 +1,7 @@
 #pragma once
 
 #include <future>
+#include <variant>
 #include <lsp/jsonrpc/jsonrpc.h>
 
 namespace lsp{
@@ -33,6 +34,37 @@ struct FutureResponse{
 
 	MessageId    messageId;
 	ResultFuture result;
+};
+
+template<typename MessageType>
+class RequestResult{
+public:
+	using FutureType = std::future<typename MessageType::Result>;
+
+	RequestResult(typename MessageType::Result&& result)
+		: m_result{std::move(result)}
+	{
+	}
+
+	RequestResult(FutureType&& future)
+		: m_result{std::move(future)}
+	{
+	}
+
+	[[nodiscard]] auto requestId() const -> const MessageId&{ return m_requestId; }
+	[[nodiscard]] auto isAsync() const -> bool{ return std::holds_alternative<FutureType>(m_result); }
+
+	[[nodiscard]] auto get() -> typename MessageType::Result
+	{
+		if(auto* future = std::get_if<FutureType>(&m_result))
+			return future->get();
+
+		return std::move(std::get<typename MessageType::Result>(m_result));
+	}
+
+private:
+	std::variant<typename MessageType::Result, FutureType> m_result;
+	MessageId                                              m_requestId;
 };
 
 } // namespace lsp
