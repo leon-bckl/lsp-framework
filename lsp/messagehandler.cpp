@@ -171,71 +171,11 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
-auto MessageHandler::on(std::string_view method, GenericMessageCallback callback) -> MessageHandler&
-{
-	addHandler(method,
-		[this, callback = std::move(callback)](json::Value&& params, Connection::BatchSender* batchSender)
-		{
-			const auto& requestId      = currentRequestId();
-			const auto  isNotification = std::holds_alternative<std::nullptr_t>(requestId);
-			auto        result         = callback(std::move(params));
-
-			if(result.isAsync() && !batchSender)
-			{
-				m_threadPool.addTask(
-					[this, result = std::move(result), isNotification = isNotification, requestId]() mutable
-					{
-						handleRequestResult<GenericMessage>(isNotification ? nullptr : &requestId, result, nullptr);
-					}
-				);
-			}
-			else
-			{
-				handleRequestResult(isNotification ? nullptr : &requestId, result, batchSender);
-			}
-		}
-	);
-
-	return *this;
-}
-
 void MessageHandler::addPendingRequest(RequestResultPtr result, json::Integer id)
 {
 	const auto lock = std::lock_guard(m_pendingRequestsMutex);
 	assert(!m_pendingRequests.contains(id));
 	m_pendingRequests[id] = std::move(result);
-}
-
-auto MessageHandler::sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error) -> MessageId
-{
-	auto result = std::make_unique<CallbackRequestResult<json::Value, decltype(then), decltype(error)>>(
-		std::move(then), std::move(error));
-	const auto requestId     = nextUniqueRequestId();
-	auto       requestSender = m_connection.request(method, requestId);
-
-	if(!params.isNull())
-		requestSender.writeParams(params);
-
-	requestSender.submit();
-	addPendingRequest(std::move(result), requestId);
-
-	return requestId;
-}
-
-auto MessageHandler::sendRequest(std::string_view method, const json::Value& params) -> FutureResponse<MessageHandler::GenericMessage>
-{
-	auto       result        = std::make_unique<FutureRequestResult<json::Value>>();
-	auto       future        = result->future();
-	const auto requestId     = nextUniqueRequestId();
-	auto       requestSender = m_connection.request(method, requestId);
-
-	if(!params.isNull())
-		requestSender.writeParams(params);
-
-	requestSender.submit();
-	addPendingRequest(std::move(result), requestId);
-
-	return {requestId, std::move(future)};
 }
 
 void MessageHandler::sendNotification(std::string_view method, const json::Value& params)

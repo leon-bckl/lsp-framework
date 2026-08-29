@@ -33,15 +33,6 @@ public:
 	// Throws std::logic_error if not called in that context.
 	[[nodiscard]] static auto currentRequestId() -> const MessageId&;
 
-	struct GenericMessage{
-		using Params = json::Value;
-		using Result = json::Value;
-	};
-
-	using GenericMessageCallback       = std::function<RequestResult<GenericMessage>(json::Value&&)>;
-	using GenericResponseCallback      = std::function<void(json::Value&&)>;
-	using GenericErrorResponseCallback = std::function<void(const ResponseError&)>;
-
 	/*
 	 * Callback registration
 	 */
@@ -51,10 +42,16 @@ public:
 	auto on(F&& callback) -> MessageHandler&;
 
 	template<typename M, typename F>
+	requires IsRequestCallback<M, F> || IsNoParamsRequestCallback<M, F>
+	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
+
+	template<typename M, typename F>
 	requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
 	auto on(F&& callback) -> MessageHandler&;
 
-	auto on(std::string_view method, GenericMessageCallback callback) -> MessageHandler&;
+	template<typename M, typename F>
+	requires IsNotificationCallback<M, F> || IsNoParamsNotificationCallback<M, F>
+	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
 
 	void remove(const std::string& method);
 
@@ -69,30 +66,50 @@ public:
 	auto sendRequest(const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
+	requires SendRequest<M, F, E>
+	auto sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
+
+	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires SendNoParamsRequest<M, F, E>
 	auto sendRequest(F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
 
+	template<typename M, typename F, typename E = ResponseErrorCallback>
+	requires SendNoParamsRequest<M, F, E>
+	auto sendCustomRequest(std::string_view method, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
+
 	template<typename M>
 	requires message::IsRequest<M> && message::HasParams<M>
-	[[nodiscard]] auto sendRequest(const typename M::Params& params) -> FutureResponse<M>;
+	[[nodiscard]] auto sendRequest(const typename M::Params& params) -> RequestResult<M>;
+
+	template<typename M>
+	requires message::IsRequest<M>
+	[[nodiscard]] auto sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<M>;
 
 	template<typename M>
 	requires message::IsRequest<M> && (!message::HasParams<M>)
-	[[nodiscard]] auto sendRequest() -> FutureResponse<M>;
+	[[nodiscard]] auto sendRequest() -> RequestResult<M>;
 
-	auto sendRequest(std::string_view method, const json::Value& params = {}) -> FutureResponse<GenericMessage>;
-	auto sendRequest(std::string_view method, const json::Value& params, GenericResponseCallback then, GenericErrorResponseCallback error) -> MessageId;
-	void sendNotification(std::string_view method, const json::Value& params = {});
+	template<typename M>
+	requires message::IsRequest<M>
+	[[nodiscard]] auto sendCustomRequest(std::string_view method) -> RequestResult<M>;
 
 	/*
 	 * sendNotification
 	 */
 
+	void sendNotification(std::string_view method, const json::Value& params = {});
+
 	template<typename M>
 	void sendNotification(const typename M::Params& params) requires SendNotification<M>;
 
 	template<typename M>
+	void sendCustomNotification(std::string_view method, const typename M::Params& params) requires SendNotification<M>;
+
+	template<typename M>
 	void sendNotification() requires SendNoParamsNotification<M>;
+
+	template<typename M>
+	void sendCustomNotification(std::string_view method) requires SendNoParamsNotification<M>;
 
 private:
 	class ResponseResultBase;

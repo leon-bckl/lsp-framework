@@ -116,7 +116,7 @@ public:
 		 */
 		auto initializeRequest =
 			m_messageHandler.sendRequest<lsp::requests::Initialize>(initializeParams);
-		auto initializeResult = initializeRequest.result.get();
+		auto initializeResult = initializeRequest.get();
 
 		printResponse<lsp::requests::Initialize>(initializeResult);
 		m_serverCapabilities = std::move(initializeResult.capabilities);
@@ -178,7 +178,7 @@ public:
 			auto hoverRequest =
 				m_messageHandler.sendRequest<lsp::requests::TextDocumentHover>(hoverParams);
 
-			const auto hoverResult = hoverRequest.result.get();
+			const auto hoverResult = hoverRequest.get();
 
 			printResponse<lsp::requests::TextDocumentHover>(hoverResult);
 

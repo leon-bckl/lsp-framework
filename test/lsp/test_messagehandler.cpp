@@ -111,17 +111,17 @@ json::Value parseMessageBody(std::string_view rawMessage)
 	return json::parse(rawMessage.substr(headerEnd + 4));
 }
 
-template<typename T>
-T getResult(std::future<T>& result)
+template<typename M, typename T = typename M::Result>
+T getResult(RequestResult<M>& result)
 {
-	if(result.wait_for(std::chrono::seconds(2)) != std::future_status::ready)
+	if(!result.wait(2000))
 		test::fail("Timed out waiting for future");
 
 	return result.get();
 }
 
-template<typename T>
-void expectResponseError(std::future<T>& result, int expectedCode, std::string_view expectedMessage)
+template<typename M, typename T = typename M::Result>
+void expectResponseError(RequestResult<M>& result, int expectedCode, std::string_view expectedMessage)
 {
 	try
 	{
@@ -158,7 +158,7 @@ int main(int argc, char** argv)
 
 		test::check(called, "called");
 		test::compare(received, std::unordered_map<std::string, int>{{"x", 1}});
-		test::compare(getResult(response.result), 42);
+		test::compare(getResult(response), 42);
 	});
 
 	app.addTest("Request/Callback", [](){
@@ -204,7 +204,7 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 
 		test::check(called, "called");
-		test::compare(getResult(response.result), std::vector<int>{1, 2, 3});
+		test::compare(getResult(response), std::vector<int>{1, 2, 3});
 	});
 
 	app.addTest("NoParamsRequest/Callback", [](){
@@ -286,8 +286,8 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 
 		test::compare(ids.size(), 2);
-		test::compare(ids[0], response1.messageId);
-		test::compare(ids[1], response2.messageId);
+		test::compare(ids[0], response1.requestId());
+		test::compare(ids[1], response2.requestId());
 		test::check(!(ids[0] == ids[1]), "idsAreUnique");
 
 		test::expectException<std::logic_error>([](){
@@ -311,7 +311,7 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 		handler.processNextMessage();
 
-		expectResponseError(response.result, expectedCode, expectedMessage);
+		expectResponseError(response, expectedCode, expectedMessage);
 	})({
 		{"RequestError",     {true,  1234,                        "custom error"}},
 		{"GenericException", {false, MessageError::InternalError, "boom"}},
@@ -356,7 +356,7 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 		handler.processNextMessage();
 
-		expectResponseError(response.result, MessageError::MethodNotFound, "Method not found");
+		expectResponseError(response, MessageError::MethodNotFound, "Method not found");
 	});
 
 	app.addTest("Notification/CallbackThrows", [](){
@@ -401,7 +401,7 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 
 		test::check(!called, "!called");
-		expectResponseError(response.result, MessageError::MethodNotFound, "Method not found");
+		expectResponseError(response, MessageError::MethodNotFound, "Method not found");
 	});
 
 	app.addTest("Async/Success", [](){
@@ -409,7 +409,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.on<TestNoParamsRequest>([&]() -> AsyncRequestResult<TestNoParamsRequest>
+		handler.on<TestNoParamsRequest>([&]() -> RequestFuture<TestNoParamsRequest>
 		{
 			called = true;
 			auto promise = std::promise<std::vector<int>>();
@@ -422,14 +422,14 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 
 		test::check(called, "called");
-		test::compare(getResult(response.result), std::vector<int>{1, 2, 3});
+		test::compare(getResult(response), std::vector<int>{1, 2, 3});
 	});
 
 	app.addTest("Async/Error", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		handler.on<TestNoParamsRequest>([&]() -> AsyncRequestResult<TestNoParamsRequest>
+		handler.on<TestNoParamsRequest>([&]() -> RequestFuture<TestNoParamsRequest>
 		{
 			auto promise = std::promise<std::vector<int>>();
 
@@ -445,7 +445,7 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 		handler.processNextMessage();
 
-		expectResponseError(response.result, expectedCode, expectedMessage);
+		expectResponseError(response, expectedCode, expectedMessage);
 	})({
 		{"RequestError",     {true,  1234,                        "custom error"}},
 		{"GenericException", {false, MessageError::InternalError, "boom"}},
@@ -457,20 +457,20 @@ int main(int argc, char** argv)
 		auto called   = false;
 		auto received = json::Value();
 
-		handler.on("generic/request", [&](json::Value&& params) -> json::Value
+		handler.onCustom<GenericRequest>("generic/request", [&](json::Value&& params) -> json::Value
 		{
 			called   = true;
 			received = params;
 			return json::Value(json::Integer(42));
 		});
 
-		auto response = handler.sendRequest("generic/request", json::Value(json::Object({{"x", 1}})));
+		auto response = handler.sendCustomRequest<GenericRequest>("generic/request", json::Value(json::Object({{"x", 1}})));
 		handler.processNextMessage();
 		handler.processNextMessage();
 
 		test::check(called, "called");
 		test::compare(received.object().get("x").integer(), 1);
-		test::compare(getResult(response.result).integer(), 42);
+		test::compare(getResult(response).integer(), 42);
 	});
 
 	app.addTest("Generic/Async", [](){
@@ -478,7 +478,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.on("generic/asyncRequest", [&](json::Value&&) -> AsyncRequestResult<MessageHandler::GenericMessage>
+		handler.onCustom<GenericRequest>("generic/asyncRequest", [&](json::Value&&) -> RequestFuture<GenericRequest>
 		{
 			called = true;
 			auto promise = std::promise<json::Value>();
@@ -486,12 +486,12 @@ int main(int argc, char** argv)
 			return promise.get_future();
 		});
 
-		auto response = handler.sendRequest("generic/asyncRequest");
+		auto response = handler.sendCustomRequest<GenericRequest>("generic/asyncRequest");
 		handler.processNextMessage();
 		handler.processNextMessage();
 
 		test::check(called, "called");
-		test::compare(getResult(response.result).integer(), 42);
+		test::compare(getResult(response).integer(), 42);
 	});
 
 	app.addTest("Generic/RequestCallback", [](){
@@ -499,7 +499,7 @@ int main(int argc, char** argv)
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
 
-		handler.on("generic/requestCallback", [&](json::Value&& params) -> json::Value
+		handler.onCustom<GenericRequest>("generic/requestCallback", [&](json::Value&& params) -> json::Value
 		{
 			called = true;
 			return json::Value(json::Integer(params.object().get("x").integer() * 2));
@@ -507,7 +507,7 @@ int main(int argc, char** argv)
 
 		auto thenResult = std::optional<json::Value>();
 
-		handler.sendRequest("generic/requestCallback", json::Value(json::Object({{"x", 21}})),
+		handler.sendCustomRequest<GenericRequest>("generic/requestCallback", json::Value(json::Object({{"x", 21}})),
 			[&](json::Value&& result){ thenResult = std::move(result); },
 			[](const ResponseError&){ test::fail("Expected no error"); });
 
@@ -525,11 +525,10 @@ int main(int argc, char** argv)
 		auto called   = false;
 		auto received = json::Value();
 
-		handler.on("generic/notification", [&](json::Value&& params) -> json::Value
+		handler.onCustom<GenericNotification>("generic/notification", [&](json::Value&& params)
 		{
 			called   = true;
 			received = params;
-			return json::Value();
 		});
 
 		handler.sendNotification("generic/notification", json::Value(json::Object({{"x", 1}})));
@@ -554,7 +553,7 @@ int main(int argc, char** argv)
 
 		try
 		{
-			getResult(response.result);
+			getResult(response);
 			test::fail("Expected ResponseError to be thrown");
 		}
 		catch(const ResponseError& e)
@@ -600,8 +599,8 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 		handler.processNextMessage();
 
-		test::compare(getResult(responseA.result), 1);
-		test::compare(getResult(responseB.result), 2);
+		test::compare(getResult(responseA), 1);
+		test::compare(getResult(responseB), 2);
 	});
 
 	app.addTest("Batch", [](){

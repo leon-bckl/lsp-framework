@@ -140,7 +140,7 @@ public:
 		// Do something with the openend document here...
 	}
 
-	auto hover(lsp::requests::TextDocumentHover::Params&& params) -> lsp::AsyncRequestResult<lsp::requests::TextDocumentHover>
+	auto hover(lsp::requests::TextDocumentHover::Params&& params) -> lsp::RequestFuture<lsp::requests::TextDocumentHover>
 	{
 		printMessage<lsp::requests::TextDocumentHover>(params);
 		verifyInitialized();

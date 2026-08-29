@@ -20,19 +20,19 @@ concept IsCallbackResult = std::invocable<F, P> && std::same_as<std::invoke_resu
 
 template<typename M, typename F>
 concept IsRequestCallbackResult = IsCallbackResult<typename M::Result, typename M::Params, F> ||
-                                  IsCallbackResult<AsyncRequestResult<M>, typename M::Params, F>;
+                                  IsCallbackResult<RequestFuture<M>, typename M::Params, F>;
 
 template<typename M, typename F>
 concept IsNoParamsRequestCallbackResult = IsNoParamsCallbackResult<typename M::Result, F> ||
-                                          IsNoParamsCallbackResult<AsyncRequestResult<M>, F>;
+                                          IsNoParamsCallbackResult<RequestFuture<M>, F>;
 
 template<typename M, typename F>
 concept IsNotificationCallbackResult = IsCallbackResult<void, typename M::Params, F> ||
-                                       IsCallbackResult<AsyncNotificationResult, typename M::Params, F>;
+                                       IsCallbackResult<NotificationFuture, typename M::Params, F>;
 
 template<typename M, typename F>
 concept IsNoParamsNotificationCallbackResult = IsNoParamsCallbackResult<void, F> ||
-                                               IsNoParamsCallbackResult<AsyncNotificationResult, F>;
+                                               IsNoParamsCallbackResult<NotificationFuture, F>;
 
 template<typename M, typename F>
 concept IsRequestCallback = message::HasParams<M> &&
@@ -76,6 +76,5 @@ concept SendNotification = message::IsNotification<M> && message::HasParams<M>;
 
 template<typename M>
 concept SendNoParamsNotification = message::IsNotification<M> && (!message::HasParams<M>);
-
 
 } // namespace lsp

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <lsp/json/json.h>
+
 namespace lsp{
 
 /*
@@ -15,6 +17,23 @@ enum class MessageDirection{
 	ClientToServer,
 	ServerToClient,
 	Bidirectional
+};
+
+/*
+ * Generic messages
+ */
+
+struct GenericRequest{
+	static constexpr auto Type      = Message::Request;
+	static constexpr auto Direction = MessageDirection::Bidirectional;
+	using Params = json::Value;
+	using Result = json::Value;
+};
+
+struct GenericNotification{
+	static constexpr auto Type      = Message::Notification;
+	static constexpr auto Direction = MessageDirection::Bidirectional;
+	using Params = json::Value;
 };
 
 /*
