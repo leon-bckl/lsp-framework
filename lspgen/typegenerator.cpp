@@ -553,7 +553,7 @@ auto TypeGenerator::collectLiteralProperties(const Structure& structure) -> std:
 
 		for(const auto& property : structure.properties)
 		{
-			if(property.type->isLiteral())
+			if(property.type->isLiteral() && property.type->category() != Type::StructureLiteral)
 			{
 				const auto inherited = std::ranges::find_if(literal,
 					[&](const auto& pair)
@@ -613,9 +613,9 @@ void TypeGenerator::generateStructureProperty(const Structure& structure, const 
 		if(p.isOptional)
 			m_serializationWriter.outdent();
 
-		if(isLiteral)
+		if(isLiteral && p.type->category() != Type::StructureLiteral)
 		{
-			m_deserializationWriter.writeLine("if(value. " + p.name + " != " + initializer + ")");
+			m_deserializationWriter.writeLine("if(value." + p.name + " != " + initializer + ")");
 			m_deserializationWriter.indent();
 			m_deserializationWriter.writeLine("throw json::TypeError(\"Invalid value for literal property '" + p.name + "'\");");
 			m_deserializationWriter.outdent();
