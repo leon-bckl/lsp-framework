@@ -309,13 +309,13 @@ void TypeGenerator::generate(const Structure& structure)
 
 	for(const auto& mixin : structure.mixins)
 	{
-		const auto& mixinTypeName = mixin->as<ReferenceType>().name;
-		const auto& structType    = m_metaModel->typeForName(mixinTypeName);
-		const auto  structure     = std::get<const Structure*>(structType);
+		const auto& mixinTypeName   = mixin->as<ReferenceType>().name;
+		const auto& mixinStructType = m_metaModel->typeForName(mixinTypeName);
+		const auto  mixinStructure  = std::get<const Structure*>(mixinStructType);
 
-		for(const auto& property : structure->properties)
+		for(const auto& property : mixinStructure->properties)
 		{
-			generateStructureProperty(*structure, property);
+			generateStructureProperty(*mixinStructure, property);
 			checkInheritedLiteral(property);
 		}
 	}

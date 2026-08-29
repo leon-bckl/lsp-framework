@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <stdexcept>
 #include <utility>
 #include "metamodel.h"
@@ -381,20 +382,20 @@ static auto findStructureProperty(const std::vector<TypePtr>& types, std::string
 	return nullptr;
 }
 
-auto Structure::findBaseProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*
+auto Structure::findBaseProperty(std::string_view propertyName, const MetaModel& metaModel) const -> const StructureProperty*
 {
-	return findStructureProperty(extends, name, metaModel);
+	return findStructureProperty(extends, propertyName, metaModel);
 }
 
-auto Structure::findProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*
+auto Structure::findProperty(std::string_view propertyName, const MetaModel& metaModel) const -> const StructureProperty*
 {
 	for(const auto& prop : properties)
 	{
-		if(prop.name == name)
+		if(prop.name == propertyName)
 			return &prop;
 	}
 
-	return findStructureProperty(mixins, name, metaModel);
+	return findStructureProperty(mixins, propertyName, metaModel);
 }
 
 /*

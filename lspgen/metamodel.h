@@ -2,6 +2,7 @@
 
 #include <map>
 #include <memory>
+#include <unordered_map>
 #include <variant>
 #include <lsp/json/json.h>
 
@@ -276,8 +277,8 @@ struct Structure{
 	std::string           documentation;
 
 	void extract(const json::Object& json);
-	auto findBaseProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*;
-	auto findProperty(std::string_view name, const MetaModel& metaModel) const -> const StructureProperty*;
+	auto findBaseProperty(std::string_view propertyName, const MetaModel& metaModel) const -> const StructureProperty*;
+	auto findProperty(std::string_view propertyName, const MetaModel& metaModel) const -> const StructureProperty*;
 };
 
 /*
