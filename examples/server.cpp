@@ -9,6 +9,7 @@
 #include <lsp/messagehandler.h>
 #include <lsp/messages.h>
 #include <lsp/process.h>
+#include <lsp/protocolversion.h>
 
 /*
  * This is an example implementation of a simple server using the lsp-framework.

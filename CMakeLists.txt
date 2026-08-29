@@ -58,6 +58,7 @@ add_executable(lspgen
 	lsp/json/parser.cpp
 	lsp/json/writer.cpp
 	lspgen/cppmessagegenerator.cpp
+	lspgen/cppprotocolversiongenerator.cpp
 	lspgen/cpptypegenerator.cpp
 	lspgen/cppwriter.cpp
 	lspgen/lspgen.cpp
@@ -125,6 +126,7 @@ file(MAKE_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp)
 set(LSP_GENERATED_HEADERS
 	${LSP_GENERATED_FILES_DIR}/lsp/types.h
 	${LSP_GENERATED_FILES_DIR}/lsp/messages.h
+	${LSP_GENERATED_FILES_DIR}/lsp/protocolversion.h
 )
 
 set(LSP_GENERATED_SOURCES

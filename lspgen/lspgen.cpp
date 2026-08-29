@@ -3,6 +3,7 @@
 #include <iostream>
 #include <lsp/json/json.h>
 #include "cppmessagegenerator.h"
+#include "cppprotocolversiongenerator.h"
 #include "cpptypegenerator.h"
 #include "metamodel.h"
 
@@ -54,6 +55,13 @@ auto main(int argc, char** argv) -> int
 	try
 	{
 		const auto metaModel = MetaModel(json::parse(readFileContent(argv[1])).object());
+
+		{
+			auto protocolVersionGenerator = CppProtocolVersionGenerator();
+			protocolVersionGenerator.generate(metaModel);
+
+			writeFileContent("protocolversion.h", protocolVersionGenerator.headerText());
+		}
 
 		{
 			auto typeGenerator = CppTypeGenerator();

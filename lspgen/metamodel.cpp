@@ -415,6 +415,13 @@ void TypeAlias::extract(const json::Object& json)
 void Message::extract(const json::Object& json)
 {
 	documentation = extractDocumentation(json);
+
+	if(const auto* clientCap = json.find("clientCapability"))
+		clientCapabilityName = clientCap->string();
+
+	if(const auto* serverCap = json.find("serverCapability"))
+		serverCapabilityName = serverCap->string();
+
 	const auto& dir = json.get("messageDirection").string();
 
 	if(dir == "clientToServer")
@@ -440,12 +447,6 @@ void Message::extract(const json::Object& json)
 
 		return {};
 	};
-
-	if(const auto* clientCap = json.find("clientCapability"))
-		clientCapabilityName = clientCap->string();
-
-	if(const auto* serverCap = json.find("serverCapability"))
-		serverCapabilityName = serverCap->string();
 
 	paramsTypeName              = memberTypeName(json, "params");
 	resultTypeName              = memberTypeName(json, "result");

@@ -28,16 +28,8 @@ R"(#pragma once
 #include <lsp/nullable.h>
 #include <lsp/serialization.h>
 #include <lsp/uri.h>
-#include <lsp/version.h>
 
 namespace lsp{
-
-// FIXME: Move to protocolversion.h
-#define LSP_PROTOCOL_VERSION_MAJOR 3// ${LSP_PROTOCOL_VERSION_MAJOR}
-#define LSP_PROTOCOL_VERSION_MINOR 18// ${LSP_PROTOCOL_VERSION_MINOR}
-#define LSP_PROTOCOL_VERSION_PATCH 0// ${LSP_PROTOCOL_VERSION_PATCH}
-#define LSP_PROTOCOL_VERSION LSP_INT_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
-#define LSP_PROTOCOL_VERSION_STR LSP_STRINGIFY_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)
 
 using Null        = std::nullptr_t;
 using uint        = unsigned int;

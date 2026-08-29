@@ -304,9 +304,9 @@ struct Message{
 	};
 
 	std::string documentation;
-	Direction   direction;
 	std::string clientCapabilityName;
 	std::string serverCapabilityName;
+	Direction   direction;
 
 	// Those should be omitted if the strings are empty
 	std::string paramsTypeName;

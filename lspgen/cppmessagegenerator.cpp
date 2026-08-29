@@ -11,6 +11,7 @@ R"(#pragma once
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
+#include <string_view>
 #include <lsp/messagebase.h>
 #include <lsp/types.h>
 
@@ -80,10 +81,10 @@ void CppMessageGenerator::generateMessage(std::string_view method, const Message
 	m_messageWriter.writeStructStart(messageCppName);
 	constexpr auto varFlags = CppWriter::VarStatic | CppWriter::VarConstExpr;
 	m_messageWriter.writeVariable("Method          ", "auto", "std::string_view(" + json::stringify(method) + ")", varFlags);
-	m_messageWriter.writeVariable("Direction       ", "auto", "MessageDirection::" + messageDirection, varFlags);
-	m_messageWriter.writeVariable("Type            ", "auto", std::string("Message::") + (isNotification ? "Notification" : "Request"), varFlags);
 	m_messageWriter.writeVariable("ClientCapability", "auto", "std::string_view(" + json::stringify(message.clientCapabilityName) + ")", varFlags);
 	m_messageWriter.writeVariable("ServerCapability", "auto", "std::string_view(" + json::stringify(message.serverCapabilityName) + ")", varFlags);
+	m_messageWriter.writeVariable("Type            ", "auto", std::string("Message::") + (isNotification ? "Notification" : "Request"), varFlags);
+	m_messageWriter.writeVariable("Direction       ", "auto", "MessageDirection::" + messageDirection, varFlags);
 
 	const bool hasRegistrationOptions = !message.registrationOptionsTypeName.empty();
 	const bool hasPartialResult       = !message.partialResultTypeName.empty();
