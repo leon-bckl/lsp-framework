@@ -57,9 +57,9 @@ add_executable(lspgen
 	lsp/json/json.cpp
 	lsp/json/parser.cpp
 	lsp/json/writer.cpp
-	lspgen/cppmessagegenerator.cpp
-	lspgen/cppprotocolversiongenerator.cpp
-	lspgen/cpptypegenerator.cpp
+	lspgen/messagegenerator.cpp
+	lspgen/protocolversiongenerator.cpp
+	lspgen/typegenerator.cpp
 	lspgen/cppwriter.cpp
 	lspgen/lspgen.cpp
 	lspgen/metamodel.cpp

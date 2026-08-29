@@ -2,9 +2,9 @@
 #include <fstream>
 #include <iostream>
 #include <lsp/json/json.h>
-#include "cppmessagegenerator.h"
-#include "cppprotocolversiongenerator.h"
-#include "cpptypegenerator.h"
+#include "messagegenerator.h"
+#include "protocolversiongenerator.h"
+#include "typegenerator.h"
 #include "metamodel.h"
 
 using namespace lsp;
@@ -57,14 +57,14 @@ auto main(int argc, char** argv) -> int
 		const auto metaModel = MetaModel(json::parse(readFileContent(argv[1])).object());
 
 		{
-			auto protocolVersionGenerator = CppProtocolVersionGenerator();
+			auto protocolVersionGenerator = ProtocolVersionGenerator();
 			protocolVersionGenerator.generate(metaModel);
 
 			writeFileContent("protocolversion.h", protocolVersionGenerator.headerText());
 		}
 
 		{
-			auto typeGenerator = CppTypeGenerator();
+			auto typeGenerator = TypeGenerator();
 			typeGenerator.generate(metaModel);
 
 			writeFileContent("types.h", typeGenerator.headerText());
@@ -72,7 +72,7 @@ auto main(int argc, char** argv) -> int
 		}
 
 		{
-			auto messageGenerator = CppMessageGenerator();
+			auto messageGenerator = MessageGenerator();
 			messageGenerator.generate(metaModel);
 
 			writeFileContent("messages.h", messageGenerator.headerText());

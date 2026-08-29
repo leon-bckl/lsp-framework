@@ -17,7 +17,7 @@ struct TypeAlias;
 class MetaModel;
 using TypePtr = std::unique_ptr<Type>;
 
-class CppTypeGenerator{
+class TypeGenerator{
 public:
 	void generate(const MetaModel& metaModel);
 	auto headerText() const -> std::string;

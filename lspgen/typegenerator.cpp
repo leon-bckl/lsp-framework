@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <variant>
 #include "metamodel.h"
-#include "cpptypegenerator.h"
+#include "typegenerator.h"
 #include "util.h"
 
 namespace lspgen{
@@ -147,7 +147,7 @@ static auto literalPropertyValue(const StructureProperty& property) -> std::stri
 
 } // namespace
 
-void CppTypeGenerator::generate(const MetaModel& metaModel)
+void TypeGenerator::generate(const MetaModel& metaModel)
 {
 	m_metaModel           = &metaModel;
 	m_processedTypes      = {"LSPArray", "LSPObject", "LSPAny"};
@@ -164,7 +164,7 @@ void CppTypeGenerator::generate(const MetaModel& metaModel)
 		generateNamedType(name);
 }
 
-auto CppTypeGenerator::headerText() const -> std::string
+auto TypeGenerator::headerText() const -> std::string
 {
 	auto text = std::string();
 
@@ -176,7 +176,7 @@ auto CppTypeGenerator::headerText() const -> std::string
 	return text;
 }
 
-auto CppTypeGenerator::sourceText() const -> std::string
+auto TypeGenerator::sourceText() const -> std::string
 {
 	auto text = std::string();
 
@@ -188,7 +188,7 @@ auto CppTypeGenerator::sourceText() const -> std::string
 	return text;
 }
 
-void CppTypeGenerator::generateNamedType(std::string_view name)
+void TypeGenerator::generateNamedType(std::string_view name)
 {
 	if(m_processedTypes.contains(name))
 		return;
@@ -202,7 +202,7 @@ void CppTypeGenerator::generateNamedType(std::string_view name)
 		}, m_metaModel->typeForName(name));
 }
 
-void CppTypeGenerator::generate(const Enumeration& enumeration)
+void TypeGenerator::generate(const Enumeration& enumeration)
 {
 	if(!enumeration.type->isA<BaseType>())
 		throw std::runtime_error("Enumeration value type for '" + enumeration.name + "' must be a base type");
@@ -242,7 +242,7 @@ void CppTypeGenerator::generate(const Enumeration& enumeration)
 	m_declWriter.writeLine(";");
 }
 
-void CppTypeGenerator::generate(const Structure& structure)
+void TypeGenerator::generate(const Structure& structure)
 {
 	const auto structCppName = CppWriter::upperCaseIdentifier(structure.name);
 
@@ -415,7 +415,7 @@ void CppTypeGenerator::generate(const Structure& structure)
 	}
 }
 
-void CppTypeGenerator::generate(const TypeAlias& typeAlias)
+void TypeGenerator::generate(const TypeAlias& typeAlias)
 {
 	const auto typeAliasCppName = CppWriter::upperCaseIdentifier(typeAlias.name);
 	generateType(typeAlias.type, typeAliasCppName, true);
@@ -424,7 +424,7 @@ void CppTypeGenerator::generate(const TypeAlias& typeAlias)
 	m_typeWriter.writeEmptyLine();
 }
 
-void CppTypeGenerator::generateType(const TypePtr& type, const std::string& baseName, bool alias)
+void TypeGenerator::generateType(const TypePtr& type, const std::string& baseName, bool alias)
 {
 	switch(type->category())
 	{
@@ -473,7 +473,7 @@ void CppTypeGenerator::generateType(const TypePtr& type, const std::string& base
 	}
 }
 
-void CppTypeGenerator::generateAggregateTypeList(const std::vector<TypePtr>& typeList, const std::string& baseName)
+void TypeGenerator::generateAggregateTypeList(const std::vector<TypePtr>& typeList, const std::string& baseName)
 {
 	for(const auto& t : typeList)
 	{
@@ -495,7 +495,7 @@ void CppTypeGenerator::generateAggregateTypeList(const std::vector<TypePtr>& typ
 	}
 }
 
-auto CppTypeGenerator::collectRequiredProperties(const Structure& structure) -> std::vector<std::string>
+auto TypeGenerator::collectRequiredProperties(const Structure& structure) -> std::vector<std::string>
 {
 	auto required = std::vector<std::string>();
 
@@ -529,7 +529,7 @@ auto CppTypeGenerator::collectRequiredProperties(const Structure& structure) -> 
 	return required;
 }
 
-auto CppTypeGenerator::collectLiteralProperties(const Structure& structure) -> std::vector<std::pair<std::string, std::string>>
+auto TypeGenerator::collectLiteralProperties(const Structure& structure) -> std::vector<std::pair<std::string, std::string>>
 {
 	auto literal = std::vector<std::pair<std::string, std::string>>();
 
@@ -573,7 +573,7 @@ auto CppTypeGenerator::collectLiteralProperties(const Structure& structure) -> s
 
 	return literal;
 }
-void CppTypeGenerator::generateStructureProperty(const Structure& structure, const StructureProperty& p)
+void TypeGenerator::generateStructureProperty(const Structure& structure, const StructureProperty& p)
 {
 	const auto isLiteral          = p.type->isLiteral();
 	const auto isInheritedLiteral = isLiteral && !!structure.findBaseProperty(p.name, *m_metaModel);
@@ -623,7 +623,7 @@ void CppTypeGenerator::generateStructureProperty(const Structure& structure, con
 	}
 }
 
-auto CppTypeGenerator::cppTypeName(const Type& type, bool optional) -> std::string
+auto TypeGenerator::cppTypeName(const Type& type, bool optional) -> std::string
 {
 	std::string typeName;
 

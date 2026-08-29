@@ -1,11 +1,11 @@
 #include <stdexcept>
-#include "cppprotocolversiongenerator.h"
+#include "protocolversiongenerator.h"
 #include "metamodel.h"
 #include "util.h"
 
 namespace lspgen{
 
-void CppProtocolVersionGenerator::generate(const MetaModel& metaModel)
+void ProtocolVersionGenerator::generate(const MetaModel& metaModel)
 {
 	m_metaModel = &metaModel;
 	m_versionWriter.reset();
@@ -37,7 +37,7 @@ R"(#pragma once
 		"\tLSP_STRINGIFY_VERSION(LSP_PROTOCOL_VERSION_MAJOR, LSP_PROTOCOL_VERSION_MINOR, LSP_PROTOCOL_VERSION_PATCH)");
 }
 
-auto CppProtocolVersionGenerator::headerText() const -> std::string
+auto ProtocolVersionGenerator::headerText() const -> std::string
 {
 	return std::string(m_versionWriter.text());
 }

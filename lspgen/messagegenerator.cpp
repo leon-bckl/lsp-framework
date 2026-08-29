@@ -1,4 +1,4 @@
-#include "cppmessagegenerator.h"
+#include "messagegenerator.h"
 #include "metamodel.h"
 
 namespace lspgen{
@@ -26,7 +26,7 @@ R"(} // namespace lsp
 
 } // namespace
 
-void CppMessageGenerator::generate(const MetaModel& metaModel)
+void MessageGenerator::generate(const MetaModel& metaModel)
 {
 	m_metaModel = &metaModel;
 	m_messageWriter.reset();
@@ -49,7 +49,7 @@ void CppMessageGenerator::generate(const MetaModel& metaModel)
 	m_messageWriter.writeNamespaceEnd("notifications");
 }
 
-auto CppMessageGenerator::headerText() const -> std::string
+auto MessageGenerator::headerText() const -> std::string
 {
 	auto text = std::string();
 
@@ -60,7 +60,7 @@ auto CppMessageGenerator::headerText() const -> std::string
 	return text;
 }
 
-void CppMessageGenerator::generateMessage(std::string_view method, const Message& message, bool isNotification)
+void MessageGenerator::generateMessage(std::string_view method, const Message& message, bool isNotification)
 {
 	const auto messageCppName   = CppWriter::upperCaseIdentifier(method);
 	auto       messageDirection = std::string();
