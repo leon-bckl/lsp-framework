@@ -17,6 +17,10 @@ namespace lsp{
 
 using MessageId = jsonrpc::MessageId;
 
+/*
+ * Message concepts
+ */
+
 template<typename M>
 concept MessageHasParams = requires{
 	typename M::Params;
@@ -26,6 +30,20 @@ template<typename M>
 concept MessageHasResult = requires{
 	typename M::Result;
 };
+
+template<typename M, typename F>
+concept IsRequestCallback =
+	MessageHasResult<M> &&
+	((MessageHasParams<M> && std::invocable<F, typename M::Params>) ||
+	(!MessageHasParams<M> && std::invocable<F>)) &&
+	((MessageHasParams<M> && std::constructible_from<RequestResult<M>, MessageId, std::invoke_result_t<F, typename M::Params>>) ||
+	(!MessageHasParams<M> && std::constructible_from<RequestResult<M>, MessageId, std::invoke_result_t<F>>));
+
+template<typename M, typename F>
+concept IsNotificationCallback =
+	(!MessageHasResult<M>) &&
+	((MessageHasParams<M> && std::invocable<F, typename M::Params>) ||
+	(!MessageHasParams<M> && std::invocable<F>));
 
 template<typename M, typename F>
 concept IsResponseCallback =
@@ -38,6 +56,7 @@ concept IsResponseErrorCallback = std::invocable<E, ResponseError>;
 /*
  * MessageHandler
  */
+
 class MessageHandler{
 public:
 	explicit MessageHandler(Connection connection, unsigned int maxResponseThreads = std::thread::hardware_concurrency() / 2);
@@ -55,9 +74,11 @@ public:
 	 */
 
 	template<typename M, typename F>
+	requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 	auto on(F&& callback) -> MessageHandler&;
 
 	template<typename M, typename F>
+	requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
 
 	void remove(const std::string& method);

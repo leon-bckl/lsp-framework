@@ -55,12 +55,14 @@ void MessageHandler::handleRequestResult(const MessageId* messageId, RequestResu
  */
 
 template<typename M, typename F>
+requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 auto MessageHandler::on(F&& callback) -> MessageHandler&
 {
 	return onCustom<M>(M::Method, std::forward<F>(callback));
 }
 
 template<typename M, typename F>
+requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
 {
 	addHandler(method,
