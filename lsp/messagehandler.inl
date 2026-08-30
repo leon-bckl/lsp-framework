@@ -66,7 +66,7 @@ requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
 {
 	addHandler(method,
-		[this, callback = std::forward<F>(callback)](json::Value&& json, Connection::BatchSender* batchSender) mutable
+		[this, callback = std::forward<F>(callback)]([[maybe_unused]] json::Value&& json, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
 		{
 			if constexpr(M::Kind == MessageKind::Request)
 			{
