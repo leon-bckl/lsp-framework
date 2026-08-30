@@ -4,7 +4,36 @@
 namespace lsp{
 namespace{
 
-thread_local const MessageId* t_currentRequestId = nullptr;
+class CurrentRequestId{
+public:
+	[[nodiscard]] static auto get() -> const MessageId*
+	{
+		return s_currentRequestId;
+	}
+
+	[[nodiscard]] static auto set(const MessageId& current) -> CurrentRequestId
+	{
+		assert(!s_currentRequestId);
+		s_currentRequestId = &current;
+		return CurrentRequestId();
+	}
+
+	[[nodiscard]] static auto set(const std::optional<MessageId>& current) -> CurrentRequestId
+	{
+		if(current.has_value())
+			return set(*current);
+
+		return CurrentRequestId();
+	}
+
+	~CurrentRequestId()
+	{
+		s_currentRequestId = nullptr;
+	}
+
+private:
+	inline static thread_local const MessageId* s_currentRequestId = nullptr;
+};
 
 } // namespace
 
@@ -50,12 +79,9 @@ void MessageHandler::setConnection(Connection connection)
 	m_connection = std::move(connection);
 }
 
-auto MessageHandler::currentRequestId() -> const MessageId&
+auto MessageHandler::currentRequestId() -> const MessageId*
 {
-	if(!t_currentRequestId)
-		throw std::logic_error("MessageHandler::currentRequestId called outside of a request context");
-
-	return *t_currentRequestId;
+	return CurrentRequestId::get();
 }
 
 void MessageHandler::remove(const std::string& method)
@@ -73,16 +99,7 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
-		assert(!t_currentRequestId);
-		if(request.id.has_value())
-		{
-			t_currentRequestId = &request.id.value();
-		}
-		else
-		{
-			static const MessageId NullMessageId = json::Null();
-			t_currentRequestId = &NullMessageId;
-		}
+		const auto currentRequestId = CurrentRequestId::set(request.id);
 
 		try
 		{
@@ -108,13 +125,6 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 			if(!request.isNotification())
 				sendErrorResponse(*request.id, MessageError::InternalError, e.what(), {}, batchSender);
 		}
-		catch(...)
-		{
-			t_currentRequestId = nullptr;
-			throw;
-		}
-
-		t_currentRequestId = nullptr;
 	}
 	else
 	{
@@ -140,29 +150,18 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 	if(!result) // If there's no result it means a response was received without a request which makes no sense but just ignore it...
 		return;
 
-	try
-	{
-		assert(!t_currentRequestId);
-		t_currentRequestId = &response.id;
+	const auto currentRequestId = CurrentRequestId::set(response.id);
 
-		if(response.result.has_value())
-		{
-			result->setValueFromJson(std::move(*response.result));
-		}
-		else // Error response received.
-		{
-			assert(response.error.has_value());
-			auto& error = *response.error;
-			result->setError(ResponseError(error.code, std::move(error.message), std::move(error.data)));
-		}
-	}
-	catch(...)
+	if(response.result.has_value())
 	{
-		t_currentRequestId = nullptr;
-		throw;
+		result->setValueFromJson(std::move(*response.result));
 	}
-
-	t_currentRequestId = nullptr;
+	else // Error response received.
+	{
+		assert(response.error.has_value());
+		auto& error = *response.error;
+		result->setError(ResponseError(error.code, std::move(error.message), std::move(error.data)));
+	}
 }
 
 void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handlerFunc)

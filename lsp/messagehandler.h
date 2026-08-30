@@ -65,9 +65,7 @@ public:
 	void processNextMessage();
 	void setConnection(Connection connection);
 
-	// Only valid when called from within a request or response callback.
-	// Throws std::logic_error if not called in that context.
-	[[nodiscard]] static auto currentRequestId() -> const MessageId&;
+	[[nodiscard]] static auto currentRequestId() -> const MessageId*;
 
 	/*
 	 * Callback registration

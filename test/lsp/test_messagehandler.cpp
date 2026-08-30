@@ -274,7 +274,7 @@ int main(int argc, char** argv)
 
 		handler.on<TestNoParamsRequest>([&]()
 		{
-			ids.push_back(MessageHandler::currentRequestId());
+			ids.push_back(*MessageHandler::currentRequestId());
 			return std::vector<int>{};
 		});
 
@@ -290,10 +290,7 @@ int main(int argc, char** argv)
 		test::compare(ids[0], response1.requestId());
 		test::compare(ids[1], response2.requestId());
 		test::check(!(ids[0] == ids[1]), "idsAreUnique");
-
-		test::expectException<std::logic_error>([](){
-			(void)MessageHandler::currentRequestId();
-		});
+		test::check(!MessageHandler::currentRequestId(), "currentRequestId is null outside of request context");
 	});
 
 	app.addTest("Error/Future", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){

@@ -70,7 +70,7 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 		{
 			if constexpr(M::Kind == MessageKind::Request)
 			{
-				const auto& requestId = currentRequestId();
+				const auto& requestId = *currentRequestId();
 				auto result =
 					[&json, &callback, requestId]() mutable
 					{
