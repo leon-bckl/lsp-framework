@@ -16,6 +16,28 @@ inline auto toLower(char c) -> char
 	return c >= 'A' && c <= 'Z' ? c + 32 : c;
 }
 
+inline auto stringToLower(std::string_view str) -> std::string
+{
+	auto lower = std::string();
+	lower.resize(str.size());
+
+	for(std::size_t i = 0 ; i < str.size(); ++i)
+		lower[i] = toLower(str[i]);
+
+	return lower;
+}
+
+inline auto stringToUpper(std::string_view str) -> std::string
+{
+	auto upper = std::string();
+	upper.resize(str.size());
+
+	for(std::size_t i = 0 ; i < str.size(); ++i)
+		upper[i] = toUpper(str[i]);
+
+	return upper;
+}
+
 inline auto capitalizeString(std::string_view str) -> std::string
 {
 	auto result = std::string(str);

@@ -92,6 +92,19 @@ void CppWriter::writeBlockStart(bool newLine)
 
 void CppWriter::writeBlockEnd(bool addSemicolon, bool addEmptyLine)
 {
+	// Strip newlines before block end
+	auto size = m_text.size();
+
+	while(size > 2)
+	{
+		if(m_text[size - 1] != '\n' || m_text[size - 2] != '\n')
+			break;
+
+		--size;
+	}
+
+	m_text.resize(size);
+
 	outdent();
 
 	if(addSemicolon)
@@ -130,6 +143,25 @@ void CppWriter::writeStructStart(std::string_view name, std::string_view base)
 }
 
 void CppWriter::writeStructEnd()
+{
+	writeBlockEnd(true, true);
+}
+
+void CppWriter::writeClassStart(std::string_view name, std::string_view base)
+{
+	write("class ");
+	write(name);
+
+	if(!base.empty())
+	{
+		write(" : public ");
+		write(base );
+	}
+
+	writeBlockStart(false);
+}
+
+void CppWriter::writeClassEnd()
 {
 	writeBlockEnd(true, true);
 }
@@ -209,9 +241,10 @@ void CppWriter::writeFuncSig(std::string_view name, std::string_view returnType,
 			write(", ");
 
 		first = false;
-		write(param.type);
-		write(" ");
-		write(param.name);
+		write(param.type + ' ' + param.name);
+
+		if(!param.defaultValue.empty())
+			write(" = " + param.defaultValue);
 	}
 
 	write(")");

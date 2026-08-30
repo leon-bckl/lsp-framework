@@ -57,6 +57,7 @@ add_executable(lspgen
 	lsp/json/json.cpp
 	lsp/json/parser.cpp
 	lsp/json/writer.cpp
+	lspgen/endpointgenerator.cpp
 	lspgen/messagegenerator.cpp
 	lspgen/protocolversiongenerator.cpp
 	lspgen/typegenerator.cpp
@@ -74,6 +75,7 @@ set(LSP_SRC_DIR ${LSP_DIR}/lsp)
 set(LSP_HEADERS
 	# lsp
 	connection.h
+	endpointbase.h
 	enumeration.h
 	error.h
 	exception.h
@@ -102,6 +104,7 @@ list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR}/)
 set(LSP_SOURCES
 	# lsp
 	connection.cpp
+	endpointbase.cpp
 	messagehandler.cpp
 	process.cpp
 	threadpool.cpp
@@ -123,12 +126,16 @@ set(LSP_GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp)
 
 set(LSP_GENERATED_HEADERS
-	${LSP_GENERATED_FILES_DIR}/lsp/types.h
+	${LSP_GENERATED_FILES_DIR}/lsp/clientendpoint.h
 	${LSP_GENERATED_FILES_DIR}/lsp/messages.h
 	${LSP_GENERATED_FILES_DIR}/lsp/protocolversion.h
+	${LSP_GENERATED_FILES_DIR}/lsp/serverendpoint.h
+	${LSP_GENERATED_FILES_DIR}/lsp/types.h
 )
 
 set(LSP_GENERATED_SOURCES
+	${LSP_GENERATED_FILES_DIR}/lsp/clientendpoint.cpp
+	${LSP_GENERATED_FILES_DIR}/lsp/serverendpoint.cpp
 	${LSP_GENERATED_FILES_DIR}/lsp/types.cpp
 )
 

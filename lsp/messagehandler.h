@@ -86,22 +86,23 @@ public:
 	 */
 
 	using ResponseErrorCallback = void(*)(const ResponseError&);
+	static void nullErrorCallback(const ResponseError&){}
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
-	auto sendRequest(const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
+	auto sendRequest(const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
-	auto sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
+	auto sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
-	auto sendRequest(F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
+	auto sendRequest(F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
-	auto sendCustomRequest(std::string_view method, F&& then, E&& error = [](const ResponseError&){}) -> MessageId;
+	auto sendCustomRequest(std::string_view method, F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M>
 	requires MessageHasParams<M> && MessageHasResult<M>

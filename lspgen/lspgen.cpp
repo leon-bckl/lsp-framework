@@ -2,10 +2,11 @@
 #include <fstream>
 #include <iostream>
 #include <lsp/json/json.h>
+#include "endpointgenerator.h"
 #include "messagegenerator.h"
+#include "metamodel.h"
 #include "protocolversiongenerator.h"
 #include "typegenerator.h"
-#include "metamodel.h"
 
 using namespace lsp;
 using namespace lspgen;
@@ -76,6 +77,18 @@ auto main(int argc, char** argv) -> int
 			messageGenerator.generate(metaModel);
 
 			writeFileContent("messages.h", messageGenerator.headerText());
+		}
+
+		{
+			auto endpointGenerator = EndpointGenerator();
+
+			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ClientToServer);
+			writeFileContent("clientendpoint.h", endpointGenerator.headerText());
+			writeFileContent("clientendpoint.cpp", endpointGenerator.sourceText());
+
+			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ServerToClient);
+			writeFileContent("serverendpoint.h", endpointGenerator.headerText());
+			writeFileContent("serverendpoint.cpp", endpointGenerator.sourceText());
 		}
 	}
 	catch(const json::ParseError& e)

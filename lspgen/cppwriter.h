@@ -1,8 +1,8 @@
 #pragma once
 
-#include <initializer_list>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace lspgen{
 
@@ -23,6 +23,8 @@ public:
 	void writeEnumEnd();
 	void writeStructStart(std::string_view name, std::string_view base = {});
 	void writeStructEnd();
+	void writeClassStart(std::string_view name, std::string_view base = {});
+	void writeClassEnd();
 	void writeTypedef(std::string_view name, std::string_view type);
 
 	enum VariableKind{
@@ -38,6 +40,7 @@ public:
 	struct FuncParam{
 		std::string type;
 		std::string name;
+		std::string defaultValue = {};
 	};
 
 	enum FunctionKind{
@@ -49,7 +52,7 @@ public:
 		FuncOverride = 0x10,
 	};
 
-	using FuncParamList = std::initializer_list<FuncParam>;
+	using FuncParamList = std::vector<FuncParam>;
 
 	void writeFuncSig(std::string_view name, std::string_view returnType, const FuncParamList& params, int kind = FuncPlain);
 	void indent(){ ++m_indent; }
