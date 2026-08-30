@@ -95,20 +95,24 @@ void MessageGenerator::generateMessage(std::string_view method, const Message& m
 	if(hasRegistrationOptions || hasPartialResult || hasParams || hasResult)
 		m_messageWriter.writeEmptyLine();
 
+	// Explicitly add lsp namespace in front of types because there are methods that have the same name as a type and might conflict.
+	// E.g., WorkspaceSymbol
+	const auto typeNamespace = "lsp::";
+
 	if(hasRegistrationOptions)
-		m_messageWriter.writeTypedef("RegistrationOptions", CppWriter::upperCaseIdentifier(message.registrationOptionsTypeName));
+		m_messageWriter.writeTypedef("RegistrationOptions", typeNamespace + CppWriter::upperCaseIdentifier(message.registrationOptionsTypeName));
 
 	if(hasPartialResult)
-		m_messageWriter.writeTypedef("PartialResult", CppWriter::upperCaseIdentifier(message.partialResultTypeName));
+		m_messageWriter.writeTypedef("PartialResult", typeNamespace + CppWriter::upperCaseIdentifier(message.partialResultTypeName));
 
 	if(hasErrorData)
-		m_messageWriter.writeTypedef("ErrorData", CppWriter::upperCaseIdentifier(message.errorDataTypeName));
+		m_messageWriter.writeTypedef("ErrorData", typeNamespace + CppWriter::upperCaseIdentifier(message.errorDataTypeName));
 
 	if(hasParams)
-		m_messageWriter.writeTypedef("Params", CppWriter::upperCaseIdentifier(message.paramsTypeName));
+		m_messageWriter.writeTypedef("Params", typeNamespace + CppWriter::upperCaseIdentifier(message.paramsTypeName));
 
 	if(hasResult)
-		m_messageWriter.writeTypedef("Result", CppWriter::upperCaseIdentifier(message.resultTypeName));
+		m_messageWriter.writeTypedef("Result", typeNamespace + CppWriter::upperCaseIdentifier(message.resultTypeName));
 
 	m_messageWriter.writeStructEnd();
 }

@@ -32,7 +32,10 @@ R"(#pragma once
 namespace lsp{
 
 using Null        = std::nullptr_t;
-using uint        = unsigned int;
+using Bool        = bool;
+using Int         = int;
+using Uint        = unsigned int;
+using Decimal     = double;
 using String      = std::string;
 using DocumentUri = Uri;
 using LSPArray    = json::Array;
@@ -104,15 +107,15 @@ static auto baseTypeName(BaseType::Kind kind) -> std::string_view
 	{
 		using enum BaseType::Kind;
 	case Boolean:
-		return "bool";
+		return "Bool";
 	case String:
 		return "String";
 	case Integer:
-		return "int";
+		return "Int";
 	case UInteger:
-		return "uint";
+		return "Uint";
 	case Decimal:
-		return "double";
+		return "Decimal";
 	case URI:
 		return "Uri";
 	case DocumentUri:
