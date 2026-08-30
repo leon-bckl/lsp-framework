@@ -22,10 +22,23 @@ public:
 	EndpointBase(io::Stream& stream);
 
 	auto messageHandler() -> MessageHandler&;
+	void processNextMessage();
+	void runMessageLoop();
 
 	static void nullError(const ResponseError&){}
 
 protected:
+	enum class State{
+		Inactive,      // Initial state or exit notification received
+		Uninitialized, // Started up and waiting for initialize request
+		Active,        // Currently handling requests
+		Shutdown       // Shutdown notification received
+	};
+
+	auto state() const -> State;
+	void setState(State state);
+
+	// Message hook to call pre and post method call functions
 	template<typename MessageType, typename EndpointType>
 	class MessageHook{
 	public:
@@ -51,7 +64,8 @@ protected:
 	}
 
 private:
-	MessageHandler m_messageHandler;
+	std::atomic<State> m_state = State::Inactive;
+	MessageHandler     m_messageHandler;
 };
 
 /*
@@ -59,12 +73,24 @@ private:
  */
 
 class ClientEndpointBase : public EndpointBase{
-protected:
+public:
 	template<typename M>
-	void preMethodCall(){}
+	void preMethodCall(){ verifyInitialized(); }
 
 	template<typename M>
 	void postMethodCall(){}
+
+	template<>
+	void preMethodCall<requests::Initialize>();
+
+	template<>
+	void preMethodCall<requests::Shutdown>();
+
+	template<>
+	void preMethodCall<requests::Exit>();
+
+private:
+	void verifyInitialized() const;
 };
 
 /*
@@ -77,7 +103,6 @@ public:
 
 	auto isInitialized() const -> bool;
 
-protected:
 	template<typename M>
 	void preMethodCall(){ verifyInitialized(); }
 
@@ -97,14 +122,6 @@ protected:
 	void preMethodCall<requests::Exit>();
 
 private:
-	enum class State{
-		Uninitialized, // Started up and waiting for initialize request
-		Active,        // Currently handling requests
-		Shutdown       // Shutdown notification received
-	};
-
-	std::atomic<State> m_state = State::Uninitialized;
-
 	void verifyInitialized() const;
 };
 

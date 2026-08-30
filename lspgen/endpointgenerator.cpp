@@ -142,6 +142,7 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 
 	m_implWriter.writeFuncSig(className + "::" + methodName, returnType, funcParams);
 	m_implWriter.writeBlockStart(true);
+	m_implWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 
 	if(isNotification)
 		m_implWriter.writeLine("messageHandler().sendNotification<" + messageType + ">(" + (hasParams ? "params" : "") + ");");
@@ -157,11 +158,15 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 		funcParams.push_back({"F&&", "then"});
 		funcParams.push_back({"E&&", "error", "nullError"});
 		inlineImplWriter.writeFuncSig(methodName, "MessageId", funcParams);
+		inlineImplWriter.writeBlockStart(true);
+		inlineImplWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 
 		if(hasParams)
-			inlineImplWriter.writeLine("{ return messageHandler().sendRequest(params, then, error); }");
+			inlineImplWriter.writeLine("return messageHandler().sendRequest(params, then, error);");
 		else
-			inlineImplWriter.writeLine("{ return messageHandler().sendRequest(then, error); }");
+			inlineImplWriter.writeLine("return messageHandler().sendRequest(then, error);");
+
+		inlineImplWriter.writeBlockEnd(false, true);
 	}
 }
 
