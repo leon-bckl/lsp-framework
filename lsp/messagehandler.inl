@@ -106,16 +106,22 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 				(void)this;
 				static_assert(M::Kind == MessageKind::Notification);
 
-				// FIXME: Enable async notification callbacks
 				if constexpr(requires{typename M::Params;})
 				{
 					auto params = typename M::Params();
 					fromJson(std::move(json), params);
-					callback(std::move(params));
+
+					if constexpr(IsFuture<std::invoke_result_t<F, typename M::Params>>{})
+						m_threadPool.addTask([future = callback(std::move(params))](){ future.wait(); });
+					else
+						callback(std::move(params));
 				}
 				else
 				{
-					callback();
+					if constexpr(IsFuture<std::invoke_result_t<F>>{})
+						m_threadPool.addTask([future = callback()](){ future.wait(); });
+					else
+						callback();
 				}
 			}
 		});

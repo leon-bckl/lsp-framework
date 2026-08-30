@@ -179,6 +179,12 @@ private:
 
 	static auto nextUniqueRequestId() -> json::Integer;
 
+	template<typename T>
+	struct IsFuture : std::false_type{};
+
+	template<typename... Args>
+	struct IsFuture<std::future<Args...>> : std::true_type{};
+
 	/*
 	 * Request result wrapper
 	 */

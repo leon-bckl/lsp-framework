@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -449,6 +450,76 @@ int main(int argc, char** argv)
 	})({
 		{"RequestError",     {true,  1234,                        "custom error"}},
 		{"GenericException", {false, MessageError::InternalError, "boom"}},
+	});
+
+	app.addTest("Notification/Async", [](){
+		auto stream = LoopbackStream();
+
+		const auto mainThread = std::this_thread::get_id();
+		auto callbackThread   = std::thread::id();
+		auto waitThread       = std::promise<std::thread::id>();
+		auto waitThreadFuture = waitThread.get_future();
+		auto release          = std::promise<void>();
+		auto releaseFuture    = release.get_future();
+
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsNotification>([&]() -> std::future<void>
+		{
+			callbackThread = std::this_thread::get_id();
+
+			return std::async(std::launch::deferred, [&]()
+			{
+				waitThread.set_value(std::this_thread::get_id());
+				(void)releaseFuture.wait_for(std::chrono::seconds(5));
+			});
+		});
+
+		handler.sendNotification<TestNoParamsNotification>();
+		handler.processNextMessage();
+
+		const auto waitStarted  = waitThreadFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+		const auto waitThreadId = waitStarted ? waitThreadFuture.get() : mainThread;
+
+		release.set_value();
+
+		test::check(callbackThread == mainThread, "callbackRanSynchronously");
+		test::check(waitStarted, "asyncWaitStarted");
+		test::check(waitThreadId != mainThread, "waitedOnSeparateThread");
+		test::check(stream.empty(), "noResponseWritten");
+	});
+
+	app.addTest("Notification/AsyncWithParams", [](){
+		auto stream = LoopbackStream();
+
+		const auto mainThread = std::this_thread::get_id();
+		auto received         = std::vector<int>();
+		auto waitThread       = std::promise<std::thread::id>();
+		auto waitThreadFuture = waitThread.get_future();
+
+		auto handler = MessageHandler(Connection(stream));
+
+		// A notification callback may return any future; only future<void> makes sense but others are accepted as well but the result is discarded
+		handler.on<TestNotification>([&](std::vector<int> params) -> std::future<int>
+		{
+			received = std::move(params);
+
+			return std::async(std::launch::deferred, [&]() -> int
+			{
+				waitThread.set_value(std::this_thread::get_id());
+				return 0;
+			});
+		});
+
+		handler.sendNotification<TestNotification>({1, 2, 3});
+		handler.processNextMessage();
+
+		const auto waitStarted = waitThreadFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+
+		test::compare(received, std::vector<int>{1, 2, 3});
+		test::check(waitStarted, "asyncWaitStarted");
+		test::check(waitStarted && waitThreadFuture.get() != mainThread, "waitedOnSeparateThread");
+		test::check(stream.empty(), "noResponseWritten");
 	});
 
 	app.addTest("Generic/Request", [](){
