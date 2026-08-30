@@ -6,12 +6,13 @@
 
 namespace lsp{
 namespace requests{
-
 struct Initialize;
 struct Shutdown;
-struct Exit;
-
 } // namespace requests
+
+namespace notifications{
+struct Exit;
+} // namespace notifications
 
 /*
  * EndpointBase
@@ -89,7 +90,7 @@ public:
 	void preMethodCall<requests::Shutdown>();
 
 	template<>
-	void preMethodCall<requests::Exit>();
+	void preMethodCall<notifications::Exit>();
 
 private:
 	void verifyInitialized() const;
@@ -121,7 +122,7 @@ public:
 	void preMethodCall<requests::Shutdown>();
 
 	template<>
-	void preMethodCall<requests::Exit>();
+	void preMethodCall<notifications::Exit>();
 
 private:
 	void verifyInitialized() const;

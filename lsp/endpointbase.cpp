@@ -70,7 +70,7 @@ void ClientEndpointBase::preMethodCall<requests::Shutdown>()
 }
 
 template<>
-void ClientEndpointBase::preMethodCall<requests::Exit>()
+void ClientEndpointBase::preMethodCall<notifications::Exit>()
 {
 	setState(State::Uninitialized);
 }
@@ -133,7 +133,7 @@ void ServerEndpointBase::preMethodCall<requests::Shutdown>()
 }
 
 template<>
-void ServerEndpointBase::preMethodCall<requests::Exit>()
+void ServerEndpointBase::preMethodCall<notifications::Exit>()
 {
 	verifyInitialized();
 	setState(State::Inactive);
