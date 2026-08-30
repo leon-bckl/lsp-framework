@@ -144,7 +144,7 @@ template<typename M, typename F, typename E>
 requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error) -> MessageId
 {
-	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
+	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
 		std::forward<F>(then), std::forward<E>(error));
 	const auto requestId     = nextUniqueRequestId();
 	auto       requestSender = m_connection.request(method, requestId);
@@ -167,7 +167,7 @@ template<typename M, typename F, typename E>
 requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
 auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& error) -> MessageId
 {
-	auto result = std::make_unique<CallbackRequestResult<typename M::Result, F, E>>(
+	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
 		std::forward<F>(then), std::forward<E>(error));
 	const auto requestId     = nextUniqueRequestId();
 	auto       requestSender = m_connection.request(method, requestId);
