@@ -173,9 +173,9 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 		inlineImplWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 
 		if(hasParams)
-			inlineImplWriter.writeLine("return messageHandler().sendRequest(params, then, error);");
+			inlineImplWriter.writeLine("return messageHandler().sendRequest<" + messageType + ">(params, std::forward<F>(then), std::forward<E>(error));");
 		else
-			inlineImplWriter.writeLine("return messageHandler().sendRequest(then, error);");
+			inlineImplWriter.writeLine("return messageHandler().sendRequest<" + messageType + ">(std::forward<F>(then), std::forward<E>(error));");
 
 		inlineImplWriter.writeBlockEnd(false, true);
 	}
