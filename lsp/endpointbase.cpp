@@ -10,6 +10,7 @@ namespace lsp{
 EndpointBase::EndpointBase(io::Stream& stream)
 	: m_messageHandler{Connection(stream)}
 {
+	m_state.store(State::Uninitialized);
 }
 
 auto EndpointBase::messageHandler() -> MessageHandler&
