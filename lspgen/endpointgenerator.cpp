@@ -44,6 +44,17 @@ R"(/*#############################################################
 	m_declWriter.outdent();
 	m_declWriter.writeLine("public:");
 	m_declWriter.indent();
+	m_declWriter.writeFuncSig(className, {}, {{"io::Stream&", "stream"}});
+	m_declWriter.writeLine(";");
+	m_declWriter.writeEmptyLine();
+
+	m_implWriter.writeFuncSig(className + "::" + className, {}, {{"io::Stream&", "stream"}});
+	m_implWriter.writeLine({});
+	m_implWriter.indent();
+	m_implWriter.write(": " + className + "Base{stream}");
+	m_implWriter.outdent();
+	m_implWriter.writeBlockStart(true);
+	m_implWriter.writeBlockEnd(false, true);
 
 	generateMethods(className, direction);
 

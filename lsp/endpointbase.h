@@ -74,6 +74,8 @@ private:
 
 class ClientEndpointBase : public EndpointBase{
 public:
+	ClientEndpointBase(io::Stream& stream);
+
 	template<typename M>
 	void preMethodCall(){ verifyInitialized(); }
 

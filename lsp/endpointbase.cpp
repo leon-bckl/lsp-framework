@@ -52,6 +52,11 @@ void EndpointBase::setState(State state)
  * ClientEndpointBase
  */
 
+ClientEndpointBase::ClientEndpointBase(io::Stream& stream)
+	: EndpointBase{stream}
+{
+}
+
 template<>
 void ClientEndpointBase::preMethodCall<requests::Initialize>()
 {
