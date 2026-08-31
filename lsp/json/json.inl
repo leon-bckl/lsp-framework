@@ -11,7 +11,7 @@ namespace lsp::json{
  */
 
 template<typename T>
-T& Value::get(const char* typeName)
+auto Value::get(const char* typeName) -> T&
 {
 	if(auto* const v = std::get_if<T>(&m_variant))
 		return *v;
@@ -20,7 +20,7 @@ T& Value::get(const char* typeName)
 }
 
 template<typename T>
-const T& Value::get(const char* typeName) const
+auto Value::get(const char* typeName) const -> const T&
 {
 	if(auto* const v = std::get_if<T>(&m_variant))
 		return *v;
@@ -40,9 +40,9 @@ public:
 	{
 	}
 
-	const String& key()   const{ return m_key; }
-	Value&        value()      { return m_value; }
-	const Value&  value() const{ return m_value; }
+	auto key() const -> const String&{ return m_key; }
+	auto value() -> Value&{ return m_value; }
+	auto value() const -> const Value&{ return m_value; }
 
 	template<std::size_t I>
 	decltype(auto) get()

@@ -43,18 +43,18 @@ public:
 	Process& operator=(Process&&) noexcept;
 	~Process();
 
-	[[nodiscard]] static Process start(const std::string& executable, const ArgList& args = {});
+	[[nodiscard]] static auto start(const std::string& executable, const ArgList& args = {}) -> Process;
 
-	[[nodiscard]] bool        isRunning() const;
-	[[nodiscard]] int         id();
-	[[nodiscard]] io::Stream& stdIO();
-	[[nodiscard]] std::string readAvailableStdErr();
+	[[nodiscard]] auto isRunning() const -> bool;
+	[[nodiscard]] auto id() -> int;
+	[[nodiscard]] auto stdIO() -> io::Stream&;
+	[[nodiscard]] auto readAvailableStdErr() -> std::string;
 
-	int  wait();
+	auto  wait() -> int;
 	void terminate();
 
-	[[nodiscard]] static int  currentProcessId();
-	[[nodiscard]] static bool exists(int id);
+	[[nodiscard]] static auto currentProcessId() -> int;
+	[[nodiscard]] static auto exists(int id) -> bool;
 
 private:
 	struct Impl;

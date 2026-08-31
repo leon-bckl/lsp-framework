@@ -32,12 +32,12 @@ void RequestWriter::finalize()
 	m_paramsWriter.finalize();
 }
 
-RequestWriter RequestWriter::writeRequest(json::ObjectWriter&& writer, const MessageId& id, std::string_view method)
+auto RequestWriter::writeRequest(json::ObjectWriter&& writer, const MessageId& id, std::string_view method) -> RequestWriter
 {
 	return RequestWriter(std::move(writer), method, &id);
 }
 
-RequestWriter RequestWriter::writeNotification(json::ObjectWriter&& writer, std::string_view method)
+auto RequestWriter::writeNotification(json::ObjectWriter&& writer, std::string_view method) -> RequestWriter
 {
 	return RequestWriter(std::move(writer), method, nullptr);
 }
@@ -64,7 +64,7 @@ ResponseWriter::~ResponseWriter()
 	finalize();
 }
 
-ResponseWriter& ResponseWriter::operator=(ResponseWriter&& other) noexcept
+auto ResponseWriter::operator=(ResponseWriter&& other) noexcept -> ResponseWriter&
 {
 	finalize();
 
@@ -88,12 +88,12 @@ void ResponseWriter::finalize()
 	m_resultWriter.finalize();
 }
 
-ResponseWriter ResponseWriter::writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id)
+auto ResponseWriter::writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id) -> ResponseWriter
 {
 	return ResponseWriter(std::move(objectWriter), id);
 }
 
-ResponseWriter ResponseWriter::writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message)
+auto ResponseWriter::writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message) -> ResponseWriter
 {
 	auto responseWriter = ResponseWriter(std::move(objectWriter), id);
 	auto errorWriter    = responseWriter.m_resultWriter.beginObject("error");
@@ -119,30 +119,30 @@ void BatchWriter::finalize()
 	m_writer.finalize();
 }
 
-bool BatchWriter::batchIsEmpty() const
+auto BatchWriter::batchIsEmpty() const -> bool
 {
 	return m_empty;
 }
 
-RequestWriter BatchWriter::writeRequest( const MessageId& id, std::string_view method)
+auto BatchWriter::writeRequest( const MessageId& id, std::string_view method) -> RequestWriter
 {
 	m_empty = false;
 	return RequestWriter::writeRequest(m_writer.beginObject(), id, method);
 }
 
-RequestWriter BatchWriter::writeNotification(std::string_view method)
+auto BatchWriter::writeNotification(std::string_view method) -> RequestWriter
 {
 	m_empty = false;
 	return RequestWriter::writeNotification(m_writer.beginObject(), method);
 }
 
-ResponseWriter BatchWriter::writeResponse(const MessageId& id)
+auto BatchWriter::writeResponse(const MessageId& id) -> ResponseWriter
 {
 	m_empty = false;
 	return ResponseWriter::writeResponse(m_writer.beginObject(), id);
 }
 
-ResponseWriter BatchWriter::writeError(const MessageId& id, int code, std::string_view message)
+auto BatchWriter::writeError(const MessageId& id, int code, std::string_view message) -> ResponseWriter
 {
 	m_empty = false;
 	return ResponseWriter::writeError(m_writer.beginObject(), id, code, message);

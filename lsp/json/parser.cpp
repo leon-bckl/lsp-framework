@@ -7,22 +7,22 @@
 namespace lsp::json{
 namespace{
 
-bool isWhitespace(char c)
+auto isWhitespace(char c) -> bool
 {
 	return c <= 0x20; // Not 'correct' but good enough for this case
 }
 
-bool isDigit(char c)
+auto isDigit(char c) -> bool
 {
 	return c >= '0' && c <= '9';
 }
 
-bool isAlpha(char c)
+auto isAlpha(char c) -> bool
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-bool isAlphanumeric(char c)
+auto isAlphanumeric(char c) -> bool
 {
 	return isAlpha(c) || isDigit(c);
 }
@@ -86,22 +86,22 @@ Parser::Parser(std::string_view text)
 
 Parser::~Parser() = default;
 
-bool Parser::atEnd() const
+auto Parser::atEnd() const -> bool
 {
 	return m_pos >= m_end;
 }
 
-std::size_t Parser::textOffset(const char* pos) const
+auto Parser::textOffset(const char* pos) const -> std::size_t
 {
 	return static_cast<std::size_t>(std::distance(m_start, pos));
 }
 
-std::size_t Parser::currentTextOffset() const
+auto Parser::currentTextOffset() const -> std::size_t
 {
 	return textOffset(m_pos);
 }
 
-Value Parser::parse()
+auto Parser::parse() -> Value
 {
 	Value result;
 
@@ -250,13 +250,13 @@ void Parser::handleArray()
 	}
 }
 
-Parser::State Parser::currentState() const
+auto Parser::currentState() const -> Parser::State
 {
 	assert(!m_stateStack.empty());
 	return m_stateStack.back().context;
 }
 
-Value& Parser::currentValue()
+auto Parser::currentValue() -> Value&
 {
 	assert(!m_stateStack.empty());
 	return *m_stateStack.back().value;
@@ -279,7 +279,7 @@ void Parser::skipWhitespace()
 		++m_pos;
 }
 
-String Parser::parseString()
+auto Parser::parseString() -> String
 {
 	if(atEnd() || *m_pos != '\"')
 		throw ParseError("Expected string", currentTextOffset());
@@ -391,7 +391,7 @@ String Parser::parseString()
 	return result;
 }
 
-Value Parser::parseNumber()
+auto Parser::parseNumber() -> Value
 {
 	const char* numberStart = m_pos;
 	bool isDecimal = false;
@@ -433,7 +433,7 @@ Value Parser::parseNumber()
 	return static_cast<json::Integer>(intValue);
 }
 
-Value Parser::parseIdentifier()
+auto Parser::parseIdentifier() -> Value
 {
 	const char* idStart = m_pos;
 
@@ -454,7 +454,7 @@ Value Parser::parseIdentifier()
 	throw ParseError("Unexpected '" + std::string(identifier) + "'", textOffset(idStart));
 }
 
-Value Parser::parseSimpleValue()
+auto Parser::parseSimpleValue() -> Value
 {
 	if(*m_pos == '\"')
 		return parseString();

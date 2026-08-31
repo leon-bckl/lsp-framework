@@ -8,13 +8,13 @@ namespace lsp::json{
  * parse/stringify
  */
 
-Value parse(std::string_view text)
+auto parse(std::string_view text) -> Value
 {
 	auto parser = Parser(text);
 	return parser.parse();
 }
 
-std::string stringify(const Value& json, std::string_view indent)
+auto stringify(const Value& json, std::string_view indent) -> std::string
 {
 	auto str    = std::string();
 	auto writer = Writer(str, indent);
@@ -26,7 +26,7 @@ std::string stringify(const Value& json, std::string_view indent)
  * Value
  */
 
-Decimal Value::number() const
+auto Value::number() const -> Decimal
 {
 	if(isDecimal())
 		return get<Decimal>(nullptr);
@@ -62,7 +62,7 @@ Object::SizeType Object::capacity() const
 	return m_keyValuePairs.capacity();
 }
 
-Value& Object::insert(String key, Value value)
+auto Object::insert(String key, Value value) -> Value&
 {
 	Value* existingValue = find(key);
 
@@ -75,7 +75,7 @@ Value& Object::insert(String key, Value value)
 	return append(std::move(key), std::move(value));
 }
 
-Value& Object::append(String key, Value value)
+auto Object::append(String key, Value value) -> Value&
 {
 	return m_keyValuePairs.emplace_back(std::move(key), std::move(value)).value();
 }
@@ -102,7 +102,7 @@ void Object::reserve(SizeType size)
 	m_keyValuePairs.reserve(size);
 }
 
-Value* Object::find(std::string_view key)
+auto Object::find(std::string_view key) -> Value*
 {
 	for(auto& [objKey, value] : m_keyValuePairs)
 	{
@@ -113,7 +113,7 @@ Value* Object::find(std::string_view key)
 	return nullptr;
 }
 
-Value& Object::get(std::string_view key)
+auto Object::get(std::string_view key) -> Value&
 {
 	auto* value = find(key);
 
@@ -123,7 +123,7 @@ Value& Object::get(std::string_view key)
 	throw TypeError("JSON object does not contain key '" + std::string(key) + '\'');
 }
 
-Value& Object::operator[](std::string_view key)
+auto Object::operator[](std::string_view key) -> Value&
 {
 	auto* value = find(key);
 
@@ -133,7 +133,7 @@ Value& Object::operator[](std::string_view key)
 	return m_keyValuePairs.emplace_back(String(key), Value()).value();
 }
 
-bool Object::operator==(const Object& other) const
+auto Object::operator==(const Object& other) const -> bool
 {
 	if(size() != other.size())
 		return false;

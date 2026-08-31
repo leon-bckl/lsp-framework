@@ -13,42 +13,42 @@ public:
 
 	Uri() = default;
 
-	[[nodiscard]] static Uri parse(std::string_view uriStr);
-	[[nodiscard]] static Uri fileUriFromPath(std::string_view path);
+	[[nodiscard]] static auto parse(std::string_view uriStr) -> Uri;
+	[[nodiscard]] static auto fileUriFromPath(std::string_view path) -> Uri;
 
 	[[nodiscard]] std::string fsPath() const;
 
-	[[nodiscard]] bool isValid() const;
-	[[nodiscard]] bool isFileUri() const;
-	[[nodiscard]] bool hasAuthority() const;
-	[[nodiscard]] bool hasQuery() const;
-	[[nodiscard]] bool hasFragment() const;
+	[[nodiscard]] auto isValid() const -> bool;
+	[[nodiscard]] auto isFileUri() const -> bool;
+	[[nodiscard]] auto hasAuthority() const -> bool;
+	[[nodiscard]] auto hasQuery() const -> bool;
+	[[nodiscard]] auto hasFragment() const -> bool;
 
-	[[nodiscard]] std::string_view scheme() const;
-	[[nodiscard]] std::string_view authority() const;
-	[[nodiscard]] std::string_view path() const;
-	[[nodiscard]] std::string_view query() const;
-	[[nodiscard]] std::string_view fragment() const;
+	[[nodiscard]] auto scheme() const -> std::string_view;
+	[[nodiscard]] auto authority() const -> std::string_view;
+	[[nodiscard]] auto path() const -> std::string_view;
+	[[nodiscard]] auto query() const -> std::string_view;
+	[[nodiscard]] auto fragment() const -> std::string_view;
 
-	bool setScheme(std::string_view scheme);
-	bool setAuthority(std::string_view authority);
-	bool setPath(std::string_view path);
-	bool setQuery(std::string_view query);
-	bool setFragment(std::string_view fragment);
+	auto setScheme(std::string_view scheme) -> bool;
+	auto setAuthority(std::string_view authority) -> bool;
+	auto setPath(std::string_view path) -> bool;
+	auto setQuery(std::string_view query) -> bool;
+	auto setFragment(std::string_view fragment) -> bool;
 
 	void removeAuthority();
 	void removeQuery();
 	void removeFragment();
 
-	[[nodiscard]] std::string toString() const;
-	[[nodiscard]] std::string_view data() const{ return m_data; }
+	[[nodiscard]] auto toString() const -> std::string;
+	[[nodiscard]] auto data() const -> std::string_view{ return m_data; }
 
-	[[nodiscard]] static std::string encode(std::string_view decoded, std::string_view exclude = {});
-	[[nodiscard]] static std::string decode(std::string_view encoded);
+	[[nodiscard]] static auto encode(std::string_view decoded, std::string_view exclude = {}) -> std::string;
+	[[nodiscard]] static auto decode(std::string_view encoded) -> std::string;
 
-	[[nodiscard]] bool operator==(const Uri& other) const;
-	[[nodiscard]] bool operator!=(const Uri& other) const{ return !(*this == other); }
-	[[nodiscard]] bool operator<(const Uri& other) const{ return m_data < other.m_data; }
+	[[nodiscard]] auto operator==(const Uri& other) const -> bool;
+	[[nodiscard]] auto operator!=(const Uri& other) const -> bool{ return !(*this == other); }
+	[[nodiscard]] auto operator<(const Uri& other) const -> bool{ return m_data < other.m_data; }
 
 private:
 	std::string   m_data;
@@ -76,16 +76,16 @@ template<>
 struct hash<lsp::Uri>{
 	using is_transparent = void;
 
-	size_t operator()(const lsp::Uri& uri) const{ return hash<string_view>{}(uri.data()); }
-	size_t operator()(string_view uriStr) const{ return hash<string_view>{}(lsp::Uri::parse(uriStr).data()); }
+	auto operator()(const lsp::Uri& uri) const -> size_t{ return hash<string_view>{}(uri.data()); }
+	auto operator()(string_view uriStr) const -> size_t{ return hash<string_view>{}(lsp::Uri::parse(uriStr).data()); }
 };
 
 template<>
 struct equal_to<lsp::Uri>{
 	using is_transparent = void;
 
-	bool operator()(const lsp::Uri& lhs, const lsp::Uri& rhs) const{ return lhs == rhs; }
-	bool operator()(const lsp::Uri& lhs, string_view rhs) const{ return lhs == lsp::Uri::parse(rhs); }
+	auto operator()(const lsp::Uri& lhs, const lsp::Uri& rhs) const -> bool{ return lhs == rhs; }
+	auto operator()(const lsp::Uri& lhs, string_view rhs) const -> bool{ return lhs == lsp::Uri::parse(rhs); }
 };
 
 } // namespace std

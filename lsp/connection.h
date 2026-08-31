@@ -34,7 +34,7 @@ public:
 	Connection(const Connection&)            = delete;
 	Connection& operator=(const Connection&) = delete;
 
-	Message readMessage();
+	auto readMessage() -> Message;
 
 	/*
 	 * MessageSender
@@ -118,11 +118,11 @@ public:
 		BatchSender(Connection& connection);
 	};
 
-	[[nodiscard]] RequestSender  request(std::string_view method, const jsonrpc::MessageId& id);
-	[[nodiscard]] RequestSender  notification(std::string_view method);
-	[[nodiscard]] ResponseSender response(const jsonrpc::MessageId& id);
-	[[nodiscard]] ResponseSender errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message);
-	[[nodiscard]] BatchSender    messageBatch();
+	[[nodiscard]] auto request(std::string_view method, const jsonrpc::MessageId& id) -> RequestSender;
+	[[nodiscard]] auto notification(std::string_view method) -> RequestSender;
+	[[nodiscard]] auto response(const jsonrpc::MessageId& id) -> ResponseSender;
+	[[nodiscard]] auto errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message) -> ResponseSender;
+	[[nodiscard]] auto messageBatch() -> BatchSender;
 
 private:
 	struct Internal;
@@ -131,11 +131,11 @@ private:
 	struct MessageHeader;
 	class InputReader;
 
-	MessageHeader readMessageHeader(InputReader& reader);
+	auto readMessageHeader(InputReader& reader) -> MessageHeader;
 	static void parseHeaderValue(MessageHeader& header, std::string_view line);
 	static void readNextMessageHeaderField(MessageHeader& header, InputReader& reader);
 	void writeMessageData(std::string_view content);
-	std::string messageHeaderString(const MessageHeader& header);
+	static auto messageHeaderString(const MessageHeader& header) -> std::string;
 };
 
 /*

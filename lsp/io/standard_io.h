@@ -4,6 +4,6 @@ namespace lsp::io{
 
 class Stream;
 
-Stream& standardIO();
+auto standardIO() -> Stream&;
 
 } //namespace lsp::io

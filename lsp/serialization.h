@@ -218,13 +218,13 @@ template<std::size_t Index, typename VariantType>
 std::size_t deserializableVariantIndex(const json::Value& json);
 
 template<std::size_t Index, typename TupleType>
-bool canDeserializeTupleElementsFromJson(const json::Value& json);
+auto canDeserializeTupleElementsFromJson(const json::Value& json) -> bool;
 
 template<std::size_t Index, typename TupleType>
-bool canDeserializeTupleFromJson(const json::Array& array);
+auto canDeserializeTupleFromJson(const json::Array& array) -> bool;
 
 template<typename T>
-bool canDeserializeTypeFromJson(const json::Value& json)
+auto canDeserializeTypeFromJson(const json::Value& json) -> bool
 {
 	if constexpr(std::is_null_pointer_v<T>)
 	{
@@ -318,7 +318,7 @@ bool canDeserializeTypeFromJson(const json::Value& json)
 }
 
 template<std::size_t Index, typename TupleType>
-bool canDeserializeTupleFromJson(const json::Array& array)
+auto canDeserializeTupleFromJson(const json::Array& array) -> bool
 {
 	if constexpr(Index == 0) // Only perform this check one time for the first element
 	{
@@ -338,7 +338,7 @@ bool canDeserializeTupleFromJson(const json::Array& array)
 }
 
 template<std::size_t Index, typename VariantType>
-std::size_t deserializableVariantIndex(const json::Value& json)
+auto deserializableVariantIndex(const json::Value& json) -> std::size_t
 {
 	using T = std::variant_alternative_t<Index, VariantType>;
 

@@ -51,7 +51,7 @@ void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[mayb
 }
 #endif
 
-std::string_view trimWhitespace(std::string_view str)
+auto trimWhitespace(std::string_view str) -> std::string_view
 {
 	while(!str.empty() && str.front() <= 0x20)
 		str.remove_prefix(1);
@@ -62,7 +62,7 @@ std::string_view trimWhitespace(std::string_view str)
 	return str;
 }
 
-bool equalCaseInsensitive(std::string_view lhs, std::string_view rhs)
+auto equalCaseInsensitive(std::string_view lhs, std::string_view rhs) -> bool
 {
 	return std::ranges::equal(lhs, rhs, [](char a, char b)
 		{
@@ -101,7 +101,7 @@ public:
 	{
 	}
 
-	char peek()
+	auto peek() -> char
 	{
 		if(!m_peek.has_value())
 			m_peek = get();
@@ -109,7 +109,7 @@ public:
 		return m_peek.value();
 	}
 
-	char get()
+	auto get() -> char
 	{
 		if(m_peek.has_value())
 		{
@@ -170,7 +170,7 @@ Connection::~Connection()                                = default;
 Connection::Connection(Connection&&) noexcept            = default;
 Connection& Connection::operator=(Connection&&) noexcept = default;
 
-Connection::Message Connection::readMessage()
+auto Connection::readMessage() -> Connection::Message
 {
 	try
 	{
@@ -230,7 +230,7 @@ Connection::Message Connection::readMessage()
 	}
 }
 
-Connection::MessageHeader Connection::readMessageHeader(InputReader& reader)
+auto Connection::readMessageHeader(InputReader& reader) -> Connection::MessageHeader
 {
 	MessageHeader header;
 
@@ -308,33 +308,33 @@ void Connection::writeMessageData(std::string_view content)
 	}
 }
 
-std::string Connection::messageHeaderString(const MessageHeader& header)
+auto Connection::messageHeaderString(const MessageHeader& header) -> std::string
 {
 	return "Content-Length: " + std::to_string(header.contentLength) + "\r\n" +
 	       "Content-Type: " + header.contentType + "\r\n\r\n";
 }
 
-Connection::RequestSender Connection::request(std::string_view method, const jsonrpc::MessageId& id)
+auto Connection::request(std::string_view method, const jsonrpc::MessageId& id) -> Connection::RequestSender
 {
 	return RequestSender(*this, method, id);
 }
 
-Connection::RequestSender Connection::notification(std::string_view method)
+auto Connection::notification(std::string_view method) -> Connection::RequestSender
 {
 	return RequestSender(*this, method);
 }
 
-Connection::ResponseSender Connection::response(const jsonrpc::MessageId& id)
+auto Connection::response(const jsonrpc::MessageId& id) -> Connection::ResponseSender
 {
 	return ResponseSender(*this, id);
 }
 
-Connection::ResponseSender Connection::errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message)
+auto Connection::errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message) -> Connection::ResponseSender
 {
 	return ResponseSender(*this, id, code, message);
 }
 
-Connection::BatchSender Connection::messageBatch()
+auto Connection::messageBatch() -> Connection::BatchSender
 {
 	return BatchSender(*this);
 }
@@ -359,7 +359,7 @@ Connection::MessageSender::~MessageSender()
 	assert(!m_connection || std::uncaught_exceptions() > 0);
 }
 
-json::Writer& Connection::MessageSender::writer()
+auto Connection::MessageSender::writer() -> json::Writer&
 {
 	return m_writer;
 }

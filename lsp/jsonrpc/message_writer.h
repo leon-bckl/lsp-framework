@@ -13,8 +13,8 @@ class RequestWriter{
 public:
 	void finalize();
 
-	[[nodiscard]] static RequestWriter writeRequest(json::ObjectWriter&& writer, const MessageId& id, std::string_view method);
-	[[nodiscard]] static RequestWriter writeNotification(json::ObjectWriter&& writer, std::string_view method);
+	[[nodiscard]] static auto writeRequest(json::ObjectWriter&& writer, const MessageId& id, std::string_view method) -> RequestWriter;
+	[[nodiscard]] static auto writeNotification(json::ObjectWriter&& writer, std::string_view method) -> RequestWriter;
 
 	template<typename F, typename T>
 	requires std::invocable<F, std::string_view, const T&, json::ObjectWriter&>
@@ -45,8 +45,8 @@ public:
 
 	void finalize();
 
-	[[nodiscard]] static ResponseWriter writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id);
-	[[nodiscard]] static ResponseWriter writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message);
+	[[nodiscard]] static auto writeResponse(json::ObjectWriter&& objectWriter, const MessageId& id) -> ResponseWriter;
+	[[nodiscard]] static auto writeError(json::ObjectWriter&& objectWriter, const MessageId& id, int code, std::string_view message) -> ResponseWriter;
 
 	template<typename F, typename T>
 	requires std::invocable<F, std::string_view, T&&, json::ObjectWriter&>
@@ -79,10 +79,10 @@ public:
 	void finalize();
 	bool batchIsEmpty() const;
 
-	[[nodiscard]] RequestWriter  writeRequest(const MessageId& id, std::string_view method);
-	[[nodiscard]] RequestWriter  writeNotification(std::string_view method);
-	[[nodiscard]] ResponseWriter writeResponse(const MessageId& id);
-	[[nodiscard]] ResponseWriter writeError(const MessageId& id, int code, std::string_view message);
+	[[nodiscard]] auto writeRequest(const MessageId& id, std::string_view method) -> RequestWriter;
+	[[nodiscard]] auto writeNotification(std::string_view method) -> RequestWriter;
+	[[nodiscard]] auto writeResponse(const MessageId& id) -> ResponseWriter;
+	[[nodiscard]] auto writeError(const MessageId& id, int code, std::string_view message) -> ResponseWriter;
 
 private:
 	bool              m_empty = true;

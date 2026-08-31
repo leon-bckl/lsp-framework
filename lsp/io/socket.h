@@ -28,16 +28,16 @@ public:
 	Socket& operator=(Socket&&) noexcept;
 	~Socket();
 
-	[[nodiscard]] static Socket connect(const std::string& address, unsigned short port);
+	[[nodiscard]] static auto connect(const std::string& address, unsigned short port) -> Socket;
 
-	[[nodiscard]] bool           isOpen() const;
-	[[nodiscard]] unsigned short port() const;
+	[[nodiscard]] auto isOpen() const -> bool;
+	[[nodiscard]] auto port() const -> unsigned short;
 
 	void close();
 	void read(char* buffer, std::size_t size);
 	void write(const char* buffer, std::size_t size);
 
-	[[nodiscard]] Stream& stream();
+	[[nodiscard]] auto stream() -> Stream&;
 	operator Stream&(){ return stream(); }
 
 private:
@@ -56,9 +56,9 @@ class SocketListener{
 public:
 	SocketListener(unsigned short port, unsigned short backlog = 32);
 
-	[[nodiscard]] Socket accept();
-	[[nodiscard]] bool isOpen() const{ return m_socket.isOpen(); }
-	[[nodiscard]] unsigned short port() const{ return m_socket.port(); }
+	[[nodiscard]] auto accept() -> Socket;
+	[[nodiscard]] auto isOpen() const -> bool{ return m_socket.isOpen(); }
+	[[nodiscard]] auto port() const -> unsigned short{ return m_socket.port(); }
 
 	void close(){ m_socket.close(); }
 

@@ -181,8 +181,7 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
-	[[nodiscard]]
-	bool checkRunning()
+	auto checkRunning() -> bool
 	{
 		if(m_pid != -1)
 		{
@@ -202,7 +201,7 @@ struct Process::Impl final : public io::Stream{
 		return m_pid != -1;
 	}
 
-	int wait()
+	auto wait() -> int
 	{
 		if(checkRunning())
 		{
@@ -231,20 +230,17 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
-	[[nodiscard]]
-	int id() const
+	auto id() const -> int
 	{
 		return static_cast<int>(m_pid);
 	}
 
-	[[nodiscard]]
-	static int currentProcessId()
+	static auto currentProcessId() -> int
 	{
 		return static_cast<int>(getpid());
 	}
 
-	[[nodiscard]]
-	static bool exists(int id)
+	static auto exists(int id) -> bool
 	{
 		return id > 0 && kill(static_cast<pid_t>(id), 0) == 0;
 	}
@@ -273,7 +269,7 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
-	std::string readAvailableStdErr()
+	auto readAvailableStdErr() -> std::string
 	{
 		if(m_stderrRead == -1)
 			return {};
@@ -335,7 +331,7 @@ struct Process::Impl final : public io::Stream{
 	PROCESS_INFORMATION m_processInfo  = {};
 	int                 m_exitCode     = -1;
 
-	static std::string escapeArg(const std::string& arg)
+	static auto escapeArg(const std::string& arg) -> std::string
 	{
 		if(!arg.empty() && arg.find_first_of(" \t\n\v\\\",") == std::string::npos)
 			return arg;
@@ -377,7 +373,7 @@ struct Process::Impl final : public io::Stream{
 		return escaped;
 	}
 
-	static std::wstring buildCmdLine(const std::string& executable, const ArgList& args)
+	static auto buildCmdLine(const std::string& executable, const ArgList& args) -> std::wstring
 	{
 		std::string cmdLine = escapeArg(executable);
 
@@ -500,8 +496,7 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
-	[[nodiscard]]
-	bool checkRunning()
+	auto checkRunning() -> bool
 	{
 		if(!m_processInfo.hProcess)
 			return false;
@@ -519,7 +514,7 @@ struct Process::Impl final : public io::Stream{
 		return false;
 	}
 
-	int wait()
+	auto wait() -> int
 	{
 		if(checkRunning())
 		{
@@ -544,20 +539,17 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
-	[[nodiscard]]
-	int id() const
+	auto id() const -> int
 	{
 		return static_cast<int>(m_processInfo.dwProcessId);
 	}
 
-	[[nodiscard]]
-	static int currentProcessId()
+	static auto currentProcessId() -> int
 	{
 		return static_cast<int>(GetCurrentProcessId());
 	}
 
-	[[nodiscard]]
-	static bool exists(int id)
+	static auto exists(int id) -> bool
 	{
 		if(id > 0)
 		{
@@ -595,7 +587,7 @@ struct Process::Impl final : public io::Stream{
 		}
 	}
 
-	std::string readAvailableStdErr()
+	auto readAvailableStdErr() -> std::string
 	{
 		if(!m_stderrRead)
 			return {};
@@ -660,12 +652,12 @@ Process::~Process()
 	wait();
 }
 
-bool Process::isRunning() const
+auto Process::isRunning() const -> bool
 {
 	return m_impl && m_impl->checkRunning();
 }
 
-int Process::id()
+auto Process::id() -> int
 {
 	if(!isRunning())
 		return -1;
@@ -673,7 +665,7 @@ int Process::id()
 	return m_impl->id();
 }
 
-io::Stream& Process::stdIO()
+auto Process::stdIO() -> io::Stream&
 {
 	if(!isRunning())
 		throw ProcessError("Process is not running - Cannot get stdio");
@@ -681,7 +673,7 @@ io::Stream& Process::stdIO()
 	return *m_impl;
 }
 
-std::string Process::readAvailableStdErr()
+auto Process::readAvailableStdErr() -> std::string
 {
 	if(!m_impl)
 		return {};
@@ -689,7 +681,7 @@ std::string Process::readAvailableStdErr()
 	return m_impl->readAvailableStdErr();
 }
 
-int Process::wait()
+auto Process::wait() -> int
 {
 	int exitCode = -1;
 
@@ -711,12 +703,12 @@ void Process::terminate()
 	}
 }
 
-int Process::currentProcessId()
+auto Process::currentProcessId() -> int
 {
 	return Impl::currentProcessId();
 }
 
-bool Process::exists(int id)
+auto Process::exists(int id) -> bool
 {
 	return Impl::exists(id);
 }

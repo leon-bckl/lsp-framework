@@ -38,7 +38,7 @@ public:
 
 }
 
-Stream& standardIO()
+auto standardIO() -> Stream&
 {
 	static auto stream = StandardIOStream();
 	return stream;

@@ -9,10 +9,10 @@ public:
 	Parser(std::string_view text);
 	~Parser();
 
-	[[nodiscard]] bool atEnd() const;
-	[[nodiscard]] std::size_t textOffset(const char* pos) const;
-	[[nodiscard]] std::size_t currentTextOffset() const;
-	[[nodiscard]] Value parse();
+	[[nodiscard]] auto atEnd() const -> bool;
+	[[nodiscard]] auto textOffset(const char* pos) const -> std::size_t;
+	[[nodiscard]] auto currentTextOffset() const -> std::size_t;
+	[[nodiscard]] auto parse() -> Value;
 	void reset();
 
 private:
@@ -28,15 +28,15 @@ private:
 	void handleObject();
 	void handleObjectKey();
 	void handleArray();
-	State currentState() const;
-	Value& currentValue();
+	auto currentState() const -> State;
+	auto currentValue() -> Value&;
 	void pushState(State state, Value& value);
 	void popState();
 	void skipWhitespace();
-	String parseString();
-	Value parseNumber();
-	Value parseIdentifier();
-	Value parseSimpleValue();
+	auto parseString() -> String;
+	auto parseNumber() -> Value;
+	auto parseIdentifier() -> Value;
+	auto parseSimpleValue() -> Value;
 };
 
 

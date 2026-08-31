@@ -24,9 +24,9 @@ public:
 	Enumeration(EnumType index) : m_index{index}{}
 	Enumeration(ValueType&& value){ *this = std::move(value); }
 
-	Enumeration& operator=(EnumType other){ m_index = other; return *this; }
+	auto operator=(EnumType other) -> Enumeration&{ m_index = other; return *this; }
 
-	Enumeration& operator=(ValueType&& other)
+	auto operator=(ValueType&& other) -> Enumeration&
 	{
 		for(unsigned int i = 0; const auto& v : s_values)
 		{
@@ -46,21 +46,22 @@ public:
 		return *this;
 	}
 
-	bool operator==(EnumType other) const{ return m_index == other; }
-	bool operator==(ConstInitType other) const{ return value() == other; }
-	bool operator!=(EnumType other) const{ return m_index != other; }
-	bool operator!=(ConstInitType other) const{ return value() != other; }
+	auto operator==(EnumType other) const -> bool{ return m_index == other; }
+	auto operator==(ConstInitType other) const -> bool{ return value() == other; }
+	auto operator!=(EnumType other) const -> bool{ return m_index != other; }
+	auto operator!=(ConstInitType other) const -> bool{ return value() != other; }
 	operator ValueType() const{ return ValueType(value()); }
 	operator EnumType() const{ return index(); }
-	bool hasCustomValue() const{ return m_index == EnumType::MAX_VALUE; }
-	EnumType index() const{ return m_index; }
 
-	static ConstInitType value(EnumType index)
+	auto hasCustomValue() const -> bool{ return m_index == EnumType::MAX_VALUE; }
+	auto index() const -> EnumType{ return m_index; }
+
+	static auto value(EnumType index) -> ConstInitType
 	{
 		return s_values[static_cast<unsigned int>(index)];
 	}
 
-	ConstInitType value() const
+	auto value() const -> ConstInitType
 	{
 		if(hasCustomValue())
 			return m_customValue;

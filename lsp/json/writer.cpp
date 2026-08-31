@@ -152,12 +152,12 @@ void Writer::write(const Array& value)
 		arrayWriter.write(v);
 }
 
-ObjectWriter Writer::beginObject()
+auto Writer::beginObject() -> ObjectWriter
 {
 	return ObjectWriter(*this);
 }
 
-ArrayWriter Writer::beginArray()
+auto Writer::beginArray() -> ArrayWriter
 {
 	return ArrayWriter(*this);
 }
@@ -265,7 +265,7 @@ void ObjectWriter::finalize()
 	}
 }
 
-ObjectWriter ObjectWriter::beginObject(std::string_view key)
+auto ObjectWriter::beginObject(std::string_view key) -> ObjectWriter
 {
 	m_writer->writePreValue(m_first);
 	m_first = false;
@@ -273,7 +273,7 @@ ObjectWriter ObjectWriter::beginObject(std::string_view key)
 	return m_writer->beginObject();
 }
 
-ArrayWriter ObjectWriter::beginArray(std::string_view key)
+auto ObjectWriter::beginArray(std::string_view key) -> ArrayWriter
 {
 	m_writer->writePreValue(m_first);
 	m_first = false;

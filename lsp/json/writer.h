@@ -102,8 +102,8 @@ public:
 
 	void finalize();
 
-	[[nodiscard]] ObjectWriter beginObject(std::string_view key);
-	[[nodiscard]] ArrayWriter  beginArray(std::string_view key);
+	[[nodiscard]] auto beginObject(std::string_view key) -> ObjectWriter;
+	[[nodiscard]] auto beginArray(std::string_view key) -> ArrayWriter;
 
 	template<JsonPrimitive T>
 	void write(std::string_view key, const T& value)
@@ -144,8 +144,8 @@ public:
 
 	void finalize();
 
-	[[nodiscard]] ObjectWriter beginObject();
-	[[nodiscard]] ArrayWriter  beginArray();
+	[[nodiscard]] auto beginObject() -> ObjectWriter;
+	[[nodiscard]] auto beginArray() -> ArrayWriter;
 
 	template<JsonPrimitive T>
 	void write(const T& value)

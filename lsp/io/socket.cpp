@@ -102,8 +102,7 @@ struct Socket::Impl : Stream{
 		throw Error(msg + ": " + std::to_string(errorCode));
 	}
 
-	[[nodiscard]]
-	static std::unique_ptr<Impl> setupForListen(unsigned short port, unsigned short backlog)
+	static auto setupForListen(unsigned short port, unsigned short backlog) -> std::unique_ptr<Impl>
 	{
 		ensureInitialized();
 
@@ -142,8 +141,7 @@ struct Socket::Impl : Stream{
 		return std::make_unique<Impl>(socketFd, ntohs(addr.sin_port), backlog);
 	}
 
-	[[nodiscard]]
-	static std::unique_ptr<Impl> connect(const std::string& address, unsigned short port)
+	static auto connect(const std::string& address, unsigned short port) -> std::unique_ptr<Impl>
 	{
 		if(port == 0)
 			throw Error("Cannot connect on port 0");
@@ -180,7 +178,7 @@ struct Socket::Impl : Stream{
 		throwError("Failed to connect to any resolved address");
 	}
 
-	std::unique_ptr<Impl> accept()
+	auto accept() -> std::unique_ptr<Impl>
 	{
 		assert(m_socketFd != InvalidSocket);
 
@@ -256,12 +254,12 @@ Socket Socket::connect(const std::string& address, unsigned short port)
 	return Socket(Impl::connect(address, port));
 }
 
-bool Socket::isOpen() const
+auto Socket::isOpen() const -> bool
 {
 	return !!m_impl;
 }
 
-unsigned short Socket::port() const
+auto Socket::port() const -> unsigned short
 {
 	if(m_impl)
 		return m_impl->m_port;
@@ -291,7 +289,7 @@ void Socket::write(const char* buffer, std::size_t size)
 	m_impl->write(buffer, size);
 }
 
-Stream& Socket::stream()
+auto Socket::stream() -> Stream&
 {
 	assert(m_impl);
 	return *m_impl;
@@ -306,7 +304,7 @@ SocketListener::SocketListener(unsigned short port, unsigned short backlog)
 {
 }
 
-Socket SocketListener::accept()
+auto SocketListener::accept() -> Socket
 {
 	if(!isOpen())
 		throw Error("Server socket is not open for listening");

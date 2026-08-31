@@ -57,8 +57,8 @@ using Array   = std::vector<Value>;
  * parse/stringify
  */
 
-Value       parse(std::string_view text);
-std::string stringify(const Value& json, std::string_view indent = {});
+auto parse(std::string_view text) -> Value;
+auto stringify(const Value& json, std::string_view indent = {}) -> std::string;
 
 /*
  * Object
@@ -78,26 +78,26 @@ public:
 	Object& operator=(const Object& other);
 	Object& operator=(Object&& other) noexcept;
 
-	[[nodiscard]] SizeType size() const;
-	[[nodiscard]] SizeType capacity() const;
-	[[nodiscard]] bool     isEmpty() const{ return size() == 0; }
+	[[nodiscard]] auto size() const -> SizeType;
+	[[nodiscard]] auto capacity() const -> SizeType;
+	[[nodiscard]] auto isEmpty() const -> bool{ return size() == 0; }
 
-	Value& insert(String key, Value value);
-	Value& append(String key, Value value);
-	void   remove(std::string_view key);
-	void   clear();
-	void   reserve(SizeType size);
+	auto insert(String key, Value value) -> Value&;
+	auto append(String key, Value value) -> Value&;
+	void remove(std::string_view key);
+	void clear();
+	void reserve(SizeType size);
 
-	[[nodiscard]] Value*       find(std::string_view key);
-	[[nodiscard]] const Value* find(std::string_view key) const{ return const_cast<Object*>(this)->find(key); }
-	[[nodiscard]] bool         contains(std::string_view key) const{ return find(key) != nullptr; }
-	[[nodiscard]] Value&       get(std::string_view key);
-	[[nodiscard]] const Value& get(std::string_view key) const{ return const_cast<Object*>(this)->get(key); }
+	[[nodiscard]] auto find(std::string_view key) -> Value*;
+	[[nodiscard]] auto find(std::string_view key) const -> const Value*{ return const_cast<Object*>(this)->find(key); }
+	[[nodiscard]] auto contains(std::string_view key) const -> bool{ return find(key) != nullptr; }
+	[[nodiscard]] auto get(std::string_view key) -> Value&;
+	[[nodiscard]] auto get(std::string_view key) const -> const Value&{ return const_cast<Object*>(this)->get(key); }
 
-	[[nodiscard]] Value& operator[](std::string_view key);
+	[[nodiscard]] auto operator[](std::string_view key) -> Value&;
 
-	[[nodiscard]] bool operator==(const Object& other) const;
-	[[nodiscard]] bool operator!=(const Object& other) const{ return !(*this == other); }
+	[[nodiscard]] auto operator==(const Object& other) const -> bool;
+	[[nodiscard]] auto operator!=(const Object& other) const -> bool{ return !(*this == other); }
 
 	[[nodiscard]] auto begin();
 	[[nodiscard]] auto begin() const;
@@ -146,41 +146,41 @@ public:
 	template<typename T>
 	Value(T) = delete;
 
-	[[nodiscard]] constexpr bool isNull()    const{ return std::holds_alternative<Null>(m_variant); }
-	[[nodiscard]] constexpr bool isBoolean() const{ return std::holds_alternative<Boolean>(m_variant); }
-	[[nodiscard]] constexpr bool isInteger() const{ return std::holds_alternative<Integer>(m_variant); }
-	[[nodiscard]] constexpr bool isDecimal() const{ return std::holds_alternative<Decimal>(m_variant); }
-	[[nodiscard]] constexpr bool isNumber()  const{ return isInteger() || isDecimal(); }
-	[[nodiscard]] constexpr bool isString()  const{ return std::holds_alternative<String>(m_variant); }
-	[[nodiscard]] constexpr bool isObject()  const{ return std::holds_alternative<Object>(m_variant); }
-	[[nodiscard]] constexpr bool isArray()   const{ return std::holds_alternative<Array>(m_variant); }
+	[[nodiscard]] constexpr auto isNull()    const -> bool{ return std::holds_alternative<Null>(m_variant); }
+	[[nodiscard]] constexpr auto isBoolean() const -> bool{ return std::holds_alternative<Boolean>(m_variant); }
+	[[nodiscard]] constexpr auto isInteger() const -> bool{ return std::holds_alternative<Integer>(m_variant); }
+	[[nodiscard]] constexpr auto isDecimal() const -> bool{ return std::holds_alternative<Decimal>(m_variant); }
+	[[nodiscard]] constexpr auto isNumber()  const -> bool{ return isInteger() || isDecimal(); }
+	[[nodiscard]] constexpr auto isString()  const -> bool{ return std::holds_alternative<String>(m_variant); }
+	[[nodiscard]] constexpr auto isObject()  const -> bool{ return std::holds_alternative<Object>(m_variant); }
+	[[nodiscard]] constexpr auto isArray()   const -> bool{ return std::holds_alternative<Array>(m_variant); }
 
-	[[nodiscard]] Boolean       boolean() const{ return get<Boolean>("boolean"); }
-	[[nodiscard]] Integer       integer() const{ return get<Integer>("integer"); }
-	[[nodiscard]] Decimal       decimal() const{ return get<Decimal>("decimal"); }
-	[[nodiscard]] const String& string()  const{ return get<String>("string"); }
-	[[nodiscard]] const Object& object()  const{ return get<Object>("object"); }
-	[[nodiscard]] const Array&  array()   const{ return get<Array>("array"); }
-	[[nodiscard]] String&       string()       { return get<String>("string"); }
-	[[nodiscard]] Object&       object()       { return get<Object>("object"); }
-	[[nodiscard]] Array&        array()        { return get<Array>("array"); }
+	[[nodiscard]] auto boolean() const -> Boolean{ return get<Boolean>("boolean"); }
+	[[nodiscard]] auto integer() const -> Integer{ return get<Integer>("integer"); }
+	[[nodiscard]] auto decimal() const -> Decimal{ return get<Decimal>("decimal"); }
+	[[nodiscard]] auto string() const -> const String&{ return get<String>("string"); }
+	[[nodiscard]] auto object() const -> const Object&{ return get<Object>("object"); }
+	[[nodiscard]] auto array() const -> const Array&{ return get<Array>("array"); }
+	[[nodiscard]] auto string() -> String&{ return get<String>("string"); }
+	[[nodiscard]] auto object() -> Object&{ return get<Object>("object"); }
+	[[nodiscard]] auto array() -> Array&{ return get<Array>("array"); }
 
-	[[nodiscard]] Decimal number() const;
+	[[nodiscard]] auto number() const -> Decimal;
 
-	[[nodiscard]] bool operator==(const Value& other) const = default;
-	[[nodiscard]] bool operator!=(const Value& other) const = default;
+	[[nodiscard]] auto operator==(const Value& other) const -> bool = default;
+	[[nodiscard]] auto operator!=(const Value& other) const -> bool = default;
 
-	[[nodiscard]] const VariantType& variant() const{ return m_variant; }
-	[[nodiscard]] VariantType& variant(){ return m_variant; }
+	[[nodiscard]] auto variant() const -> const VariantType&{ return m_variant; }
+	[[nodiscard]] auto variant() -> VariantType&{ return m_variant; }
 
 private:
 	VariantType m_variant;
 
 	template<typename T>
-	T& get(const char* typeName);
+	auto get(const char* typeName) -> T&;
 
 	template<typename T>
-	const T& get(const char* typeName) const;
+	auto get(const char* typeName) const -> const T&;
 
 	[[noreturn]] static void throwTypeError(const char* expectedType);
 };

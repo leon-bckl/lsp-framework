@@ -20,7 +20,7 @@ void verifyProtocolVersion(const json::Object& json)
 		throw ProtocolError("Invalid or unsupported jsonrpc version");
 }
 
-MessageId messageIdFromJson(json::Value& json)
+auto messageIdFromJson(json::Value& json) -> MessageId
 {
 	if(json.isString())
 		return std::move(json.string());
@@ -34,7 +34,7 @@ MessageId messageIdFromJson(json::Value& json)
 	throw ProtocolError("Request id type must be string, number or null");
 }
 
-Request requestFromJson(json::Object& json)
+auto requestFromJson(json::Object& json) -> Request
 {
 	verifyProtocolVersion(json);
 
@@ -59,7 +59,7 @@ Request requestFromJson(json::Object& json)
 	return request;
 }
 
-Response responseFromJson(json::Object& json)
+auto responseFromJson(json::Object& json) -> Response
 {
 	verifyProtocolVersion(json);
 
@@ -109,7 +109,7 @@ Response responseFromJson(json::Object& json)
 
 } // namespace
 
-Message messageFromJson(json::Object&& json)
+auto messageFromJson(json::Object&& json) -> Message
 {
 	if(json.contains("method"))
 		return requestFromJson(json);
@@ -117,7 +117,7 @@ Message messageFromJson(json::Object&& json)
 	return responseFromJson(json);
 }
 
-MessageBatch messageBatchFromJson(json::Array&& json)
+auto messageBatchFromJson(json::Array&& json) -> MessageBatch
 {
 	if(json.empty())
 		throw ProtocolError("Message batch must not be empty");

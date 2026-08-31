@@ -20,7 +20,7 @@ struct Request{
 	std::string                method;
 	std::optional<json::Value> params = {};
 
-	[[nodiscard]] bool isNotification() const{ return !id.has_value(); }
+	[[nodiscard]] auto isNotification() const -> bool{ return !id.has_value(); }
 };
 
 using RequestBatch = std::vector<Request>;
@@ -77,7 +77,7 @@ public:
  * Creation/Parsing/Serialization
  */
 
-[[nodiscard]] Message      messageFromJson(json::Object&& json);
-[[nodiscard]] MessageBatch messageBatchFromJson(json::Array&& json);
+[[nodiscard]] auto messageFromJson(json::Object&& json) -> Message;
+[[nodiscard]] auto messageBatchFromJson(json::Array&& json) -> MessageBatch;
 
 } // namespace lsp::jsonrpc
