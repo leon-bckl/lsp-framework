@@ -1,30 +1,17 @@
 #pragma once
 
+#include <utility>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
+#include <concepts>
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <variant>
 #include <vector>
 #include <lsp/exception.h>
-#include <lsp/strmap.h>
 
 namespace lsp::json{
-
-/*
- * Types
- */
-
-class Value;
-class Object;
-
-using Null    = std::nullptr_t;
-using Boolean = bool;
-using Integer = std::int32_t;
-using Decimal = double;
-using String  = std::string;
-using Array   = std::vector<Value>;
 
 /*
  * Errors
@@ -44,13 +31,34 @@ class ParseError : public Error{
 public:
 	ParseError(const std::string& message, std::size_t textPos)
 		: Error{message}
-	  , m_textPos{textPos}{}
+		, m_textPos{textPos}{}
 
 	std::size_t textPos() const noexcept{ return m_textPos; }
 
 private:
-	 std::size_t m_textPos = 0;
+	std::size_t m_textPos = 0;
 };
+
+/*
+ * Types
+ */
+
+class Value;
+class Object;
+
+using Null    = std::nullptr_t;
+using Boolean = bool;
+using Integer = std::int32_t;
+using Decimal = double;
+using String  = std::string;
+using Array   = std::vector<Value>;
+
+/*
+ * parse/stringify
+ */
+
+auto parse(std::string_view text) -> Value;
+auto stringify(const Value& json, std::string_view indent = {}) -> std::string;
 
 /*
  * Object
@@ -58,34 +66,48 @@ private:
 
 class Object{
 public:
-	using MapType = StrMap<String, Value>;
+	using SizeType = std::size_t;
+	class KeyValuePair;
 
 	Object();
+	Object(std::initializer_list<KeyValuePair> pairs);
 	Object(const Object& other);
-	Object(Object&&) noexcept = default;
+	Object(Object&&) noexcept;
 	~Object();
 
 	Object& operator=(const Object& other);
-	Object& operator=(Object&& other) noexcept = default;
+	Object& operator=(Object&& other) noexcept;
 
-	[[nodiscard]] bool operator==(const Object& other) const;
-	[[nodiscard]] bool operator!=(const Object& other) const{ return !(*this == other); }
+	[[nodiscard]] auto size() const -> SizeType;
+	[[nodiscard]] auto capacity() const -> SizeType;
+	[[nodiscard]] auto isEmpty() const -> bool{ return size() == 0; }
 
-	[[nodiscard]] Value& operator[](std::string_view key);
+	auto insert(String key, Value value) -> Value&;
+	auto append(String key, Value value) -> Value&;
+	void remove(std::string_view key);
+	void clear();
+	void reserve(SizeType size);
 
-	[[nodiscard]] std::size_t size() const;
-	[[nodiscard]] bool empty() const;
-	[[nodiscard]] bool contains(std::string_view key) const;
-	[[nodiscard]] Value& get(std::string_view key);
-	[[nodiscard]] const Value& get(std::string_view key) const;
-	[[nodiscard]] Value* find(std::string_view key);
-	[[nodiscard]] const Value* find(std::string_view key) const;
+	[[nodiscard]] auto find(std::string_view key) -> Value*;
+	[[nodiscard]] auto find(std::string_view key) const -> const Value*{ return const_cast<Object*>(this)->find(key); }
+	[[nodiscard]] auto contains(std::string_view key) const -> bool{ return find(key) != nullptr; }
+	[[nodiscard]] auto get(std::string_view key) -> Value&;
+	[[nodiscard]] auto get(std::string_view key) const -> const Value&{ return const_cast<Object*>(this)->get(key); }
 
-	[[nodiscard]] MapType& keyValueMap();
-	[[nodiscard]] const MapType& keyValueMap() const;
+	[[nodiscard]] auto operator[](std::string_view key) -> Value&;
+
+	[[nodiscard]] auto operator==(const Object& other) const -> bool;
+	[[nodiscard]] auto operator!=(const Object& other) const -> bool{ return !(*this == other); }
+
+	[[nodiscard]] auto begin();
+	[[nodiscard]] auto begin() const;
+	[[nodiscard]] auto cbegin() const;
+	[[nodiscard]] auto end();
+	[[nodiscard]] auto end() const;
+	[[nodiscard]] auto cend() const;
 
 private:
-	std::unique_ptr<MapType> m_map;
+	std::vector<KeyValuePair> m_keyValuePairs; // lsp objects are quite small so a map would be overkill. We can always add one on top of this list...
 };
 
 /*
@@ -98,78 +120,71 @@ public:
 
 	constexpr Value() = default;
 	constexpr Value(Null){}
-	constexpr Value(Boolean b) : m_variant{b}{}
-	constexpr Value(Integer i) : m_variant{i}{}
-	constexpr Value(Decimal d) : m_variant{d}{}
-	Value(String&& s) : m_variant{std::move(s)}{}
-	Value(Array&& a) : m_variant{std::move(a)}{}
-	Value(Object&& o) : m_variant{std::move(o)}{}
 
-	[[nodiscard]] constexpr bool isNull()    const{ return std::holds_alternative<Null>(m_variant); }
-	[[nodiscard]] constexpr bool isBoolean() const{ return std::holds_alternative<Boolean>(m_variant); }
-	[[nodiscard]] constexpr bool isInteger() const{ return std::holds_alternative<Integer>(m_variant); }
-	[[nodiscard]] constexpr bool isDecimal() const{ return std::holds_alternative<Decimal>(m_variant); }
-	[[nodiscard]] constexpr bool isNumber()  const{ return isInteger() || isDecimal(); }
-	[[nodiscard]] constexpr bool isString()  const{ return std::holds_alternative<String>(m_variant); }
-	[[nodiscard]] constexpr bool isObject()  const{ return std::holds_alternative<Object>(m_variant); }
-	[[nodiscard]] constexpr bool isArray()   const{ return std::holds_alternative<Array>(m_variant); }
+	// Template constructors to prevent accidential conversions (e.g., pointer to bool)
+	// without having to make constructors explicit which is inconvenient for this class.
 
-	[[nodiscard]] Boolean       boolean() const{ return get<Boolean>(); }
-	[[nodiscard]] Integer       integer() const{ return get<Integer>(); }
-	[[nodiscard]] Decimal       decimal() const{ return get<Decimal>(); }
-	[[nodiscard]] const String& string()  const{ return get<String>(); }
-	[[nodiscard]] const Object& object()  const{ return get<Object>(); }
-	[[nodiscard]] const Array&  array()   const{ return get<Array>(); }
-	[[nodiscard]] String&       string(){ return get<String>(); }
-	[[nodiscard]] Object&       object(){ return get<Object>(); }
-	[[nodiscard]] Array&        array(){ return get<Array>(); }
+	template<std::same_as<Boolean> T>
+	constexpr Value(T b) : m_variant{b}{}
 
-	[[nodiscard]] Decimal number() const
-	{
-		if(isDecimal())
-			return get<Decimal>();
+	template<typename T>
+	requires (std::integral<T> && !std::same_as<T, Boolean>)
+	constexpr Value(T i) : m_variant{static_cast<Integer>(i)}{}
 
-		if(isInteger())
-			return static_cast<Decimal>(get<Integer>());
+	template<std::floating_point T>
+	constexpr Value(T d) : m_variant{static_cast<Decimal>(d)}{}
 
-		throw TypeError{};
-	}
+	Value(const char* s)      : m_variant{String(s)}{}
+	Value(std::string_view s) : m_variant{String(s)}{}
+	Value(const String& s)    : m_variant{s}{}
+	Value(String&& s)         : m_variant{std::move(s)}{}
+	Value(const Array& a)     : m_variant{a}{}
+	Value(Array&& a)          : m_variant{std::move(a)}{}
+	Value(const Object& o)    : m_variant{o}{}
+	Value(Object&& o)         : m_variant{std::move(o)}{}
 
-	[[nodiscard]] bool operator==(const Value& other) const = default;
-	[[nodiscard]] bool operator!=(const Value& other) const = default;
+	template<typename T>
+	Value(T) = delete;
 
-	[[nodiscard]] const VariantType& variant() const{ return m_variant; }
-	[[nodiscard]] VariantType& variant(){ return m_variant; }
+	[[nodiscard]] constexpr auto isNull()    const -> bool{ return std::holds_alternative<Null>(m_variant); }
+	[[nodiscard]] constexpr auto isBoolean() const -> bool{ return std::holds_alternative<Boolean>(m_variant); }
+	[[nodiscard]] constexpr auto isInteger() const -> bool{ return std::holds_alternative<Integer>(m_variant); }
+	[[nodiscard]] constexpr auto isDecimal() const -> bool{ return std::holds_alternative<Decimal>(m_variant); }
+	[[nodiscard]] constexpr auto isNumber()  const -> bool{ return isInteger() || isDecimal(); }
+	[[nodiscard]] constexpr auto isString()  const -> bool{ return std::holds_alternative<String>(m_variant); }
+	[[nodiscard]] constexpr auto isObject()  const -> bool{ return std::holds_alternative<Object>(m_variant); }
+	[[nodiscard]] constexpr auto isArray()   const -> bool{ return std::holds_alternative<Array>(m_variant); }
+
+	[[nodiscard]] auto boolean() const -> Boolean{ return get<Boolean>("boolean"); }
+	[[nodiscard]] auto integer() const -> Integer{ return get<Integer>("integer"); }
+	[[nodiscard]] auto decimal() const -> Decimal{ return get<Decimal>("decimal"); }
+	[[nodiscard]] auto string() const -> const String&{ return get<String>("string"); }
+	[[nodiscard]] auto object() const -> const Object&{ return get<Object>("object"); }
+	[[nodiscard]] auto array() const -> const Array&{ return get<Array>("array"); }
+	[[nodiscard]] auto string() -> String&{ return get<String>("string"); }
+	[[nodiscard]] auto object() -> Object&{ return get<Object>("object"); }
+	[[nodiscard]] auto array() -> Array&{ return get<Array>("array"); }
+
+	[[nodiscard]] auto number() const -> Decimal;
+
+	[[nodiscard]] auto operator==(const Value& other) const -> bool = default;
+	[[nodiscard]] auto operator!=(const Value& other) const -> bool = default;
+
+	[[nodiscard]] auto variant() const -> const VariantType&{ return m_variant; }
+	[[nodiscard]] auto variant() -> VariantType&{ return m_variant; }
 
 private:
 	VariantType m_variant;
 
 	template<typename T>
-	T& get()
-	{
-		if(auto* const v = std::get_if<T>(&m_variant))
-			return *v;
-
-		throw TypeError{};
-	}
+	auto get(const char* typeName) -> T&;
 
 	template<typename T>
-	const T& get() const
-	{
-		if(auto* const v = std::get_if<T>(&m_variant))
-			return *v;
+	auto get(const char* typeName) const -> const T&;
 
-		throw TypeError{};
-	}
+	[[noreturn]] static void throwTypeError(const char* expectedType);
 };
 
-/*
- * parse/stringify
- */
-
-Value       parse(std::string_view text);
-std::string stringify(const Value& json, bool format = false);
-std::string toStringLiteral(std::string_view str);
-std::string fromStringLiteral(std::string_view str);
-
 } // namespace lsp::json
+
+#include "json.inl"

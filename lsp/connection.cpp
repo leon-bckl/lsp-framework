@@ -1,7 +1,9 @@
 #include <algorithm>
-#include <cctype>
+#include <cassert>
 #include <charconv>
 #include <cstring>
+#include <exception>
+#include <mutex>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -24,6 +26,8 @@
 	#elif defined(_WIN32)
 		#define WIN32_LEAN_AND_MEAN
 		#include <Windows.h>
+	#else
+		#include <cstdio>
 	#endif
 #endif
 
@@ -35,51 +39,51 @@ namespace{
  */
 
 #if LSP_MESSAGE_DEBUG_LOG
-void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const lsp::json::Value& json)
+void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const std::string& json)
 {
 #ifdef __APPLE__
-	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + lsp::json::stringify(json, true)).c_str());
+	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + json).c_str());
 #elif defined(_WIN32)
-	OutputDebugStringA((messageType + ": " + lsp::json::stringify(json, true) + '\n').c_str());
+	OutputDebugStringA((messageType + ": " + json + '\n').c_str());
 #elif defined(__linux__) || defined(__HAIKU__)
-    fprintf(stderr, "%s\n",  (messageType + ": " + lsp::json::stringify(json, true)).c_str());
+	std::fprintf(stderr, "%s\n",  (messageType + ": " + json).c_str());
 #endif
 }
 #endif
 
-std::string_view trimWhitespace(std::string_view str)
+auto trimWhitespace(std::string_view str) -> std::string_view
 {
-	while(!str.empty() && std::isspace(static_cast<unsigned char>(str.front())))
+	while(!str.empty() && str.front() <= 0x20)
 		str.remove_prefix(1);
 
-	while(!str.empty() && std::isspace(static_cast<unsigned char>(str.back())))
+	while(!str.empty() && str.back() <= 0x20)
 		str.remove_suffix(1);
 
 	return str;
 }
 
-bool equalCaseInsensitive(std::string_view lhs, std::string_view rhs)
+auto equalCaseInsensitive(std::string_view lhs, std::string_view rhs) -> bool
 {
 	return std::ranges::equal(lhs, rhs, [](char a, char b)
 		{
-			return std::tolower(static_cast<unsigned char>(a)) ==
-			       std::tolower(static_cast<unsigned char>(b));
+			const auto toLower = [](char c){ return c >= 'A' && c <= 'Z' ? c + 32 : c; };
+			return toLower(a) == toLower(b);
 		});
 }
 
 void verifyContentType(std::string_view contentType)
 {
 	if(!contentType.starts_with("application/vscode-jsonrpc"))
-		throw ConnectionError{"Protocol: Unsupported or invalid content type: " + std::string(contentType)};
+		throw ConnectionError("Protocol: Unsupported or invalid content type: " + std::string(contentType));
 
-	constexpr std::string_view charsetKey{"charset="};
+	constexpr auto charsetKey = std::string_view("charset=");
 	if(const auto idx = contentType.find(charsetKey); idx != std::string_view::npos)
 	{
 		auto charset = contentType.substr(idx + charsetKey.size());
 		charset = trimWhitespace(charset.substr(0, charset.find(';')));
 
 		if(charset != "utf-8" && charset != "utf8")
-			throw ConnectionError{"Protocol: Unsupported or invalid character encoding: " + std::string{charset}};
+			throw ConnectionError("Protocol: Unsupported or invalid character encoding: " + std::string{charset});
 	}
 }
 
@@ -97,7 +101,7 @@ public:
 	{
 	}
 
-	char peek()
+	auto peek() -> char
 	{
 		if(!m_peek.has_value())
 			m_peek = get();
@@ -105,7 +109,7 @@ public:
 		return m_peek.value();
 	}
 
-	char get()
+	auto get() -> char
 	{
 		if(m_peek.has_value())
 		{
@@ -144,25 +148,37 @@ private:
  * Connection
  */
 
+struct Connection::Internal{
+	io::Stream& stream;
+	std::mutex  readMutex;
+	std::mutex  writeMutex;
+
+	Internal(io::Stream& _stream) : stream{_stream}{}
+};
+
 struct Connection::MessageHeader{
 	std::size_t contentLength = 0;
 	std::string contentType   = "application/vscode-jsonrpc; charset=utf-8";
 };
 
 Connection::Connection(io::Stream& stream)
-	: m_stream{stream}
+	: m{std::make_unique<Internal>(stream)}
 {
 }
 
-Connection::Message Connection::readMessage()
+Connection::~Connection()                                = default;
+Connection::Connection(Connection&&) noexcept            = default;
+Connection& Connection::operator=(Connection&&) noexcept = default;
+
+auto Connection::readMessage() -> Connection::Message
 {
 	try
 	{
-		auto readLock = std::unique_lock(m_readMutex);
-		auto reader   = InputReader(m_stream);
+		auto readLock = std::unique_lock(m->readMutex);
+		auto reader   = InputReader(m->stream);
 
 		if(reader.peek() == io::Stream::Eof)
-			throw ConnectionError{"Connection lost"};
+			throw ConnectionError("Connection lost");
 
 		const auto header = readMessageHeader(reader);
 
@@ -177,7 +193,7 @@ Connection::Message Connection::readMessage()
 
 		auto json = json::parse(content);
 #if LSP_MESSAGE_DEBUG_LOG
-		debugLogMessageJson("incoming", json);
+		debugLogMessageJson("incoming", json::stringify(json));
 #endif
 
 		if(json.isObject())
@@ -190,12 +206,14 @@ Connection::Message Connection::readMessage()
 	}
 	catch(const json::ParseError& e)
 	{
-		writeMessage(jsonrpc::createErrorResponse(json::Null(), MessageError::ParseError, e.what()));
+		auto responseSender = errorResponse(json::Null(), MessageError::ParseError, e.what());
+		responseSender.submit();
 		throw; // FIXME: This shouldn't abort the connection
 	}
 	catch(const jsonrpc::ProtocolError& e)
 	{
-		writeMessage(jsonrpc::createErrorResponse(json::Null(), MessageError::InvalidRequest, e.what()));
+		auto responseSender = errorResponse(json::Null(), MessageError::InvalidRequest, e.what());
+		responseSender.submit();
 		throw; // FIXME: This shouldn't abort the connection
 	}
 	catch(const ConnectionError&)
@@ -204,41 +222,15 @@ Connection::Message Connection::readMessage()
 	}
 	catch(const std::exception& e)
 	{
-		throw ConnectionError{e.what()};
+		throw ConnectionError(e.what());
 	}
 	catch(...)
 	{
-		throw ConnectionError{"Unknown error"};
+		throw ConnectionError("Unknown error");
 	}
 }
 
-void Connection::writeMessage(Message&& message)
-{
-	try
-	{
-		auto json = json::Value();
-
-		if(auto* const msg = std::get_if<jsonrpc::Message>(&message))
-			json = jsonrpc::messageToJson(std::move(*msg));
-		else
-			json = jsonrpc::messageBatchToJson(std::move(std::get<jsonrpc::MessageBatch>(message)));
-
-#if LSP_MESSAGE_DEBUG_LOG
-		debugLogMessageJson("outgoing", json);
-#endif
-		writeMessageData(json::stringify(json));
-	}
-	catch(const std::exception& e)
-	{
-		throw ConnectionError{e.what()};
-	}
-	catch(...)
-	{
-		throw ConnectionError{"Unknown error"};
-	}
-}
-
-Connection::MessageHeader Connection::readMessageHeader(InputReader& reader)
+auto Connection::readMessageHeader(InputReader& reader) -> Connection::MessageHeader
 {
 	MessageHeader header;
 
@@ -299,18 +291,156 @@ void Connection::readNextMessageHeaderField(MessageHeader& header, InputReader& 
 		throw ConnectionError("Protocol: Expected header field to be terminated by '\\r\\n'");
 }
 
-void Connection::writeMessageData(const std::string& content)
+void Connection::writeMessageData(std::string_view content)
 {
-	std::lock_guard lock{m_writeMutex};
-	MessageHeader header{content.size()};
-	const auto messageStr = messageHeaderString(header) + content;
-	m_stream.write(messageStr.data(), messageStr.size());
+	const auto lock      = std::lock_guard(m->writeMutex);
+	const auto header    = MessageHeader{ .contentLength = content.size() };
+	const auto headerStr = messageHeaderString(header);
+
+	try
+	{
+		m->stream.write(headerStr.data(), headerStr.size());
+		m->stream.write(content.data(), content.size());
+	}
+	catch(const std::exception& e)
+	{
+		throw ConnectionError(e.what());
+	}
 }
 
-std::string Connection::messageHeaderString(const MessageHeader& header)
+auto Connection::messageHeaderString(const MessageHeader& header) -> std::string
 {
 	return "Content-Length: " + std::to_string(header.contentLength) + "\r\n" +
 	       "Content-Type: " + header.contentType + "\r\n\r\n";
+}
+
+auto Connection::request(std::string_view method, const jsonrpc::MessageId& id) -> Connection::RequestSender
+{
+	return RequestSender(*this, method, id);
+}
+
+auto Connection::notification(std::string_view method) -> Connection::RequestSender
+{
+	return RequestSender(*this, method);
+}
+
+auto Connection::response(const jsonrpc::MessageId& id) -> Connection::ResponseSender
+{
+	return ResponseSender(*this, id);
+}
+
+auto Connection::errorResponse(const jsonrpc::MessageId& id, int code, std::string_view message) -> Connection::ResponseSender
+{
+	return ResponseSender(*this, id, code, message);
+}
+
+auto Connection::messageBatch() -> Connection::BatchSender
+{
+	return BatchSender(*this);
+}
+
+/*
+ * Connection::MessageSender
+ */
+
+Connection::MessageSender::MessageSender(Connection& connection)
+	: m_connection{&connection}
+	, m_writer{m_buffer
+#if LSP_MESSAGE_DEBUG_LOG
+		, "\t"
+#endif
+	}
+{
+}
+
+Connection::MessageSender::~MessageSender()
+{
+	// Message was not submitted if connection is not nullptr
+	assert(!m_connection || std::uncaught_exceptions() > 0);
+}
+
+auto Connection::MessageSender::writer() -> json::Writer&
+{
+	return m_writer;
+}
+
+void Connection::MessageSender::submit()
+{
+	if(m_connection)
+	{
+#if LSP_MESSAGE_DEBUG_LOG
+		debugLogMessageJson("outgoing", std::string(m_buffer));
+#endif
+		m_connection->writeMessageData(m_buffer);
+		m_connection = nullptr;
+	}
+}
+
+void Connection::MessageSender::discard()
+{
+	m_connection = nullptr;
+}
+
+/*
+ * Connection::RequestSender
+ */
+
+Connection::RequestSender::RequestSender(
+	Connection& connection, std::string_view method, const jsonrpc::MessageId& id)
+	: MessageSender{connection}
+	, jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeRequest(writer().beginObject(), id, method)}
+{
+}
+
+Connection::RequestSender::RequestSender(Connection& connection, std::string_view method)
+	: MessageSender{connection}
+	, jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeNotification(writer().beginObject(), method)}
+{
+}
+
+void Connection::RequestSender::submit()
+{
+	finalize();
+	MessageSender::submit();
+}
+
+/*
+ * Connection::ResponseSender
+ */
+
+Connection::ResponseSender::ResponseSender(Connection& connection, const jsonrpc::MessageId& id)
+	: MessageSender{connection}
+	, jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeResponse(writer().beginObject(), id)}
+{
+}
+
+Connection::ResponseSender::ResponseSender(
+	Connection& connection, const jsonrpc::MessageId& id, int code, std::string_view message)
+	: MessageSender{connection}
+	, jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeError(writer().beginObject(), id, code, message)}
+{
+}
+
+void Connection::ResponseSender::submit()
+{
+	finalize();
+	MessageSender::submit();
+}
+
+/*
+ * Connection::BatchSender
+ */
+
+Connection::BatchSender::BatchSender(Connection& connection)
+	: MessageSender{connection}
+	, jsonrpc::BatchWriter{writer().beginArray()}
+{
+}
+
+void Connection::BatchSender::submit()
+{
+	finalize();
+	MessageSender::submit();
 }
 
 } // namespace lsp

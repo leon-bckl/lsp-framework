@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <utility>
 #include <variant>
 #include <optional>
 
@@ -20,38 +21,39 @@ public:
 	Nullable(const T& t){ *this = t; }
 	Nullable(T&& t){ *this = std::forward<T>(t); }
 
-	Nullable& operator=(const T& t)
+	auto operator=(const T& t) -> Nullable&
 	{
 		m_value.emplace(t);
 		return *this;
 	}
 
-	Nullable& operator=(T&& t)
+	auto operator=(T&& t) -> Nullable&
 	{
 		m_value.emplace(std::forward<T>(t));
 		return *this;
 	}
 
-	Nullable& operator=(std::nullptr_t)
+	auto operator=(std::nullptr_t) -> Nullable&
 	{
 		m_value = std::nullopt;
 		return *this;
 	}
 
 	template<typename... Args>
-	T& emplace(Args&&... args)
+	auto emplace(Args&&... args) -> T&
 	{
 		return m_value.emplace(std::forward<Args>(args)...);
 	}
 
 	void reset(){ m_value.reset(); }
-	bool isNull() const{ return !m_value.has_value(); }
-	T& value(){ return m_value.value(); }
-	const T& value() const{ return m_value.value(); }
-	T& operator*(){ return *m_value; }
-	const T& operator*() const{ return *m_value; }
-	T* operator->(){ return std::addressof(value()); }
-	const T* operator->() const{ return std::addressof(value()); }
+
+	[[nodiscard]] auto isNull() const -> bool{ return !m_value.has_value(); }
+	[[nodiscard]] auto value() -> T&{ return m_value.value(); }
+	[[nodiscard]] auto value() const -> const T&{ return m_value.value(); }
+	[[nodiscard]] auto operator*() -> T&{ return *m_value; }
+	[[nodiscard]] auto operator*() const -> const T&{ return *m_value; }
+	[[nodiscard]] auto operator->() -> T*{ return std::addressof(value()); }
+	[[nodiscard]] auto operator->() const -> const T*{ return std::addressof(value()); }
 
 private:
 	std::optional<T> m_value;
@@ -73,27 +75,27 @@ public:
 	}
 
 	template<typename T>
-	NullableVariant& operator=(const T& t)
+	auto operator=(const T& t) -> NullableVariant&
 	{
 		m_value.emplace(t);
 		return *this;
 	}
 
 	template<typename T>
-	NullableVariant& operator=(T&& t)
+	auto operator=(T&& t) -> NullableVariant&
 	{
 		m_value.emplace(std::forward<T>(t));
 		return *this;
 	}
 
-	NullableVariant& operator=(std::nullptr_t)
+	auto operator=(std::nullptr_t) -> NullableVariant&
 	{
 		m_value = std::nullopt;
 		return *this;
 	}
 
 	template<typename T>
-	bool holdsAlternative()
+	[[nodiscard]] auto holdsAlternative() -> bool
 	{
 		return !isNull() && std::holds_alternative<T>(value());
 	}
@@ -109,23 +111,25 @@ public:
 	}
 
 	template<typename T, typename... Params>
-	T& emplace(Params&&... params)
+	auto emplace(Params&&... params) -> T&
 	{
-		return m_value.emplace(std::forward<Params>(params)...);
+		m_value.emplace(std::in_place_type<T>, std::forward<Params>(params)...);
+		return get<T>();
 	}
 
 	void reset(){ m_value.reset(); }
-	bool isNull() const{ return !m_value.has_value(); }
+
+	[[nodiscard]] auto isNull() const -> bool{ return !m_value.has_value(); }
 
 	template<typename T>
-	T& get(){ return std::get<T>(*m_value); }
+	[[nodiscard]] auto get() -> T&{ return std::get<T>(*m_value); }
 	template<typename T>
-	const T& get() const{ return std::get<T>(*m_value); }
+	[[nodiscard]] auto get() const -> const T&{ return std::get<T>(*m_value); }
 
-	VariantType& value(){ return *m_value; }
-	const VariantType& value() const{ return *m_value; }
-	VariantType& operator*(){ return *m_value; }
-	const VariantType& operator*() const{ return *m_value; }
+	[[nodiscard]] auto value() -> VariantType&{ return *m_value; }
+	[[nodiscard]] auto value() const -> const VariantType&{ return *m_value; }
+	[[nodiscard]] auto operator*() -> VariantType&{ return *m_value; }
+	[[nodiscard]] auto operator*() const -> const VariantType&{ return *m_value; }
 
 private:
 	std::optional<VariantType> m_value;

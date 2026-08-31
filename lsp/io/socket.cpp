@@ -26,7 +26,7 @@ namespace lsp::io{
  * Socket::Impl
  */
 
-struct Socket::Impl{
+struct Socket::Impl : Stream{
 	static constexpr auto InvalidSocket =
 #ifdef LSP_SOCKET_POSIX
 	-1;
@@ -47,12 +47,14 @@ struct Socket::Impl{
 		int;
 #endif
 
-	SocketHandle   m_socketFd       = InvalidSocket;
-	unsigned short m_maxConnections = 1; // Only relevant for listen
+	SocketHandle   m_socketFd = InvalidSocket;
+	unsigned short m_port     = 0;
+	unsigned short m_backlog  = 1; // Only relevant for listen
 
-	Impl(SocketHandle socket, unsigned short maxConnections = 1)
-		: m_socketFd(socket)
-		, m_maxConnections(maxConnections)
+	Impl(SocketHandle socket, unsigned short port, unsigned short backlog = 1)
+		: m_socketFd{socket}
+		, m_port{port}
+		, m_backlog{backlog}
 	{
 	}
 
@@ -100,8 +102,7 @@ struct Socket::Impl{
 		throw Error(msg + ": " + std::to_string(errorCode));
 	}
 
-	[[nodiscard]]
-	static std::unique_ptr<Impl> setupForListen(unsigned short port, unsigned short maxConnections)
+	static auto setupForListen(unsigned short port, unsigned short backlog) -> std::unique_ptr<Impl>
 	{
 		ensureInitialized();
 
@@ -111,11 +112,13 @@ struct Socket::Impl{
 			throwError("Failed to create socket");
 
 #ifdef LSP_SOCKET_POSIX
-		const int yes = 1;
+		const int yes     = 1;
+		const int optName = SO_REUSEADDR;
 #elif defined(LSP_SOCKET_WIN32)
-		const char yes = 1;
+		const char yes    = 1;
+		const int optName = SO_EXCLUSIVEADDRUSE;
 #endif
-		setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+		setsockopt(socketFd, SOL_SOCKET, optName, &yes, sizeof(yes));
 
 		auto addr = sockaddr_in{};
 		addr.sin_family      = AF_INET;
@@ -128,12 +131,21 @@ struct Socket::Impl{
 			throwError("Failed to bind socket address");
 		}
 
-		return std::make_unique<Impl>(socketFd, maxConnections);
+		SizeType addrLen = sizeof(addr);
+		if(getsockname(socketFd, reinterpret_cast<sockaddr*>(&addr), &addrLen) != 0)
+		{
+			closeSocketHandle(socketFd);
+			throwError("Failed to get listen port");
+		}
+
+		return std::make_unique<Impl>(socketFd, ntohs(addr.sin_port), backlog);
 	}
 
-	[[nodiscard]]
-	static std::unique_ptr<Impl> connect(const std::string& address, unsigned short port)
+	static auto connect(const std::string& address, unsigned short port) -> std::unique_ptr<Impl>
 	{
+		if(port == 0)
+			throw Error("Cannot connect on port 0");
+
 		ensureInitialized();
 
 		addrinfo hints = {};
@@ -155,7 +167,7 @@ struct Socket::Impl{
 			if(::connect(socketFd, addr->ai_addr, static_cast<SizeType>(addr->ai_addrlen)) == 0)
 			{
 				freeaddrinfo(addrInfoList);
-				return std::make_unique<Impl>(socketFd);
+				return std::make_unique<Impl>(socketFd, port);
 			}
 
 			closeSocketHandle(socketFd);
@@ -166,22 +178,22 @@ struct Socket::Impl{
 		throwError("Failed to connect to any resolved address");
 	}
 
-	std::unique_ptr<Impl> listen()
+	auto accept() -> std::unique_ptr<Impl>
 	{
 		assert(m_socketFd != InvalidSocket);
 
-		if(::listen(m_socketFd, m_maxConnections) == -1)
+		if(::listen(m_socketFd, m_backlog) == -1)
 			throwError("Failed to listen for new socket connections");
 
-		const auto other = accept(m_socketFd, nullptr, nullptr);
+		const auto other = ::accept(m_socketFd, nullptr, nullptr);
 
 		if(other == InvalidSocket)
 			throwError("Failed to accept socket connection");
 
-		return std::make_unique<Impl>(other);
+		return std::make_unique<Impl>(other, m_port);
 	}
 
-	void read(char* buffer, std::size_t size)
+	void read(char* buffer, std::size_t size) override
 	{
 		if(size == 0)
 			return;
@@ -202,7 +214,7 @@ struct Socket::Impl{
 		}
 	}
 
-	void write(const char* buffer, std::size_t size)
+	void write(const char* buffer, std::size_t size) override
 	{
 		if(size == 0)
 			return;
@@ -242,43 +254,62 @@ Socket Socket::connect(const std::string& address, unsigned short port)
 	return Socket(Impl::connect(address, port));
 }
 
-bool Socket::isOpen() const
+auto Socket::isOpen() const -> bool
 {
 	return !!m_impl;
 }
 
+auto Socket::port() const -> unsigned short
+{
+	if(m_impl)
+		return m_impl->m_port;
+
+	return 0;
+}
+
 void Socket::close()
 {
-	m_impl.reset();
+	if(m_impl)
+		m_impl.reset();
 }
 
 void Socket::read(char* buffer, std::size_t size)
 {
-	assert(m_impl);
+	if(!m_impl)
+		throw Error("Socket is not open for reading");
+
 	m_impl->read(buffer, size);
 }
 
 void Socket::write(const char* buffer, std::size_t size)
 {
-	assert(m_impl);
+	if(!m_impl)
+		throw Error("Socket is not open for writing");
+
 	m_impl->write(buffer, size);
+}
+
+auto Socket::stream() -> Stream&
+{
+	assert(m_impl);
+	return *m_impl;
 }
 
 /*
  * SocketListener
  */
 
-SocketListener::SocketListener(unsigned short port, unsigned short maxConnections)
-	: m_socket(Socket::Impl::setupForListen(port, maxConnections))
+SocketListener::SocketListener(unsigned short port, unsigned short backlog)
+	: m_socket(Socket::Impl::setupForListen(port, backlog))
 {
 }
 
-Socket SocketListener::listen()
+auto SocketListener::accept() -> Socket
 {
-	if(!isReady())
+	if(!isOpen())
 		throw Error("Server socket is not open for listening");
 
-	return Socket(m_socket.m_impl->listen());
+	return Socket(m_socket.m_impl->accept());
 }
 
 } // namespace lsp::io

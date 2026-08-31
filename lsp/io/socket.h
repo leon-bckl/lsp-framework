@@ -20,21 +20,25 @@ namespace lsp::io{
  * Socket
  */
 
-class Socket : public Stream{
+class Socket{
 public:
 	static constexpr auto Localhost = "127.0.0.1";
 
 	Socket(Socket&&) noexcept;
 	Socket& operator=(Socket&&) noexcept;
-	~Socket() override;
+	~Socket();
 
-	[[nodiscard]] static Socket connect(const std::string& address, unsigned short port);
+	[[nodiscard]] static auto connect(const std::string& address, unsigned short port) -> Socket;
 
-	[[nodiscard]] bool isOpen() const;
+	[[nodiscard]] auto isOpen() const -> bool;
+	[[nodiscard]] auto port() const -> unsigned short;
+
 	void close();
+	void read(char* buffer, std::size_t size);
+	void write(const char* buffer, std::size_t size);
 
-	void read(char* buffer, std::size_t size) override;
-	void write(const char* buffer, std::size_t size) override;
+	[[nodiscard]] auto stream() -> Stream&;
+	operator Stream&(){ return stream(); }
 
 private:
 	friend class SocketListener;
@@ -50,11 +54,13 @@ private:
 
 class SocketListener{
 public:
-	SocketListener(unsigned short port, unsigned short maxConnections = 32);
+	SocketListener(unsigned short port, unsigned short backlog = 32);
 
-	[[nodiscard]] Socket listen();
-	[[nodiscard]] bool isReady() const{ return m_socket.isOpen(); }
-	void shutdown(){ m_socket.close(); }
+	[[nodiscard]] auto accept() -> Socket;
+	[[nodiscard]] auto isOpen() const -> bool{ return m_socket.isOpen(); }
+	[[nodiscard]] auto port() const -> unsigned short{ return m_socket.port(); }
+
+	void close(){ m_socket.close(); }
 
 private:
 	Socket m_socket;

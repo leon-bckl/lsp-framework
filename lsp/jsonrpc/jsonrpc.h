@@ -20,7 +20,7 @@ struct Request{
 	std::string                method;
 	std::optional<json::Value> params = {};
 
-	[[nodiscard]] bool isNotification() const{ return !id.has_value(); }
+	[[nodiscard]] auto isNotification() const -> bool{ return !id.has_value(); }
 };
 
 using RequestBatch = std::vector<Request>;
@@ -31,11 +31,13 @@ using SingleRequestOrBatch = std::variant<Request, RequestBatch>;
  */
 
 struct Error{
-	static constexpr json::Integer ParseError     = -32700;
-	static constexpr json::Integer InvalidRequest = -32600;
-	static constexpr json::Integer MethodNotFound = -32601;
-	static constexpr json::Integer InvalidParams  = -32602;
-	static constexpr json::Integer InternalError  = -32603;
+	enum : int{
+		ParseError     = -32700,
+		InvalidRequest = -32600,
+		MethodNotFound = -32601,
+		InvalidParams  = -32602,
+		InternalError  = -32603
+	};
 
 	json::Integer              code;
 	json::String               message;
@@ -75,14 +77,7 @@ public:
  * Creation/Parsing/Serialization
  */
 
-[[nodiscard]] Message      messageFromJson(json::Object&& json);
-[[nodiscard]] MessageBatch messageBatchFromJson(json::Array&& json);
-[[nodiscard]] json::Object messageToJson(Message&& message);
-[[nodiscard]] json::Array  messageBatchToJson(MessageBatch&& batch);
-
-[[nodiscard]] Request  createRequest(MessageId id, std::string_view method, std::optional<json::Value> params = std::nullopt);
-[[nodiscard]] Request  createNotification(std::string_view method, std::optional<json::Value> params = std::nullopt);
-[[nodiscard]] Response createResponse(MessageId id, json::Value result);
-[[nodiscard]] Response createErrorResponse(MessageId id, json::Integer errorCode, json::String message, std::optional<json::Value> data = std::nullopt);
+[[nodiscard]] auto messageFromJson(json::Object&& json) -> Message;
+[[nodiscard]] auto messageBatchFromJson(json::Array&& json) -> MessageBatch;
 
 } // namespace lsp::jsonrpc

@@ -9,12 +9,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS NO)
 
 option(LSP_BUILD_EXAMPLES "Build the examples" OFF)
+option(LSP_BUILD_TESTS "Build the tests" OFF)
 option(LSP_INSTALL "Configure lsp install configuration" ON)
-set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel.json CACHE FILEPATH "Path to the LSP meta model json passed to lspgen")
+set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/meta_model/metaModel_3.18.json CACHE FILEPATH "Path to the LSP meta model json passed to lspgen")
 
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-	add_compile_options(/W4 /bigobj)
+	add_compile_options(/W4 /bigobj /utf-8)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	option(LSP_USE_SANITIZERS "Use address and undefined behavior sanitizers for Debug builds" OFF)
 
@@ -52,7 +53,18 @@ endif()
 
 # lspgen
 
-add_executable(lspgen lspgen/lspgen.cpp lsp/json/json.cpp)
+add_executable(lspgen
+	lsp/json/json.cpp
+	lsp/json/parser.cpp
+	lsp/json/writer.cpp
+	lspgen/endpoint_generator.cpp
+	lspgen/message_generator.cpp
+	lspgen/protocol_version_generator.cpp
+	lspgen/type_generator.cpp
+	lspgen/cpp_writer.cpp
+	lspgen/lspgen.cpp
+	lspgen/meta_model.cpp
+)
 target_include_directories(lspgen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # liblsp
@@ -62,45 +74,51 @@ set(LSP_SRC_DIR ${LSP_DIR}/lsp)
 
 set(LSP_HEADERS
 	# lsp
-	concepts.h
 	connection.h
+	endpoint_base.h
 	enumeration.h
 	error.h
 	exception.h
-	messagebase.h
-	messagehandler.h
+	message_base.h
+	message_handler.h
 	nullable.h
 	process.h
-	requestresult.h
+	request_result.h
 	serialization.h
-	strmap.h
-	threadpool.h
+	thread_pool.h
 	uri.h
 	# io
 	io/socket.h
-	io/standardio.h
+	io/standard_io.h
 	io/stream.h
 	# json
 	json/json.h
+	json/parser.h
+	json/writer.h
 	# jsonrpc
 	jsonrpc/jsonrpc.h
+	jsonrpc/message_writer.h
 )
 list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR}/)
 
 set(LSP_SOURCES
 	# lsp
 	connection.cpp
-	messagehandler.cpp
+	endpoint_base.cpp
+	message_handler.cpp
 	process.cpp
-	threadpool.cpp
+	thread_pool.cpp
 	uri.cpp
 	# io
 	io/socket.cpp
-	io/standardio.cpp
+	io/standard_io.cpp
 	# json
 	json/json.cpp
+	json/parser.cpp
+	json/writer.cpp
 	# jsonrpc
 	jsonrpc/jsonrpc.cpp
+	jsonrpc/message_writer.cpp
 )
 list(TRANSFORM LSP_SOURCES PREPEND ${LSP_SRC_DIR}/)
 
@@ -108,11 +126,16 @@ set(LSP_GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp)
 
 set(LSP_GENERATED_HEADERS
-	${LSP_GENERATED_FILES_DIR}/lsp/types.h
+	${LSP_GENERATED_FILES_DIR}/lsp/client_endpoint.h
 	${LSP_GENERATED_FILES_DIR}/lsp/messages.h
+	${LSP_GENERATED_FILES_DIR}/lsp/protocol_version.h
+	${LSP_GENERATED_FILES_DIR}/lsp/server_endpoint.h
+	${LSP_GENERATED_FILES_DIR}/lsp/types.h
 )
 
 set(LSP_GENERATED_SOURCES
+	${LSP_GENERATED_FILES_DIR}/lsp/client_endpoint.cpp
+	${LSP_GENERATED_FILES_DIR}/lsp/server_endpoint.cpp
 	${LSP_GENERATED_FILES_DIR}/lsp/types.cpp
 )
 
@@ -193,10 +216,10 @@ if(WIN32)
 endif()
 
 if(LSP_BUILD_EXAMPLES)
-	# Server
-	add_executable(LspServerExample ${LSP_DIR}/examples/server.cpp)
-	target_link_libraries(LspServerExample lsp)
-	# Client
-	add_executable(LspClientExample ${LSP_DIR}/examples/client.cpp)
-	target_link_libraries(LspClientExample lsp)
+	add_subdirectory(examples)
+endif()
+
+if(LSP_BUILD_TESTS)
+	include(CTest)
+	add_subdirectory(test)
 endif()
