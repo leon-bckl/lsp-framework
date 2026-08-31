@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <lsp/io/stream.h>
-#include <lsp/messagehandler.h>
+#include <lsp/message_handler.h>
 
 namespace lsp{
 namespace requests{

@@ -1,5 +1,5 @@
-#include "messagegenerator.h"
-#include "metamodel.h"
+#include "message_generator.h"
+#include "meta_model.h"
 
 namespace lspgen{
 namespace{
@@ -12,7 +12,7 @@ R"(#pragma once
  *#############################################################*/
 
 #include <string_view>
-#include <lsp/messagebase.h>
+#include <lsp/message_base.h>
 #include <lsp/types.h>
 
 namespace lsp{

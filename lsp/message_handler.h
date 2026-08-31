@@ -8,10 +8,10 @@
 #include <lsp/connection.h>
 #include <lsp/error.h>
 #include <lsp/jsonrpc/jsonrpc.h>
-#include <lsp/messagebase.h>
-#include <lsp/requestresult.h>
+#include <lsp/message_base.h>
+#include <lsp/request_result.h>
 #include <lsp/serialization.h>
-#include <lsp/threadpool.h>
+#include <lsp/thread_pool.h>
 
 namespace lsp{
 
@@ -227,4 +227,4 @@ private:
 
 } // namespace lsp
 
-#include "messagehandler.inl"
+#include "message_handler.inl"

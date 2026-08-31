@@ -4,11 +4,11 @@
 #include <string_view>
 #include <test/test.h>
 #include <lsp/connection.h>
-#include <lsp/endpointbase.h>
+#include <lsp/endpoint_base.h>
 #include <lsp/error.h>
 #include <lsp/io/stream.h>
-#include <lsp/messagebase.h>
-#include <lsp/messagehandler.h>
+#include <lsp/message_base.h>
+#include <lsp/message_handler.h>
 
 using namespace lsp;
 

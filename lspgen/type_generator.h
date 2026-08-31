@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include "cppwriter.h"
+#include "cpp_writer.h"
 
 namespace lspgen{
 

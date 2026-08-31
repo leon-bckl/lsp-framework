@@ -1,5 +1,5 @@
 #include <cassert>
-#include <lsp/messagehandler.h>
+#include <lsp/message_handler.h>
 
 namespace lsp{
 namespace{

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cppwriter.h"
+#include "cpp_writer.h"
 
 namespace lspgen{
 

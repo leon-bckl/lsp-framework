@@ -14,7 +14,7 @@
 #include <test/test.h>
 #include <lsp/io/stream.h>
 #include <lsp/json/json.h>
-#include <lsp/messagehandler.h>
+#include <lsp/message_handler.h>
 
 using namespace lsp;
 

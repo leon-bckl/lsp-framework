@@ -1,7 +1,7 @@
 lsp_add_test(connection)
-lsp_add_test(endpointbase)
+lsp_add_test(endpoint_base)
 lsp_add_test(enumeration)
-lsp_add_test(messagehandler)
+lsp_add_test(message_handler)
 lsp_add_test(nullable)
 lsp_add_test(serialization)
 add_executable(TestProcess test_process.cpp)
@@ -10,7 +10,7 @@ target_compile_definitions(TestProcess PRIVATE "LSP_TEST_PROCESS_IMPLEMENTATION"
 lsp_add_test(process)
 target_compile_definitions(test_process PRIVATE LSP_TEST_PROCESS_EXE="$<TARGET_FILE:TestProcess>")
 add_dependencies(test_process TestProcess)
-lsp_add_test(threadpool)
+lsp_add_test(thread_pool)
 lsp_add_test(uri)
 lsp_add_test(socket)
 

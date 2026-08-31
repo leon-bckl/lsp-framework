@@ -3,8 +3,8 @@
 #include <format>
 #include <stdexcept>
 #include <variant>
-#include "metamodel.h"
-#include "typegenerator.h"
+#include "meta_model.h"
+#include "type_generator.h"
 #include "util.h"
 
 namespace lspgen{

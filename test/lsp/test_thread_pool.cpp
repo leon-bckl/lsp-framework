@@ -4,7 +4,7 @@
 #include <thread>
 #include <vector>
 #include <test/test.h>
-#include <lsp/threadpool.h>
+#include <lsp/thread_pool.h>
 
 using namespace lsp;
 

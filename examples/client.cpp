@@ -3,11 +3,11 @@
 #include <iostream>
 #include <thread>
 #include <lsp/connection.h>
-#include <lsp/messagehandler.h>
+#include <lsp/message_handler.h>
 #include <lsp/messages.h>
 #include <lsp/process.h>
 #include <lsp/io/socket.h>
-#include <lsp/io/standardio.h>
+#include <lsp/io/standard_io.h>
 
 /*
  * This is an example implementation of a simple client using the lsp-framework.

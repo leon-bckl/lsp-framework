@@ -57,13 +57,13 @@ add_executable(lspgen
 	lsp/json/json.cpp
 	lsp/json/parser.cpp
 	lsp/json/writer.cpp
-	lspgen/endpointgenerator.cpp
-	lspgen/messagegenerator.cpp
-	lspgen/protocolversiongenerator.cpp
-	lspgen/typegenerator.cpp
-	lspgen/cppwriter.cpp
+	lspgen/endpoint_generator.cpp
+	lspgen/message_generator.cpp
+	lspgen/protocol_version_generator.cpp
+	lspgen/type_generator.cpp
+	lspgen/cpp_writer.cpp
 	lspgen/lspgen.cpp
-	lspgen/metamodel.cpp
+	lspgen/meta_model.cpp
 )
 target_include_directories(lspgen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -75,21 +75,21 @@ set(LSP_SRC_DIR ${LSP_DIR}/lsp)
 set(LSP_HEADERS
 	# lsp
 	connection.h
-	endpointbase.h
+	endpoint_base.h
 	enumeration.h
 	error.h
 	exception.h
-	messagebase.h
-	messagehandler.h
+	message_base.h
+	message_handler.h
 	nullable.h
 	process.h
-	requestresult.h
+	request_result.h
 	serialization.h
-	threadpool.h
+	thread_pool.h
 	uri.h
 	# io
 	io/socket.h
-	io/standardio.h
+	io/standard_io.h
 	io/stream.h
 	# json
 	json/json.h
@@ -97,28 +97,28 @@ set(LSP_HEADERS
 	json/writer.h
 	# jsonrpc
 	jsonrpc/jsonrpc.h
-	jsonrpc/messagewriter.h
+	jsonrpc/message_writer.h
 )
 list(TRANSFORM LSP_HEADERS PREPEND ${LSP_SRC_DIR}/)
 
 set(LSP_SOURCES
 	# lsp
 	connection.cpp
-	endpointbase.cpp
-	messagehandler.cpp
+	endpoint_base.cpp
+	message_handler.cpp
 	process.cpp
-	threadpool.cpp
+	thread_pool.cpp
 	uri.cpp
 	# io
 	io/socket.cpp
-	io/standardio.cpp
+	io/standard_io.cpp
 	# json
 	json/json.cpp
 	json/parser.cpp
 	json/writer.cpp
 	# jsonrpc
 	jsonrpc/jsonrpc.cpp
-	jsonrpc/messagewriter.cpp
+	jsonrpc/message_writer.cpp
 )
 list(TRANSFORM LSP_SOURCES PREPEND ${LSP_SRC_DIR}/)
 
@@ -126,16 +126,16 @@ set(LSP_GENERATED_FILES_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${LSP_GENERATED_FILES_DIR}/lsp)
 
 set(LSP_GENERATED_HEADERS
-	${LSP_GENERATED_FILES_DIR}/lsp/clientendpoint.h
+	${LSP_GENERATED_FILES_DIR}/lsp/client_endpoint.h
 	${LSP_GENERATED_FILES_DIR}/lsp/messages.h
-	${LSP_GENERATED_FILES_DIR}/lsp/protocolversion.h
-	${LSP_GENERATED_FILES_DIR}/lsp/serverendpoint.h
+	${LSP_GENERATED_FILES_DIR}/lsp/protocol_version.h
+	${LSP_GENERATED_FILES_DIR}/lsp/server_endpoint.h
 	${LSP_GENERATED_FILES_DIR}/lsp/types.h
 )
 
 set(LSP_GENERATED_SOURCES
-	${LSP_GENERATED_FILES_DIR}/lsp/clientendpoint.cpp
-	${LSP_GENERATED_FILES_DIR}/lsp/serverendpoint.cpp
+	${LSP_GENERATED_FILES_DIR}/lsp/client_endpoint.cpp
+	${LSP_GENERATED_FILES_DIR}/lsp/server_endpoint.cpp
 	${LSP_GENERATED_FILES_DIR}/lsp/types.cpp
 )
 

@@ -1,5 +1,5 @@
 #include <stdexcept>
-#include "endpointbase.h"
+#include "endpoint_base.h"
 
 namespace lsp{
 

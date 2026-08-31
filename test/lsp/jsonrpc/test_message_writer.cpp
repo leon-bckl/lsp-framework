@@ -4,7 +4,7 @@
 #include <test/test.h>
 #include <lsp/json/json.h>
 #include <lsp/json/writer.h>
-#include <lsp/jsonrpc/messagewriter.h>
+#include <lsp/jsonrpc/message_writer.h>
 
 using namespace lsp;
 using namespace lsp::jsonrpc;

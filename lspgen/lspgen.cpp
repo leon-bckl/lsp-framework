@@ -2,11 +2,11 @@
 #include <fstream>
 #include <iostream>
 #include <lsp/json/json.h>
-#include "endpointgenerator.h"
-#include "messagegenerator.h"
-#include "metamodel.h"
-#include "protocolversiongenerator.h"
-#include "typegenerator.h"
+#include "endpoint_generator.h"
+#include "message_generator.h"
+#include "meta_model.h"
+#include "protocol_version_generator.h"
+#include "type_generator.h"
 
 using namespace lsp;
 using namespace lspgen;
@@ -61,7 +61,7 @@ auto main(int argc, char** argv) -> int
 			auto protocolVersionGenerator = ProtocolVersionGenerator();
 			protocolVersionGenerator.generate(metaModel);
 
-			writeFileContent("protocolversion.h", protocolVersionGenerator.headerText());
+			writeFileContent("protocol_version.h", protocolVersionGenerator.headerText());
 		}
 
 		{
@@ -83,12 +83,12 @@ auto main(int argc, char** argv) -> int
 			auto endpointGenerator = EndpointGenerator();
 
 			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ClientToServer);
-			writeFileContent("clientendpoint.h", endpointGenerator.headerText());
-			writeFileContent("clientendpoint.cpp", endpointGenerator.sourceText());
+			writeFileContent("client_endpoint.h", endpointGenerator.headerText());
+			writeFileContent("client_endpoint.cpp", endpointGenerator.sourceText());
 
 			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ServerToClient);
-			writeFileContent("serverendpoint.h", endpointGenerator.headerText());
-			writeFileContent("serverendpoint.cpp", endpointGenerator.sourceText());
+			writeFileContent("server_endpoint.h", endpointGenerator.headerText());
+			writeFileContent("server_endpoint.cpp", endpointGenerator.sourceText());
 		}
 	}
 	catch(const json::ParseError& e)

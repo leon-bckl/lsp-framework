@@ -3,7 +3,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <utility>
-#include "metamodel.h"
+#include "meta_model.h"
 #include "util.h"
 
 namespace lspgen{

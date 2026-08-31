@@ -6,7 +6,7 @@
 #include <lsp/exception.h>
 #include <lsp/json/writer.h>
 #include <lsp/jsonrpc/jsonrpc.h>
-#include <lsp/jsonrpc/messagewriter.h>
+#include <lsp/jsonrpc/message_writer.h>
 #include <lsp/serialization.h>
 
 namespace lsp{

@@ -1,5 +1,5 @@
 #include <algorithm>
-#include "cppwriter.h"
+#include "cpp_writer.h"
 #include "util.h"
 
 namespace lspgen{

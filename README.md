@@ -55,8 +55,8 @@ Create an `lsp::Connection` using a stream and then an `lsp::MessageHandler` wit
 ```cpp
 #include <lsp/messages.h> // Generated message definitions
 #include <lsp/connection.h>
-#include <lsp/io/standardio.h>
-#include <lsp/messagehandler.h>
+#include <lsp/io/standard_io.h>
+#include <lsp/message_handler.h>
 
 auto connection     = lsp::Connection(lsp::io::standardIO());
 auto messageHandler = lsp::MessageHandler(std::move(connection));

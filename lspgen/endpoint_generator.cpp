@@ -1,7 +1,6 @@
 #include <cassert>
-#include "endpointgenerator.h"
-#include "metamodel.h"
-#include "util.h"
+#include "endpoint_generator.h"
+#include "meta_model.h"
 
 namespace lspgen{
 
@@ -18,10 +17,10 @@ R"(#pragma once
  * NOTE: This is a generated file and it shouldn't be modified!
  *#############################################################*/
 
-#include <lsp/endpointbase.h>
-#include <lsp/messagehandler.h>
+#include <lsp/endpoint_base.h>
+#include <lsp/message_handler.h>
 #include <lsp/messages.h>
-#include <lsp/requestresult.h>
+#include <lsp/request_result.h>
 #include <lsp/types.h>
 
 )", false);
@@ -33,9 +32,10 @@ R"(/*#############################################################
 
 )", false);
 
-	const auto className = std::string(direction == Direction::ClientToServer ? "ClientEndpoint" : "ServerEndpoint");
+	const auto className  = std::string(direction == Direction::ClientToServer ? "ClientEndpoint" : "ServerEndpoint");
+	const auto headerName = std::string(direction == Direction::ClientToServer ? "client_endpoint" : "server_endpoint");
 
-	m_implWriter.writeLine("#include \"" + stringToLower(className) + ".h\"", false);
+	m_implWriter.writeLine("#include \"" + headerName + ".h\"", false);
 	m_implWriter.writeEmptyLine();
 	m_implWriter.writeNamespaceStart("lsp");
 

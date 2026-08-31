@@ -1,6 +1,6 @@
 #include <stdexcept>
-#include "protocolversiongenerator.h"
-#include "metamodel.h"
+#include "protocol_version_generator.h"
+#include "meta_model.h"
 #include "util.h"
 
 namespace lspgen{
