@@ -98,7 +98,6 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 		m_declWriter.write(inlineImplWriter.text(), false);
 		inlineImplWriter.reset();
 
-		m_declWriter.writeEmptyLine();
 		m_declWriter.writeDocComment("Outgoing notifications", {});
 		m_declWriter.writeEmptyLine();
 
@@ -121,7 +120,6 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 				generateIncomingMethod(className, method, message);
 		}
 
-		m_declWriter.writeEmptyLine();
 		m_declWriter.writeDocComment("Incoming notifications", {});
 		m_declWriter.writeEmptyLine();
 
