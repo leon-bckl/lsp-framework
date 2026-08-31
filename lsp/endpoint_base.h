@@ -22,6 +22,7 @@ class EndpointBase{
 public:
 	EndpointBase(io::Stream& stream);
 
+	auto isActive() const -> bool;
 	auto messageHandler() -> MessageHandler&;
 	void processNextMessage();
 	void runMessageLoop();
@@ -84,7 +85,10 @@ public:
 	void postMethodCall(){}
 
 	template<>
-	void preMethodCall<requests::Initialize>();
+	void preMethodCall<requests::Initialize>(){}
+
+	template<>
+	void postMethodCall<requests::Initialize>();
 
 	template<>
 	void preMethodCall<requests::Shutdown>();

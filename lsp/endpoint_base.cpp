@@ -10,7 +10,12 @@ namespace lsp{
 EndpointBase::EndpointBase(io::Stream& stream)
 	: m_messageHandler{Connection(stream)}
 {
-	m_state.store(State::Uninitialized);
+	setState(State::Uninitialized);
+}
+
+auto EndpointBase::isActive() const -> bool
+{
+	return state() != State::Inactive;
 }
 
 auto EndpointBase::messageHandler() -> MessageHandler&
@@ -20,23 +25,25 @@ auto EndpointBase::messageHandler() -> MessageHandler&
 
 void EndpointBase::processNextMessage()
 {
-	if(state() != State::Inactive)
-		messageHandler().processNextMessage();
-}
-
-void EndpointBase::runMessageLoop()
-{
 	try
 	{
-		while(state() != State::Inactive)
-			messageHandler().processNextMessage();
+		messageHandler().processNextMessage();
 	}
 	catch(const ConnectionError&)
 	{
 		// Ignore connection error when inactive since no more messages are expected
-		if(state() != State::Inactive)
+		if(isActive())
+		{
+			setState(State::Inactive);
 			throw;
+		}
 	}
+}
+
+void EndpointBase::runMessageLoop()
+{
+	while(isActive())
+		processNextMessage();
 }
 
 auto EndpointBase::state() const -> State
@@ -59,7 +66,7 @@ ClientEndpointBase::ClientEndpointBase(io::Stream& stream)
 }
 
 template<>
-void ClientEndpointBase::preMethodCall<requests::Initialize>()
+void ClientEndpointBase::postMethodCall<requests::Initialize>()
 {
 	setState(State::Active);
 }
@@ -67,20 +74,21 @@ void ClientEndpointBase::preMethodCall<requests::Initialize>()
 template<>
 void ClientEndpointBase::preMethodCall<requests::Shutdown>()
 {
+	verifyInitialized();
 	setState(State::Shutdown);
 }
 
 template<>
 void ClientEndpointBase::preMethodCall<notifications::Exit>()
 {
-	setState(State::Uninitialized);
+	setState(State::Inactive);
 }
 
 void ClientEndpointBase::verifyInitialized() const
 {
 	const auto currentState = state();
 
-	if(currentState == State::Uninitialized)
+	if(currentState <= State::Uninitialized)
 		throw std::logic_error("Initialize request must be sent first");
 
 	if(currentState == State::Shutdown)

@@ -115,17 +115,31 @@ int main(int argc, char** argv)
 		test::check(endpoint.state() == BaseUnderTest::State::Uninitialized, "uninitialized");
 	});
 
-	app.addTest("EndpointBase/ProcessNextMessageSkippedWhenInactive", [](){
+	app.addTest("EndpointBase/IsActive", [](BaseUnderTest::State state, bool expected){
 		auto stream   = LoopbackStream();
 		auto endpoint = BaseUnderTest(stream);
 
+		endpoint.setState(state);
+		test::compare(endpoint.isActive(), expected);
+	})({
+		{"Inactive",      {BaseUnderTest::State::Inactive,      false}},
+		{"Uninitialized", {BaseUnderTest::State::Uninitialized, true }},
+		{"Active",        {BaseUnderTest::State::Active,        true }},
+		{"Shutdown",      {BaseUnderTest::State::Shutdown,      true }},
+	});
+
+	app.addTest("EndpointBase/ProcessNextMessageSwallowsConnectionErrorWhenInactive", [](){
+		auto stream   = LoopbackStream();
+		auto endpoint = BaseUnderTest(stream);
+
+		// No more messages are expected once inactive, so a dropped connection is not an error
 		endpoint.setState(BaseUnderTest::State::Inactive);
 		endpoint.processNextMessage();
 
-		test::compare(stream.readCount, 0);
+		test::compare(stream.readCount, 1);
 	});
 
-	app.addTest("EndpointBase/ProcessNextMessageRunsWhenActive", [](){
+	app.addTest("EndpointBase/ProcessNextMessageRethrowsAndDeactivatesWhenActive", [](){
 		auto stream   = LoopbackStream();
 		auto endpoint = BaseUnderTest(stream);
 
@@ -133,6 +147,9 @@ int main(int argc, char** argv)
 		test::expectException<ConnectionError>([&](){ endpoint.processNextMessage(); });
 
 		test::compare(stream.readCount, 1);
+
+		// A connection error while active marks the endpoint inactive before propagating
+		test::check(endpoint.state() == BaseUnderTest::State::Inactive, "inactive");
 	});
 
 	app.addTest("EndpointBase/RunMessageLoopReturnsImmediatelyWhenInactive", [](){
@@ -151,6 +168,9 @@ int main(int argc, char** argv)
 
 		endpoint.setState(BaseUnderTest::State::Active);
 		test::expectException<ConnectionError>([&](){ endpoint.runMessageLoop(); });
+
+		// The connection error propagates out of the loop, leaving the endpoint inactive
+		test::check(endpoint.state() == BaseUnderTest::State::Inactive, "inactive");
 	});
 
 	app.addTest("EndpointBase/RunMessageLoopSwallowsConnectionErrorAfterExit", [](){
@@ -215,7 +235,7 @@ int main(int argc, char** argv)
 		auto stream = LoopbackStream();
 		auto client = ClientUnderTest(stream);
 
-		client.preMethodCall<requests::Initialize>();
+		client.postMethodCall<requests::Initialize>();
 		test::check(client.state() == ClientUnderTest::State::Active, "active");
 
 		// Generic calls are allowed once active
@@ -226,7 +246,7 @@ int main(int argc, char** argv)
 		auto stream = LoopbackStream();
 		auto client = ClientUnderTest(stream);
 
-		client.preMethodCall<requests::Initialize>();
+		client.postMethodCall<requests::Initialize>();
 		client.preMethodCall<requests::Shutdown>();
 		test::check(client.state() == ClientUnderTest::State::Shutdown, "shutdown");
 
@@ -235,14 +255,19 @@ int main(int argc, char** argv)
 			"Only 'exit' request must be sent after 'shutdown'");
 	});
 
-	app.addTest("Client/ExitResetsToUninitialized", [](){
+	app.addTest("Client/ExitResetsToInactive", [](){
 		auto stream = LoopbackStream();
 		auto client = ClientUnderTest(stream);
 
-		client.preMethodCall<requests::Initialize>();
+		client.postMethodCall<requests::Initialize>();
 		client.preMethodCall<notifications::Exit>();
 
-		test::check(client.state() == ClientUnderTest::State::Uninitialized, "uninitialized");
+		test::check(client.state() == ClientUnderTest::State::Inactive, "inactive");
+
+		// Generic calls are rejected again once inactive
+		test::expectException<std::logic_error>(
+			[&](){ client.preMethodCall<DummyMessage>(); },
+			"Initialize request must be sent first");
 	});
 
 	/*
