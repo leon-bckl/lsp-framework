@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS NO)
 option(LSP_BUILD_EXAMPLES "Build the examples" OFF)
 option(LSP_BUILD_TESTS "Build the tests" OFF)
 option(LSP_INSTALL "Configure lsp install configuration" ON)
-set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/metaModel_3.18.json CACHE FILEPATH "Path to the LSP meta model json passed to lspgen")
+set(LSP_METAMODEL_JSON ${CMAKE_CURRENT_SOURCE_DIR}/lspgen/meta_model/metaModel_3.18.json CACHE FILEPATH "Path to the LSP meta model json passed to lspgen")
 
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

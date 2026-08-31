@@ -3,7 +3,7 @@
 This project includes third-party material, reproduced verbatim, under the
 terms below.
 
-## lspgen/metaModel_3.17.json, lspgen/metaModel_3.18.json
+## lspgen/meta_model/metaModel_3.17.json, lspgen/meta_model/metaModel_3.18.json
 
 Source: https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/metaModel/metaModel.json
 Source: https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.18/metaModel/metaModel.json
