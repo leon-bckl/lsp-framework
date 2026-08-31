@@ -44,27 +44,29 @@ private:
 	std::string m_buffer;
 };
 
-/*
- * Makes protected state accessors visible to test.
- */
-template<typename Base>
-class Exposed : public Base{
-public:
-	using Base::Base;
-	using EndpointBase::State;
-	using EndpointBase::state;
-	using EndpointBase::setState;
-};
+// Mirrors the internal state of the endpoint which is not accessible from outside
+enum class State{ Uninitialized, Active, Shutdown, Inactive };
 
-using ClientUnderTest = Exposed<ClientEndpointBase>;
-using ServerUnderTest = Exposed<ServerEndpointBase>;
+void gotoState(ServerEndpointBase& server, State state)
+{
+	if(state == State::Uninitialized)
+		return;
+
+	server.preMethodCall<requests::Initialize>();
+	server.postMethodCall<requests::Initialize>();
+
+	if(state == State::Shutdown)
+		server.preMethodCall<requests::Shutdown>();
+	else if(state == State::Inactive)
+		server.preMethodCall<notifications::Exit>();
+}
 
 /*
- * Also counts pre/post method calls and exposes the protected message hook.
+ * Counts pre/post method calls and exposes the protected message hook.
  */
-class BaseUnderTest : public Exposed<EndpointBase>{
+class HookedEndpoint : public EndpointBase{
 public:
-	using Exposed<EndpointBase>::Exposed;
+	using EndpointBase::EndpointBase;
 
 	int preCount  = 0;
 	int postCount = 0;
@@ -105,108 +107,113 @@ int main(int argc, char** argv)
 	auto app = test::TestApp();
 
 	/*
-	 * EndpointBase
+	 * EndpointBase (exercised through ServerEndpointBase, the concrete vehicle,
+	 * since bare EndpointBase can't leave the Uninitialized state via public API)
 	 */
 
 	app.addTest("EndpointBase/StartsUninitialized", [](){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
 
-		test::check(endpoint.state() == BaseUnderTest::State::Uninitialized, "uninitialized");
+		test::check(server.isActive(), "active");
+		test::check(!server.isInitialized(), "uninitialized");
 	});
 
-	app.addTest("EndpointBase/IsActive", [](BaseUnderTest::State state, bool expected){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+	app.addTest("EndpointBase/IsActive", [](State state, bool expected){
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
 
-		endpoint.setState(state);
-		test::compare(endpoint.isActive(), expected);
+		gotoState(server, state);
+		test::compare(server.isActive(), expected);
 	})({
-		{"Inactive",      {BaseUnderTest::State::Inactive,      false}},
-		{"Uninitialized", {BaseUnderTest::State::Uninitialized, true }},
-		{"Active",        {BaseUnderTest::State::Active,        true }},
-		{"Shutdown",      {BaseUnderTest::State::Shutdown,      true }},
+		{"Uninitialized", {State::Uninitialized, true }},
+		{"Active",        {State::Active,        true }},
+		{"Shutdown",      {State::Shutdown,      true }},
+		{"Inactive",      {State::Inactive,      false}},
 	});
 
 	app.addTest("EndpointBase/ProcessNextMessageSwallowsConnectionErrorWhenInactive", [](){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
 
 		// No more messages are expected once inactive, so a dropped connection is not an error
-		endpoint.setState(BaseUnderTest::State::Inactive);
-		endpoint.processNextMessage();
+		gotoState(server, State::Inactive);
+		server.processNextMessage();
 
 		test::compare(stream.readCount, 1);
 	});
 
 	app.addTest("EndpointBase/ProcessNextMessageRethrowsAndDeactivatesWhenActive", [](){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
 
-		endpoint.setState(BaseUnderTest::State::Active);
-		test::expectException<ConnectionError>([&](){ endpoint.processNextMessage(); });
+		gotoState(server, State::Active);
+		test::expectException<ConnectionError>([&](){ server.processNextMessage(); });
 
 		test::compare(stream.readCount, 1);
 
 		// A connection error while active marks the endpoint inactive before propagating
-		test::check(endpoint.state() == BaseUnderTest::State::Inactive, "inactive");
+		test::check(!server.isActive(), "inactive");
 	});
 
 	app.addTest("EndpointBase/RunMessageLoopReturnsImmediatelyWhenInactive", [](){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
 
-		endpoint.setState(BaseUnderTest::State::Inactive);
-		endpoint.runMessageLoop();
+		gotoState(server, State::Inactive);
+		server.runMessageLoop();
 
 		test::compare(stream.readCount, 0);
 	});
 
 	app.addTest("EndpointBase/RunMessageLoopRethrowsWhileActive", [](){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
 
-		endpoint.setState(BaseUnderTest::State::Active);
-		test::expectException<ConnectionError>([&](){ endpoint.runMessageLoop(); });
+		gotoState(server, State::Active);
+		test::expectException<ConnectionError>([&](){ server.runMessageLoop(); });
 
 		// The connection error propagates out of the loop, leaving the endpoint inactive
-		test::check(endpoint.state() == BaseUnderTest::State::Inactive, "inactive");
+		test::check(!server.isActive(), "inactive");
 	});
 
 	app.addTest("EndpointBase/RunMessageLoopSwallowsConnectionErrorAfterExit", [](){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
+
+		gotoState(server, State::Active);
 
 		// Simulate the connection dropping right as the endpoint transitions to Inactive
-		stream.onRead = [&](){ endpoint.setState(BaseUnderTest::State::Inactive); };
+		stream.onRead = [&server](){ server.preMethodCall<notifications::Exit>(); };
 
-		endpoint.setState(BaseUnderTest::State::Active);
-		endpoint.runMessageLoop();
+		server.runMessageLoop();
 
 		test::compare(stream.readCount, 1);
 	});
 
 	app.addTest("EndpointBase/RunMessageLoopProcessesUntilInactive", [](){
-		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
-		auto handled  = 0;
+		auto stream  = LoopbackStream();
+		auto server  = ServerEndpointBase(stream);
+		auto handled = 0;
 
-		endpoint.messageHandler().onCustom<GenericNotification>("test/stop", [&](json::Value&&)
+		gotoState(server, State::Active);
+
+		server.messageHandler().onCustom<GenericNotification>("test/stop", [&](json::Value&&)
 		{
 			++handled;
-			endpoint.setState(BaseUnderTest::State::Inactive);
+			server.preMethodCall<notifications::Exit>();
 		});
 
-		endpoint.messageHandler().sendNotification("test/stop", json::Value(json::Object()));
-		endpoint.runMessageLoop();
+		server.messageHandler().sendNotification("test/stop", json::Value(json::Object()));
+		server.runMessageLoop();
 
 		test::compare(handled, 1);
-		test::check(endpoint.state() == BaseUnderTest::State::Inactive, "inactive");
+		test::check(!server.isActive(), "inactive");
 	});
 
 	app.addTest("EndpointBase/MessageHookCallsPreAndPost", [](){
 		auto stream   = LoopbackStream();
-		auto endpoint = BaseUnderTest(stream);
+		auto endpoint = HookedEndpoint(stream);
 
 		endpoint.withHook<DummyMessage>([&]()
 		{
@@ -224,7 +231,7 @@ int main(int argc, char** argv)
 
 	app.addTest("Client/GenericCallRequiresInitialize", [](){
 		auto stream = LoopbackStream();
-		auto client = ClientUnderTest(stream);
+		auto client = ClientEndpointBase(stream);
 
 		test::expectException<std::logic_error>(
 			[&](){ client.preMethodCall<DummyMessage>(); },
@@ -233,10 +240,10 @@ int main(int argc, char** argv)
 
 	app.addTest("Client/InitializeActivates", [](){
 		auto stream = LoopbackStream();
-		auto client = ClientUnderTest(stream);
+		auto client = ClientEndpointBase(stream);
 
 		client.postMethodCall<requests::Initialize>();
-		test::check(client.state() == ClientUnderTest::State::Active, "active");
+		test::check(client.isActive(), "active");
 
 		// Generic calls are allowed once active
 		client.preMethodCall<DummyMessage>();
@@ -244,11 +251,11 @@ int main(int argc, char** argv)
 
 	app.addTest("Client/ShutdownBlocksFurtherCalls", [](){
 		auto stream = LoopbackStream();
-		auto client = ClientUnderTest(stream);
+		auto client = ClientEndpointBase(stream);
 
 		client.postMethodCall<requests::Initialize>();
 		client.preMethodCall<requests::Shutdown>();
-		test::check(client.state() == ClientUnderTest::State::Shutdown, "shutdown");
+		test::check(client.isActive(), "still active after shutdown");
 
 		test::expectException<std::logic_error>(
 			[&](){ client.preMethodCall<DummyMessage>(); },
@@ -257,12 +264,12 @@ int main(int argc, char** argv)
 
 	app.addTest("Client/ExitResetsToInactive", [](){
 		auto stream = LoopbackStream();
-		auto client = ClientUnderTest(stream);
+		auto client = ClientEndpointBase(stream);
 
 		client.postMethodCall<requests::Initialize>();
 		client.preMethodCall<notifications::Exit>();
 
-		test::check(client.state() == ClientUnderTest::State::Inactive, "inactive");
+		test::check(!client.isActive(), "inactive");
 
 		// Generic calls are rejected again once inactive
 		test::expectException<std::logic_error>(
@@ -276,14 +283,14 @@ int main(int argc, char** argv)
 
 	app.addTest("Server/StartsUninitialized", [](){
 		auto stream = LoopbackStream();
-		auto server = ServerUnderTest(stream);
+		auto server = ServerEndpointBase(stream);
 
 		test::check(!server.isInitialized(), "!isInitialized");
 	});
 
 	app.addTest("Server/GenericCallBeforeInitializeIsRejected", [](){
 		auto stream = LoopbackStream();
-		auto server = ServerUnderTest(stream);
+		auto server = ServerEndpointBase(stream);
 
 		expectRequestError(
 			[&](){ server.preMethodCall<DummyMessage>(); },
@@ -292,14 +299,14 @@ int main(int argc, char** argv)
 
 	app.addTest("Server/InitializeThenActive", [](){
 		auto stream = LoopbackStream();
-		auto server = ServerUnderTest(stream);
+		auto server = ServerEndpointBase(stream);
 
 		server.preMethodCall<requests::Initialize>();
 		test::check(!server.isInitialized(), "notInitializedUntilPost");
 
 		server.postMethodCall<requests::Initialize>();
 		test::check(server.isInitialized(), "isInitialized");
-		test::check(server.state() == ServerUnderTest::State::Active, "active");
+		test::check(server.isActive(), "active");
 
 		// Generic calls are allowed once active
 		server.preMethodCall<DummyMessage>();
@@ -307,10 +314,9 @@ int main(int argc, char** argv)
 
 	app.addTest("Server/DoubleInitializeIsRejected", [](){
 		auto stream = LoopbackStream();
-		auto server = ServerUnderTest(stream);
+		auto server = ServerEndpointBase(stream);
 
-		server.preMethodCall<requests::Initialize>();
-		server.postMethodCall<requests::Initialize>();
+		gotoState(server, State::Active);
 
 		expectRequestError(
 			[&](){ server.preMethodCall<requests::Initialize>(); },
@@ -319,7 +325,7 @@ int main(int argc, char** argv)
 
 	app.addTest("Server/ShutdownRequiresInitialize", [](){
 		auto stream = LoopbackStream();
-		auto server = ServerUnderTest(stream);
+		auto server = ServerEndpointBase(stream);
 
 		expectRequestError(
 			[&](){ server.preMethodCall<requests::Shutdown>(); },
@@ -328,12 +334,10 @@ int main(int argc, char** argv)
 
 	app.addTest("Server/ShutdownBlocksFurtherCalls", [](){
 		auto stream = LoopbackStream();
-		auto server = ServerUnderTest(stream);
+		auto server = ServerEndpointBase(stream);
 
-		server.preMethodCall<requests::Initialize>();
-		server.postMethodCall<requests::Initialize>();
-		server.preMethodCall<requests::Shutdown>();
-		test::check(server.state() == ServerUnderTest::State::Shutdown, "shutdown");
+		gotoState(server, State::Shutdown);
+		test::check(server.isActive(), "still active after shutdown");
 
 		expectRequestError(
 			[&](){ server.preMethodCall<DummyMessage>(); },
@@ -342,13 +346,11 @@ int main(int argc, char** argv)
 
 	app.addTest("Server/ExitDeactivates", [](){
 		auto stream = LoopbackStream();
-		auto server = ServerUnderTest(stream);
+		auto server = ServerEndpointBase(stream);
 
-		server.preMethodCall<requests::Initialize>();
-		server.postMethodCall<requests::Initialize>();
-		server.preMethodCall<notifications::Exit>();
+		gotoState(server, State::Inactive);
 
-		test::check(server.state() == ServerUnderTest::State::Inactive, "inactive");
+		test::check(!server.isActive(), "inactive");
 	});
 
 	return app.main(argc, argv);
