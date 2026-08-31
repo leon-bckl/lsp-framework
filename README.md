@@ -7,7 +7,7 @@ This is an implementation of the [Language Server Protocol](https://microsoft.gi
 The goal of this library is to make implementing LSP servers and clients easy and type safe.
 All LSP types and messages are proper C++ structs. There's no need to manually read or write JSON, which is inconvenient and error-prone. The framework handles serialization and deserialization automatically.
 
-The generated `<lsp/messages.h>` header has one struct per message, with requests inside the `lsp::requests` and notifications inside the `lsp::notifications` namespaces.
+The generated `<lsp/messages.h>` header has one struct per message, with requests in the `lsp::requests` namespace and notifications in `lsp::notifications`.
 Each message struct has a `Method` constant and typedefs for its `Params` and `Result` types. All parameter, result and other LSP types are in `<lsp/types.h>`.
 
 These two headers also serve as a protocol reference and have documentation comments for all types and properties.
@@ -121,7 +121,7 @@ int main(int argc, char** argv)
 
 The endpoint throws `std::logic_error` if any message other than `initialize` is sent first, or if anything other than `exit` is sent after `shutdown`.
 
-Outgoing requests return an `lsp::RequestResult`; calling `.get()` on it blocks until the response arrives, so never do that from the message-loop thread. See [Sending Requests and Notifications](#sending-requests-and-notifications) for the details, and [Handling Incoming Messages](#handling-incoming-messages) for reacting to server-to-client messages such as `window/logMessage`.
+Outgoing requests return an `lsp::RequestResult`. Calling `.get()` on it blocks until the response arrives, so never do that from the message-loop thread. See [Sending Requests and Notifications](#sending-requests-and-notifications) for the details, and [Handling Incoming Messages](#handling-incoming-messages) for reacting to server-to-client messages such as `window/logMessage`.
 
 ### Sending Requests and Notifications
 
@@ -138,7 +138,7 @@ serverEndpoint.textDocumentPublishDiagnostics({
 
 **Requests** come in two forms.
 
-The first returns an `lsp::RequestResult`. Call `get()` to wait for and retrieve the result. It rethrows an `lsp::ResponseError` if the server responded with an error. `get()` blocks, so don't call it on the message-loop thread. `RequestResult` also has `wait(timeoutMs)` and `requestId()`. The request id can be used with `$/cancelRequest`, to cancel longer running tasks on the server, for example.
+The first returns an `lsp::RequestResult`. Call `get()` to wait for and retrieve the result. It rethrows an `lsp::ResponseError` if the server responded with an error. `get()` blocks, so don't call it on the message-loop thread. `RequestResult` also has `wait(timeoutMs)` and `requestId()`. The request id can be used with `$/cancelRequest` to cancel longer-running tasks on the server, for example.
 
 ```cpp
 try
