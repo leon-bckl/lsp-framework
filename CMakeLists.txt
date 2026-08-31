@@ -216,12 +216,7 @@ if(WIN32)
 endif()
 
 if(LSP_BUILD_EXAMPLES)
-	# Server
-	add_executable(LspServerExample ${LSP_DIR}/examples/server.cpp)
-	target_link_libraries(LspServerExample lsp)
-	# Client
-	add_executable(LspClientExample ${LSP_DIR}/examples/client.cpp)
-	target_link_libraries(LspClientExample lsp)
+	add_subdirectory(examples)
 endif()
 
 if(LSP_BUILD_TESTS)
