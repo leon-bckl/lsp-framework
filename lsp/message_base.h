@@ -47,4 +47,14 @@ struct GenericNotificationNoParams{
 	static constexpr auto Direction = MessageDirection::Bidirectional;
 };
 
+/*
+ * Message concepts
+ */
+
+template<typename M>
+concept MessageHasParams = requires{ typename M::Params; };
+
+template<typename M>
+concept MessageHasResult = requires{ typename M::Result; };
+
 } // namespace lsp

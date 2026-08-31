@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include "message_handler.h"
 
 namespace lsp{
@@ -55,14 +56,12 @@ void MessageHandler::handleRequestResult(const MessageId* messageId, RequestResu
  */
 
 template<typename M, typename F>
-requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 auto MessageHandler::on(F&& callback) -> MessageHandler&
 {
 	return onCustom<M>(M::Method, std::forward<F>(callback));
 }
 
 template<typename M, typename F>
-requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
 {
 	addHandler(method,
@@ -74,8 +73,10 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 				auto result =
 					[&json, &callback, requestId]() mutable
 					{
-						if constexpr(requires{typename M::Params;})
+						if constexpr(MessageHasParams<M>)
 						{
+							static_assert(std::invocable<F, typename M::Params>, "Request callback must be callable with params");
+
 							auto params = typename M::Params();
 							fromJson(std::move(json), params);
 							return RequestResult<M>(std::move(requestId), callback(std::move(params)));
@@ -83,6 +84,7 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 						else
 						{
 							(void)json;
+							static_assert(std::invocable<F>, "Request callback must be callable without params");
 							return RequestResult<M>(std::move(requestId), callback());
 						}
 					}();
@@ -106,8 +108,10 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 				(void)this;
 				static_assert(M::Kind == MessageKind::Notification);
 
-				if constexpr(requires{typename M::Params;})
+				if constexpr(MessageHasParams<M>)
 				{
+					static_assert(std::invocable<F, typename M::Params>, "Notification callback must be callable with params");
+
 					auto params = typename M::Params();
 					fromJson(std::move(json), params);
 
@@ -118,6 +122,8 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 				}
 				else
 				{
+					static_assert(std::invocable<F>, "Notification callback must be callable without params");
+
 					if constexpr(IsFuture<std::invoke_result_t<F>>{})
 						m_threadPool.addTask([future = callback()](){ future.wait(); });
 					else
@@ -134,14 +140,14 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
  */
 
 template<typename M, typename F, typename E>
-requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+requires MessageHasParams<M>
 auto MessageHandler::sendRequest(const typename M::Params& params, F&& then, E&& error) -> MessageId
 {
 	return sendCustomRequest<M>(M::Method, params, std::forward<F>(then), std::forward<E>(error));
 }
 
 template<typename M, typename F, typename E>
-requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+requires MessageHasParams<M>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error) -> MessageId
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
@@ -157,14 +163,14 @@ auto MessageHandler::sendCustomRequest(std::string_view method, const typename M
 }
 
 template<typename M, typename F, typename E>
-requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+requires (!MessageHasParams<M>)
 auto MessageHandler::sendRequest(F&& then, E&& error) -> MessageId
 {
 	return sendCustomRequest<M>(M::Method, std::forward<F>(then), std::forward<E>(error));
 }
 
 template<typename M, typename F, typename E>
-requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+requires (!MessageHasParams<M>)
 auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& error) -> MessageId
 {
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
@@ -290,6 +296,11 @@ void MessageHandler::FutureRequestResult<T>::setError(ResponseError&& error)
 template<typename T, typename F, typename E>
 void MessageHandler::CallbackRequestResult<T, F, E>::setValueFromJson(json::Value&& json)
 {
+	static_assert(std::invocable<F, T>,
+		"Response callback must be callable with request result");
+	static_assert(std::invocable<E, const ResponseError&>,
+		"Response error callback must be callable with const RequestError&");
+
 	try
 	{
 		auto value = T();
@@ -298,7 +309,7 @@ void MessageHandler::CallbackRequestResult<T, F, E>::setValueFromJson(json::Valu
 	}
 	catch(const json::Error& error)
 	{
-		m_error(ResponseError(MessageError::ParseError, error.what()));
+		m_error(ResponseError(MessageError::InvalidParams, error.what()));
 	}
 }
 

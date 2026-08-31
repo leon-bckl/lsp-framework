@@ -18,42 +18,6 @@ namespace lsp{
 using MessageId = jsonrpc::MessageId;
 
 /*
- * Message concepts
- */
-
-template<typename M>
-concept MessageHasParams = requires{
-	typename M::Params;
-};
-
-template<typename M>
-concept MessageHasResult = requires{
-	typename M::Result;
-};
-
-template<typename M, typename F>
-concept IsRequestCallback =
-	MessageHasResult<M> &&
-	((MessageHasParams<M> && std::invocable<F, typename M::Params>) ||
-	(!MessageHasParams<M> && std::invocable<F>)) &&
-	((MessageHasParams<M> && std::constructible_from<RequestResult<M>, MessageId, std::invoke_result_t<F, typename M::Params>>) ||
-	(!MessageHasParams<M> && std::constructible_from<RequestResult<M>, MessageId, std::invoke_result_t<F>>));
-
-template<typename M, typename F>
-concept IsNotificationCallback =
-	(!MessageHasResult<M>) &&
-	((MessageHasParams<M> && std::invocable<F, typename M::Params>) ||
-	(!MessageHasParams<M> && std::invocable<F>));
-
-template<typename M, typename F>
-concept IsResponseCallback =
-	(MessageHasResult<M> && std::invocable<F, typename M::Result>) ||
-	(!MessageHasResult<M> && std::invocable<F>);
-
-template<typename E>
-concept IsResponseErrorCallback = std::invocable<E, ResponseError>;
-
-/*
  * MessageHandler
  */
 
@@ -72,11 +36,9 @@ public:
 	 */
 
 	template<typename M, typename F>
-	requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 	auto on(F&& callback) -> MessageHandler&;
 
 	template<typename M, typename F>
-	requires IsRequestCallback<M, F> || IsNotificationCallback<M, F>
 	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
 
 	void remove(const std::string& method);
@@ -89,19 +51,19 @@ public:
 	static void nullErrorCallback(const ResponseError&){}
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+	requires MessageHasParams<M>
 	auto sendRequest(const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires MessageHasParams<M> && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+	requires MessageHasParams<M>
 	auto sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+	requires (!MessageHasParams<M>)
 	auto sendRequest(F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
-	requires (!MessageHasParams<M>) && IsResponseCallback<M, F> && IsResponseErrorCallback<E>
+	requires (!MessageHasParams<M>)
 	auto sendCustomRequest(std::string_view method, F&& then, E&& error = nullErrorCallback) -> MessageId;
 
 	template<typename M>
@@ -150,14 +112,14 @@ private:
 	using HandlerWrapper    = std::function<void(json::Value&&, Connection::BatchSender*)>;
 
 	// General
-	Connection                                       m_connection;
-	ThreadPool                                       m_threadPool;
+	Connection                                      m_connection;
+	ThreadPool                                      m_threadPool;
 	// Incoming requests
-	std::unordered_map<std::string, HandlerWrapper>  m_requestHandlersByMethod;
-	std::mutex                                       m_requestHandlersMutex;
+	std::unordered_map<std::string, HandlerWrapper> m_requestHandlersByMethod;
+	std::mutex                                      m_requestHandlersMutex;
 	// Outgoing requests
-	std::mutex                                       m_pendingRequestsMutex;
-	std::unordered_map<MessageId, RequestResultPtr>  m_pendingRequests;
+	std::mutex                                      m_pendingRequestsMutex;
+	std::unordered_map<MessageId, RequestResultPtr> m_pendingRequests;
 
 	template<typename T>
 	void sendResponse(const MessageId& messageId, const T& result, Connection::BatchSender* batchSender);

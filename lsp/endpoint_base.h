@@ -84,21 +84,32 @@ public:
 	template<typename M>
 	void postMethodCall(){}
 
-	template<>
-	void preMethodCall<requests::Initialize>(){}
-
-	template<>
-	void postMethodCall<requests::Initialize>();
-
-	template<>
-	void preMethodCall<requests::Shutdown>();
-
-	template<>
-	void preMethodCall<notifications::Exit>();
-
 private:
 	void verifyInitialized() const;
 };
+
+template<>
+inline void ClientEndpointBase::preMethodCall<requests::Initialize>(){}
+
+template<>
+inline void ClientEndpointBase::postMethodCall<requests::Initialize>()
+{
+	setState(State::Active);
+}
+
+template<>
+inline void ClientEndpointBase::preMethodCall<requests::Shutdown>()
+{
+	verifyInitialized();
+	setState(State::Shutdown);
+}
+
+template<>
+inline void ClientEndpointBase::preMethodCall<notifications::Exit>()
+{
+	setState(State::Inactive);
+}
+
 
 /*
  * ServerEndpointBase
@@ -116,20 +127,46 @@ public:
 	template<typename M>
 	void postMethodCall(){}
 
-	template<>
-	void preMethodCall<requests::Initialize>();
-
-	template<>
-	void postMethodCall<requests::Initialize>();
-
-	template<>
-	void preMethodCall<requests::Shutdown>();
-
-	template<>
-	void preMethodCall<notifications::Exit>();
-
 private:
 	void verifyInitialized() const;
 };
+
+template<>
+inline void ServerEndpointBase::preMethodCall<requests::Initialize>()
+{
+	if(isInitialized())
+		throw lsp::RequestError(lsp::MessageError::InvalidRequest, "Server already initialized");
+}
+
+template<>
+inline void ServerEndpointBase::postMethodCall<requests::Initialize>()
+{
+	if(state() == State::Uninitialized)
+		setState(State::Active);
+}
+
+inline void ServerEndpointBase::verifyInitialized() const
+{
+	const auto currentState = state();
+
+	if(currentState <= State::Uninitialized)
+		throw lsp::RequestError(lsp::MessageError::ServerNotInitialized, "Server not initialized");
+
+	if(currentState == State::Shutdown)
+		throw lsp::RequestError(lsp::MessageError::InvalidRequest, "Server has received shutdown request");
+}
+
+template<>
+inline void ServerEndpointBase::preMethodCall<requests::Shutdown>()
+{
+	verifyInitialized();
+	setState(State::Shutdown);
+}
+
+template<>
+inline void ServerEndpointBase::preMethodCall<notifications::Exit>()
+{
+	setState(State::Inactive);
+}
 
 } // namespace lsp

@@ -163,7 +163,6 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 	if(!isNotification)
 	{
 		inlineImplWriter.writeLine("template<typename F, typename E = MessageHandler::ResponseErrorCallback>");
-		inlineImplWriter.writeLine("requires IsResponseCallback<" + messageType + ", F> && IsResponseErrorCallback<E>");
 		funcParams.push_back({"F&&", "then"});
 		funcParams.push_back({"E&&", "error", "nullError"});
 		inlineImplWriter.writeFuncSig(methodName, "MessageId", funcParams);
@@ -188,7 +187,6 @@ void EndpointGenerator::generateIncomingMethod(const std::string& className, con
 	const auto hasResult      = !message.resultTypeName.empty();
 
 	m_declWriter.writeLine("template<typename F>");
-	m_declWriter.writeLine("requires " + ((isNotification ? "IsNotificationCallback<" : "IsRequestCallback<") + messageType + ", F>"));
 	m_declWriter.writeFuncSig("on" + CppWriter::upperCaseIdentifier(method), CppWriter::type(className, CppWriter::TypeRef), {{"F&&", "callback"}});
 	m_declWriter.writeBlockStart(true);
 	m_declWriter.writeLine("messageHandler().on<" + messageType + ">(");
