@@ -136,7 +136,6 @@ void ServerEndpointBase::preMethodCall<requests::Shutdown>()
 template<>
 void ServerEndpointBase::preMethodCall<notifications::Exit>()
 {
-	verifyInitialized();
 	setState(State::Inactive);
 }
 
