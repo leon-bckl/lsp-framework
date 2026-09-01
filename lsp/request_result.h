@@ -28,6 +28,7 @@ public:
 
 	[[nodiscard]] auto requestId() const -> const RequestId&{ return m_requestId; }
 	[[nodiscard]] auto isAsync() const -> bool{ return std::holds_alternative<FutureType>(m_result); }
+	[[nodiscard]] auto isReady() const -> bool{ return wait(0); }
 
 	[[nodiscard]] auto wait(int timeoutMs = -1) const -> bool
 	{

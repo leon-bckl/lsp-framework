@@ -52,6 +52,20 @@ int main(int argc, char** argv)
 		test::compare(*result.get(), 99);
 	});
 
+	app.addTest("RequestResult::IsReady", [](){
+		auto sync = syncResult(std::make_unique<int>(1));
+		test::check(sync.isReady(), "syncAlwaysReady");
+
+		auto promise = std::promise<std::unique_ptr<int>>();
+		auto async   = asyncResult(promise.get_future());
+
+		test::check(!async.isReady(), "asyncNotReadyBeforeValueSet");
+		promise.set_value(std::make_unique<int>(3));
+		test::check(async.isReady(), "asyncReadyAfterValueSet");
+
+		test::compare(*async.get(), 3);
+	});
+
 	app.addTest("RequestResult::AsyncTimedWaitReportsReadiness", [](){
 		auto promise = std::promise<std::unique_ptr<int>>();
 		auto result  = asyncResult(promise.get_future());
