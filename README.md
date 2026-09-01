@@ -245,6 +245,8 @@ serverEndpoint.onTextDocumentDefinition(
 
 `std::launch::deferred` makes the task body run when the framework calls `get()` on the worker thread, so no thread is created beyond the framework's pool. Throwing `lsp::RequestError` from the task still produces an error response.
 
+Notification handlers can be asynchronous the same way by returning `std::future<void>`.
+
 A request handler can also decide dynamically whether to run asynchronously or not. To do that, its return type must be `lsp::RequestResult<Result>` and it can return either a value or a future.
 
 ```cpp
@@ -262,8 +264,6 @@ serverEndpoint.onTextDocumentDefinition(
       });
   });
 ```
-
-Notification handlers can be asynchronous the same way by returning `std::future<void>`.
 
 ### Custom Messages
 
