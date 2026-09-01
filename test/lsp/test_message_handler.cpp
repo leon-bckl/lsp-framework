@@ -121,7 +121,7 @@ T getResult(RequestResult<M>& result)
 	return result.get();
 }
 
-template<typename M, typename T = typename M::Result>
+template<typename M>
 void expectResponseError(RequestResult<M>& result, int expectedCode, std::string_view expectedMessage)
 {
 	try
@@ -139,6 +139,10 @@ void expectResponseError(RequestResult<M>& result, int expectedCode, std::string
 int main(int argc, char** argv)
 {
 	auto app = test::TestApp();
+
+	/*
+	 * Requests
+	 */
 
 	app.addTest("Request/Future", [](){
 		auto stream   = LoopbackStream();
@@ -189,7 +193,7 @@ int main(int argc, char** argv)
 		test::compare(*thenResult, 42);
 	});
 
-	app.addTest("NoParamsRequest/Future", [](){
+	app.addTest("Request/FutureNoParams", [](){
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
@@ -208,7 +212,7 @@ int main(int argc, char** argv)
 		test::compare(getResult(response), std::vector<int>{1, 2, 3});
 	});
 
-	app.addTest("NoParamsRequest/Callback", [](){
+	app.addTest("Request/CallbackNoParams", [](){
 		auto stream     = LoopbackStream();
 		auto handler    = MessageHandler(Connection(stream));
 		auto called     = false;
@@ -232,7 +236,11 @@ int main(int argc, char** argv)
 		test::compare(*thenResult, std::vector<int>{1, 2, 3});
 	});
 
-	app.addTest("Notification", [](){
+	/*
+	 * Notifications
+	 */
+
+	app.addTest("Notification/Params", [](){
 		auto stream   = LoopbackStream();
 		auto handler  = MessageHandler(Connection(stream));
 		auto called   = false;
@@ -251,7 +259,7 @@ int main(int argc, char** argv)
 		test::compare(received, std::vector<int>{1, 2, 3});
 	});
 
-	app.addTest("NoParamsNotification", [](){
+	app.addTest("Notification/NoParams", [](){
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 		auto called  = false;
@@ -265,96 +273,6 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 
 		test::check(called, "called");
-	});
-
-	app.addTest("CurrentRequestId", [](){
-		auto stream  = LoopbackStream();
-		auto handler = MessageHandler(Connection(stream));
-		auto ids     = std::vector<MessageId>();
-
-		handler.on<TestNoParamsRequest>([&]()
-		{
-			ids.push_back(*MessageHandler::currentRequestId());
-			return std::vector<int>{};
-		});
-
-		auto response1 = handler.sendRequest<TestNoParamsRequest>();
-		handler.processNextMessage();
-		handler.processNextMessage();
-
-		auto response2 = handler.sendRequest<TestNoParamsRequest>();
-		handler.processNextMessage();
-		handler.processNextMessage();
-
-		test::compare(ids.size(), 2);
-		test::compare(ids[0], response1.requestId());
-		test::compare(ids[1], response2.requestId());
-		test::check(!(ids[0] == ids[1]), "idsAreUnique");
-		test::check(!MessageHandler::currentRequestId(), "currentRequestId is null outside of request context");
-	});
-
-	app.addTest("Error/Future", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
-		auto stream  = LoopbackStream();
-		auto handler = MessageHandler(Connection(stream));
-
-		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
-		{
-			if(useRequestError)
-				throw RequestError(1234, "custom error");
-
-			throw std::runtime_error("boom");
-		});
-
-		auto response = handler.sendRequest<TestNoParamsRequest>();
-		handler.processNextMessage();
-		handler.processNextMessage();
-
-		expectResponseError(response, expectedCode, expectedMessage);
-	})({
-		{"RequestError",     {true,  1234,                        "custom error"}},
-		{"GenericException", {false, MessageError::InternalError, "boom"}},
-	});
-
-	app.addTest("Error/Callback", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
-		auto stream  = LoopbackStream();
-		auto handler = MessageHandler(Connection(stream));
-
-		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
-		{
-			if(useRequestError)
-				throw RequestError(1234, "custom error");
-
-			throw std::runtime_error("boom");
-		});
-
-		auto thenCalled  = false;
-		auto errorResult = std::optional<ResponseError>();
-
-		handler.sendRequest<TestNoParamsRequest>(
-			[&](const std::vector<int>&){ thenCalled = true; },
-			[&](const ResponseError& e){ errorResult = e; });
-
-		handler.processNextMessage();
-		handler.processNextMessage();
-
-		test::check(!thenCalled, "!thenCalled");
-		test::check(errorResult.has_value(), "hasError");
-		test::compare(errorResult->code(), expectedCode);
-		test::compare(errorResult->message(), expectedMessage);
-	})({
-		{"RequestError",     {true,  1234,                        "custom error"}},
-		{"GenericException", {false, MessageError::InternalError, "boom"}},
-	});
-
-	app.addTest("Error/MethodNotFound", [](){
-		auto stream  = LoopbackStream();
-		auto handler = MessageHandler(Connection(stream));
-
-		auto response = handler.sendRequest<TestNoParamsRequest>();
-		handler.processNextMessage();
-		handler.processNextMessage();
-
-		expectResponseError(response, MessageError::MethodNotFound, "Method not found");
 	});
 
 	app.addTest("Notification/CallbackThrows", [](){
@@ -381,26 +299,9 @@ int main(int argc, char** argv)
 		test::check(stream.empty(), "noResponseWritten");
 	});
 
-	app.addTest("Remove", [](){
-		auto stream  = LoopbackStream();
-		auto handler = MessageHandler(Connection(stream));
-		auto called  = false;
-
-		handler.on<TestNoParamsRequest>([&]()
-		{
-			called = true;
-			return std::vector<int>{};
-		});
-
-		handler.remove(std::string(TestNoParamsRequest::Method));
-
-		auto response = handler.sendRequest<TestNoParamsRequest>();
-		handler.processNextMessage();
-		handler.processNextMessage();
-
-		test::check(!called, "!called");
-		expectResponseError(response, MessageError::MethodNotFound, "Method not found");
-	});
+	/*
+	 * Asynchronous handlers (handler returns a std::future)
+	 */
 
 	app.addTest("Async/Success", [](){
 		auto stream  = LoopbackStream();
@@ -423,30 +324,36 @@ int main(int argc, char** argv)
 		test::compare(getResult(response), std::vector<int>{1, 2, 3});
 	});
 
-	app.addTest("Async/Error", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
+	app.addTest("Async/Deferred", [](){
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
+		const auto mainThread     = std::this_thread::get_id();
+		auto deferredThread       = std::promise<std::thread::id>();
+		auto deferredThreadFuture = deferredThread.get_future();
+		auto release              = std::promise<void>();
+		auto releaseFuture        = release.get_future();
+
 		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
 		{
-			auto promise = std::promise<std::vector<int>>();
-
-			if(useRequestError)
-				promise.set_exception(std::make_exception_ptr(RequestError(1234, "custom error")));
-			else
-				promise.set_exception(std::make_exception_ptr(std::runtime_error("boom")));
-
-			return promise.get_future();
+			return std::async(std::launch::deferred, [&]() -> std::vector<int>
+			{
+				deferredThread.set_value(std::this_thread::get_id());
+				(void)releaseFuture.wait_for(std::chrono::seconds(5));
+				return std::vector<int>{4, 5, 6};
+			});
 		});
 
 		auto response = handler.sendRequest<TestNoParamsRequest>();
 		handler.processNextMessage();
-		handler.processNextMessage();
 
-		expectResponseError(response, expectedCode, expectedMessage);
-	})({
-		{"RequestError",     {true,  1234,                        "custom error"}},
-		{"GenericException", {false, MessageError::InternalError, "boom"}},
+		test::check(deferredThreadFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready, "deferredWorkStarted");
+		test::check(deferredThreadFuture.get() != mainThread, "deferredWorkRanOnPoolThread");
+
+		release.set_value();
+
+		handler.processNextMessage();
+		test::compare(getResult(response), std::vector<int>{4, 5, 6});
 	});
 
 	app.addTest("Notification/Async", [](){
@@ -496,7 +403,8 @@ int main(int argc, char** argv)
 
 		auto handler = MessageHandler(Connection(stream));
 
-		// A notification callback may return any future; only future<void> makes sense but others are accepted as well but the result is discarded
+		// A notification callback may return any future.
+		// Only future<void> makes sense. Others are accepted as well but the result is discarded.
 		handler.on<TestNotification>([&](std::vector<int> params) -> std::future<int>
 		{
 			received = std::move(params);
@@ -518,6 +426,280 @@ int main(int argc, char** argv)
 		test::check(waitStarted && waitThreadFuture.get() != mainThread, "waitedOnSeparateThread");
 		test::check(stream.empty(), "noResponseWritten");
 	});
+
+	/*
+	 * RequestContext
+	 */
+
+	app.addTest("RequestContext/UnavailableOutsideRequest", [](){
+		test::check(!MessageHandler::RequestContext::tryGet(), "noContextByDefault");
+		test::expectException<std::logic_error>([](){ (void)MessageHandler::RequestContext::get(); });
+	});
+
+	app.addTest("RequestContext/UnavailableInNotificationHandler", [](){
+		auto stream           = LoopbackStream();
+		auto handler          = MessageHandler(Connection(stream));
+		auto contextInHandler = std::optional<bool>();
+
+		handler.on<TestNoParamsNotification>([&]()
+		{
+			contextInHandler = MessageHandler::RequestContext::tryGet() != nullptr;
+		});
+
+		handler.sendNotification<TestNoParamsNotification>();
+		handler.processNextMessage();
+
+		test::check(contextInHandler.has_value(), "handlerCalled");
+		test::check(!*contextInHandler, "noContextInNotificationHandler");
+	});
+
+	app.addTest("RequestContext/Id", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto ids     = std::vector<MessageId>();
+
+		handler.on<TestNoParamsRequest>([&]()
+		{
+			ids.push_back(MessageHandler::RequestContext::get().id());
+			return std::vector<int>{};
+		});
+
+		auto response1 = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		auto response2 = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(ids.size(), 2);
+		test::compare(ids[0], response1.requestId());
+		test::compare(ids[1], response2.requestId());
+		test::check(!MessageHandler::RequestContext::tryGet(), "contextCleared");
+	});
+
+	app.addTest("RequestContext/IdInResponseThenCallback", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&](){ return std::vector<int>{}; });
+
+		auto thenId = std::optional<MessageId>();
+
+		const auto requestId = handler.sendRequest<TestNoParamsRequest>(
+			[&](const std::vector<int>&)
+			{
+				thenId = MessageHandler::RequestContext::get().id();
+			},
+			[](const ResponseError&){ test::fail("Expected no error"); });
+
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::check(thenId.has_value(), "hasThenId");
+		test::compare(*thenId, requestId);
+		test::check(!MessageHandler::RequestContext::tryGet(), "contextCleared");
+	});
+
+	app.addTest("RequestContext/IdInResponseErrorCallback", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
+		{
+			throw RequestError(1234, "custom error");
+		});
+
+		auto errorId = std::optional<MessageId>();
+
+		const auto requestId = handler.sendRequest<TestNoParamsRequest>(
+			[](const std::vector<int>&){ test::fail("Expected no result"); },
+			[&](const ResponseError&)
+			{
+				errorId = MessageHandler::RequestContext::get().id();
+			});
+
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::check(errorId.has_value(), "hasErrorId");
+		test::compare(*errorId, requestId);
+		test::check(!MessageHandler::RequestContext::tryGet(), "contextCleared");
+	});
+
+	app.addTest("RequestContext/IdInAsyncRequestHandler", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		auto deferredContextId       = std::promise<std::optional<MessageId>>();
+		auto deferredContextIdFuture = deferredContextId.get_future();
+
+		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
+		{
+			return std::async(std::launch::deferred, [&]() -> std::vector<int>
+			{
+				const auto* context = MessageHandler::RequestContext::tryGet();
+				deferredContextId.set_value(
+					context ? std::optional<MessageId>(context->id()) : std::nullopt);
+				return std::vector<int>{1, 2, 3};
+			});
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), std::vector<int>{1, 2, 3});
+
+		test::check(deferredContextIdFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready, "deferredWorkRan");
+
+		const auto contextId = deferredContextIdFuture.get();
+		test::check(contextId.has_value(), "contextSetInDeferredWork");
+		test::compare(*contextId, response.requestId());
+		test::check(!MessageHandler::RequestContext::tryGet(), "contextCleared");
+	});
+
+	/*
+	 * Errors
+	 */
+
+	app.addTest("Error/Future", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
+		{
+			if(useRequestError)
+				throw RequestError(1234, "custom error");
+
+			throw std::runtime_error("boom");
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, expectedCode, expectedMessage);
+	})({
+		{"RequestError",     {true,  1234,                        "custom error"}},
+		{"GenericException", {false, MessageError::InternalError, "boom"}},
+	});
+
+	app.addTest("Error/Callback", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
+		{
+			if(useRequestError)
+				throw RequestError(1234, "custom error");
+
+			throw std::runtime_error("boom");
+		});
+
+		auto thenCalled  = false;
+		auto errorResult = std::optional<ResponseError>();
+
+		handler.sendRequest<TestNoParamsRequest>(
+			[&](const std::vector<int>&){ thenCalled = true; },
+			[&](const ResponseError& e){ errorResult = e; });
+
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::check(!thenCalled, "thenNotCalled");
+		test::check(errorResult.has_value(), "hasError");
+		test::compare(errorResult->code(), expectedCode);
+		test::compare(errorResult->message(), expectedMessage);
+	})({
+		{"RequestError",     {true,  1234,                        "custom error"}},
+		{"GenericException", {false, MessageError::InternalError, "boom"}},
+	});
+
+	app.addTest("Error/Async", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
+		{
+			auto promise = std::promise<std::vector<int>>();
+
+			if(useRequestError)
+				promise.set_exception(std::make_exception_ptr(RequestError(1234, "custom error")));
+			else
+				promise.set_exception(std::make_exception_ptr(std::runtime_error("boom")));
+
+			return promise.get_future();
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, expectedCode, expectedMessage);
+	})({
+		{"RequestError",     {true,  1234,                        "custom error"}},
+		{"GenericException", {false, MessageError::InternalError, "boom"}},
+	});
+
+	app.addTest("Error/MethodNotFound", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, MessageError::MethodNotFound, "Method not found");
+	});
+
+	app.addTest("Error/Data", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
+		{
+			throw RequestError(1234, "custom error", json::Value(json::Object({{"detail", "x"}})));
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		try
+		{
+			getResult(response);
+			test::fail("Expected ResponseError to be thrown");
+		}
+		catch(const ResponseError& e)
+		{
+			test::compare(e.code(), 1234);
+			test::check(e.data().has_value(), "hasData");
+			test::compare(e.data()->object().get("detail").string(), "x");
+		}
+	});
+
+	app.addTest("Error/InvalidParams", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>)
+		{
+			return 42;
+		});
+
+		const auto message = makeMessage(R"({"jsonrpc":"2.0","id":1,"method":"test/request","params":{"x":"bad"}})");
+		stream.write(message.data(), message.size());
+
+		handler.processNextMessage();
+
+		const auto response = parseMessageBody(stream.takeAll());
+		test::compare(response.object().get("error").object().get("code").integer(), MessageError::InvalidParams);
+	});
+
+	/*
+	 * Custom (generic) methods
+	 */
 
 	app.addTest("Generic/Request", [](){
 		auto stream   = LoopbackStream();
@@ -606,48 +788,29 @@ int main(int argc, char** argv)
 		test::compare(received.object().get("x").integer(), 1);
 	});
 
-	app.addTest("Error/Data", [](){
+	/*
+	 * Handler registration and multiplexing
+	 */
+
+	app.addTest("Remove", [](){
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
+		auto called  = false;
 
-		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
+		handler.on<TestNoParamsRequest>([&]()
 		{
-			throw RequestError(1234, "custom error", json::Value(json::Object({{"detail", "x"}})));
+			called = true;
+			return std::vector<int>{};
 		});
+
+		handler.remove(std::string(TestNoParamsRequest::Method));
 
 		auto response = handler.sendRequest<TestNoParamsRequest>();
 		handler.processNextMessage();
 		handler.processNextMessage();
 
-		try
-		{
-			getResult(response);
-			test::fail("Expected ResponseError to be thrown");
-		}
-		catch(const ResponseError& e)
-		{
-			test::compare(e.code(), 1234);
-			test::check(e.data().has_value(), "hasData");
-			test::compare(e.data()->object().get("detail").string(), "x");
-		}
-	});
-
-	app.addTest("Error/InvalidParams", [](){
-		auto stream  = LoopbackStream();
-		auto handler = MessageHandler(Connection(stream));
-
-		handler.on<TestRequest>([&](std::unordered_map<std::string, int>)
-		{
-			return 42;
-		});
-
-		const auto message = makeMessage(R"({"jsonrpc":"2.0","id":1,"method":"test/request","params":{"x":"bad"}})");
-		stream.write(message.data(), message.size());
-
-		handler.processNextMessage();
-
-		const auto response = parseMessageBody(stream.takeAll());
-		test::compare(response.object().get("error").object().get("code").integer(), MessageError::InvalidParams);
+		test::check(!called, "notCalled");
+		expectResponseError(response, MessageError::MethodNotFound, "Method not found");
 	});
 
 	app.addTest("MultipleInFlightRequests", [](){
@@ -702,7 +865,7 @@ int main(int argc, char** argv)
 		const auto message = makeMessage(batchBody);
 		stream.write(message.data(), message.size());
 
-		handler.processNextMessage();
+		handler.processNextMessage(); // The whole batch arrives as a single message
 
 		test::check(requestCalled, "requestCalled");
 		test::check(paramsRequestCalled, "paramsRequestCalled");

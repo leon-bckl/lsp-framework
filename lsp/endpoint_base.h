@@ -14,6 +14,8 @@ namespace notifications{
 struct Exit;
 } // namespace notifications
 
+using RequestContext = MessageHandler::RequestContext;
+
 /*
  * EndpointBase
  */

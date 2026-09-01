@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <concepts>
 #include "message_handler.h"
 
@@ -30,24 +31,19 @@ void MessageHandler::sendResponse(const MessageId& messageId, const T& result, C
 }
 
 template<typename M>
-void MessageHandler::handleRequestResult(const MessageId* messageId, RequestResult<M>& result, Connection::BatchSender* batchSender)
+void MessageHandler::handleRequestResult(RequestResult<M>& result, Connection::BatchSender* batchSender)
 {
 	try
 	{
-		if(messageId)
-			sendResponse(*messageId, result.get(), batchSender);
-		else
-			(void)result.get();
+		sendResponse(result.requestId(), result.get(), batchSender);
 	}
 	catch(const RequestError& e)
 	{
-		if(messageId)
-			sendErrorResponse(*messageId, e.code(), e.what(), e.data(), batchSender);
+		sendErrorResponse(result.requestId(), e.code(), e.what(), e.data(), batchSender);
 	}
 	catch(std::exception& e)
 	{
-		if(messageId)
-			sendErrorResponse(*messageId, MessageError::InternalError, e.what(), {}, batchSender);
+		sendErrorResponse(result.requestId(), MessageError::InternalError, e.what(), {}, batchSender);
 	}
 }
 
@@ -65,41 +61,46 @@ template<typename M, typename F>
 auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
 {
 	addHandler(method,
-		[this, callback = std::forward<F>(callback)]([[maybe_unused]] json::Value&& json, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
+		[this, callback = std::forward<F>(callback)](
+			[[maybe_unused]] json::Value&& json, [[maybe_unused]] const RequestId* requestId, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
 		{
 			if constexpr(M::Kind == MessageKind::Request)
 			{
-				const auto& requestId = *currentRequestId();
+				assert(requestId);
+
+				auto context = RequestContext(*this, *requestId);
+
 				auto result =
 					[&json, &callback, requestId]() mutable
 					{
 						if constexpr(MessageHasParams<M>)
 						{
-							static_assert(std::invocable<F, typename M::Params>, "Request callback must be callable with params");
+							static_assert(std::invocable<F, typename M::Params>, "Request callback must be callable with matching params");
 
 							auto params = typename M::Params();
 							fromJson(std::move(json), params);
-							return RequestResult<M>(std::move(requestId), callback(std::move(params)));
+							return RequestResult<M>(*requestId, callback(std::move(params)));
 						}
 						else
 						{
 							(void)json;
 							static_assert(std::invocable<F>, "Request callback must be callable without params");
-							return RequestResult<M>(std::move(requestId), callback());
+							return RequestResult<M>(*requestId, callback());
 						}
 					}();
 
 				// Requests that are part of a batch cannot be handled asynchronously
-				if(batchSender || !result.isAsync())
+				if(!result.isAsync() || batchSender)
 				{
-					handleRequestResult<M>(&requestId, result, batchSender);
+					handleRequestResult<M>(result, batchSender);
 				}
 				else
 				{
 					m_threadPool.addTask(
-						[this, requestId = requestId, result = std::move(result)]() mutable
+						[this, requestId = *requestId, result = std::move(result)]() mutable
 						{
-							handleRequestResult<M>(&requestId, result, nullptr);
+							auto context = RequestContext(*this, std::move(requestId));
+							handleRequestResult<M>(result, nullptr);
 						});
 				}
 			}
@@ -107,10 +108,11 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 			{
 				(void)this;
 				static_assert(M::Kind == MessageKind::Notification);
+				assert(!requestId);
 
 				if constexpr(MessageHasParams<M>)
 				{
-					static_assert(std::invocable<F, typename M::Params>, "Notification callback must be callable with params");
+					static_assert(std::invocable<F, typename M::Params>, "Notification callback must be callable with matching params");
 
 					auto params = typename M::Params();
 					fromJson(std::move(json), params);

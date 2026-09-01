@@ -268,6 +268,26 @@ handler.onCustom<lsp::GenericRequest>("$/myExtension/stat",
 
 Use `lsp::GenericRequestNoParams` / `lsp::GenericNotificationNoParams` for messages without parameters, and `sendCustomNotification` to send a notification.
 
+### Request Context
+
+Request handlers can access information about the current request through an `lsp::RequestContext`. It can be obtained using `lsp::RequestContext::get()`.
+
+```cpp
+serverEndpoint.onTextDocumentReferences(
+  [](lsp::ReferenceParams&& params) -> lsp::TextDocumentReferencesResult
+  {
+    const auto& ctx       = lsp::RequestContext::get();
+    const auto& requestId = ctx.id();
+    // ...
+  });
+```
+
+`RequestContext::get()` throws `std::logic_error` when there is no active request. Code that runs both inside and outside a handler should use `RequestContext::tryGet()` instead,
+which returns a `const RequestContext*` that is null when there is no context.
+
+The context is set in regular and [asynchronous](#asynchronous-handlers) request handler callbacks, including the body of a deferred task that runs when the framework calls `future.get()`.
+It is also available in response and error callbacks. It is not set in notification handlers.
+
 ## Starting a Server Process
 
 When implementing an LSP client, it is usually responsible for creating the server process. This can be done with the `lsp::Process` class. Its `stdIO()` method returns an `lsp::io::Stream` for the process's standard input and output that an endpoint can be constructed from.

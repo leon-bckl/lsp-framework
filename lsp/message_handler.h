@@ -29,8 +29,6 @@ public:
 	void processNextMessage();
 	void setConnection(Connection connection);
 
-	[[nodiscard]] static auto currentRequestId() -> const MessageId*;
-
 	/*
 	 * Callback registration
 	 */
@@ -104,12 +102,35 @@ public:
 	requires (!MessageHasParams<M>) && (!MessageHasResult<M>)
 	void sendCustomNotification(std::string_view method);
 
+	/*
+	 * RequestContext
+	 */
+
+	class RequestContext{
+		friend class MessageHandler;
+	public:
+		RequestContext(const RequestContext&)     = default;
+		RequestContext(RequestContext&&) noexcept = default;
+		~RequestContext();
+
+		[[nodiscard]] static auto get() -> const RequestContext&;
+		[[nodiscard]] static auto tryGet() -> const RequestContext*;
+
+		[[nodiscard]] auto id() const -> const RequestId&{ return m_requestId; }
+
+	private:
+		[[maybe_unused]] MessageHandler* m_messageHandler = nullptr;
+		RequestId       m_requestId;
+
+		RequestContext(MessageHandler& messageHandler, RequestId requestId);
+	};
+
 private:
 	class ResponseResultBase;
 	class RequestResultBase;
 	using RequestResultPtr  = std::unique_ptr<RequestResultBase>;
 	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
-	using HandlerWrapper    = std::function<void(json::Value&&, Connection::BatchSender*)>;
+	using HandlerWrapper    = std::function<void(json::Value&&, const RequestId*, Connection::BatchSender*)>;
 
 	// General
 	Connection                                      m_connection;
@@ -125,7 +146,7 @@ private:
 	void sendResponse(const MessageId& messageId, const T& result, Connection::BatchSender* batchSender);
 
 	template<typename M>
-	void handleRequestResult(const MessageId* messageId, RequestResult<M>& result, Connection::BatchSender* batchSender);
+	void handleRequestResult(RequestResult<M>& result, Connection::BatchSender* batchSender);
 
 	void processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender);
 	void processResponse(jsonrpc::Response&& response);

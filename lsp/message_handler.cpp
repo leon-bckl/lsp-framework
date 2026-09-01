@@ -4,38 +4,44 @@
 namespace lsp{
 namespace{
 
-class CurrentRequestId{
-public:
-	[[nodiscard]] static auto get() -> const MessageId*
-	{
-		return s_currentRequestId;
-	}
-
-	[[nodiscard]] static auto set(const MessageId& current) -> CurrentRequestId
-	{
-		assert(!s_currentRequestId);
-		s_currentRequestId = &current;
-		return CurrentRequestId();
-	}
-
-	[[nodiscard]] static auto set(const std::optional<MessageId>& current) -> CurrentRequestId
-	{
-		if(current.has_value())
-			return set(*current);
-
-		return CurrentRequestId();
-	}
-
-	~CurrentRequestId()
-	{
-		s_currentRequestId = nullptr;
-	}
-
-private:
-	inline static thread_local const MessageId* s_currentRequestId = nullptr;
-};
+thread_local const MessageHandler::RequestContext* t_requestContext = nullptr;
 
 } // namespace
+
+/*
+ * MessageHandler::RequestContext
+ */
+
+MessageHandler::RequestContext::RequestContext(MessageHandler& messageHandler, RequestId requestId)
+	: m_messageHandler{&messageHandler}
+	, m_requestId{std::move(requestId)}
+{
+	assert(!t_requestContext);
+	t_requestContext = this;
+}
+
+MessageHandler::RequestContext::~RequestContext()
+{
+	if(t_requestContext == this)
+		t_requestContext = nullptr;
+}
+
+auto MessageHandler::RequestContext::get() -> const RequestContext&
+{
+	if(!t_requestContext)
+		throw std::logic_error("RequestContext::get called outside of a request context");
+
+	return *t_requestContext;
+}
+
+auto MessageHandler::RequestContext::tryGet() -> const RequestContext*
+{
+	return t_requestContext;
+}
+
+/*
+ * MessageHandler
+ */
 
 MessageHandler::MessageHandler(Connection connection, unsigned int maxResponseThreads)
 	: m_connection{std::move(connection)}
@@ -79,11 +85,6 @@ void MessageHandler::setConnection(Connection connection)
 	m_connection = std::move(connection);
 }
 
-auto MessageHandler::currentRequestId() -> const MessageId*
-{
-	return CurrentRequestId::get();
-}
-
 void MessageHandler::remove(const std::string& method)
 {
 	std::lock_guard lock{m_requestHandlersMutex};
@@ -99,16 +100,24 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
-		const auto currentRequestId = CurrentRequestId::set(request.id);
-
 		try
 		{
 			lock.unlock();
 
-			// Call handler for the method type and return optional response
-			handlerIt->second(
-				request.params.has_value() ? std::move(*request.params) : json::Null{},
-				batchSender);
+			if(request.isNotification())
+			{
+				handlerIt->second(
+					request.params.has_value() ? std::move(*request.params) : json::Null{},
+					nullptr,
+					nullptr);
+			}
+			else
+			{
+				handlerIt->second(
+					request.params.has_value() ? std::move(*request.params) : json::Null{},
+					&*request.id,
+					batchSender);
+			}
 		}
 		catch(const RequestError& e)
 		{
@@ -150,7 +159,7 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 	if(!result) // If there's no result it means a response was received without a request which makes no sense but just ignore it...
 		return;
 
-	const auto currentRequestId = CurrentRequestId::set(response.id);
+	const auto requestContext = RequestContext(*this, response.id);
 
 	if(response.result.has_value())
 	{
@@ -204,7 +213,7 @@ void MessageHandler::sendErrorResponse(
 				[](std::string_view key, const json::Value& value, json::ObjectWriter& objectWriter)
 				{
 					objectWriter.write(key, value);
-				}, errorData.value());
+				}, *errorData);
 		}
 	}
 	else
@@ -212,7 +221,7 @@ void MessageHandler::sendErrorResponse(
 		auto errorResponse = m_connection.errorResponse(messageId, errorCode, errorMessage);
 
 		if(errorData.has_value())
-			errorResponse.writeData(errorData.value());
+			errorResponse.writeData(*errorData);
 
 		errorResponse.submit();
 	}
