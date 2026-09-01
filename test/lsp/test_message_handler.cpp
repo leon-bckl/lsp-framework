@@ -136,6 +136,33 @@ void expectResponseError(RequestResult<M>& result, int expectedCode, std::string
 	}
 }
 
+template<typename M>
+void expectCallbackError(MessageHandler& handler, int expectedCode, std::string_view expectedMessage)
+{
+	auto thenCalled  = false;
+	auto errorResult = std::optional<ResponseError>();
+
+	handler.sendRequest<M>(
+		[&](const typename M::Result&){ thenCalled = true; },
+		[&](const ResponseError& e){ errorResult = e; });
+
+	handler.processNextMessage();
+	handler.processNextMessage();
+
+	test::check(!thenCalled, "thenNotCalled");
+	test::check(errorResult.has_value(), "hasError");
+	test::compare(errorResult->code(), expectedCode);
+	test::compare(errorResult->message(), expectedMessage);
+}
+
+void respondWithNonArray(MessageHandler& handler)
+{
+	handler.onCustom<GenericRequestNoParams>(TestNoParamsRequest::Method, []() -> json::Value
+	{
+		return json::Value(json::String("not an array"));
+	});
+}
+
 int main(int argc, char** argv)
 {
 	auto app = test::TestApp();
@@ -297,6 +324,25 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 
 		test::check(stream.empty(), "noResponseWritten");
+	});
+
+	app.addTest("Notification/InvalidParams", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto called  = false;
+
+		handler.on<TestNotification>([&](std::vector<int>){ called = true; });
+
+		const auto message = makeMessage(R"({"jsonrpc":"2.0","method":"test/notification","params":{"nope":1}})");
+		stream.write(message.data(), message.size());
+		handler.processNextMessage();
+
+		test::check(!called, "callbackNotCalled");
+		test::check(stream.empty(), "noResponseWritten");
+
+		handler.sendNotification<TestNotification>({1, 2, 3});
+		handler.processNextMessage();
+		test::check(called, "laterNotificationHandled");
 	});
 
 	/*
@@ -631,20 +677,7 @@ int main(int argc, char** argv)
 			throw std::runtime_error("boom");
 		});
 
-		auto thenCalled  = false;
-		auto errorResult = std::optional<ResponseError>();
-
-		handler.sendRequest<TestNoParamsRequest>(
-			[&](const std::vector<int>&){ thenCalled = true; },
-			[&](const ResponseError& e){ errorResult = e; });
-
-		handler.processNextMessage();
-		handler.processNextMessage();
-
-		test::check(!thenCalled, "thenNotCalled");
-		test::check(errorResult.has_value(), "hasError");
-		test::compare(errorResult->code(), expectedCode);
-		test::compare(errorResult->message(), expectedMessage);
+		expectCallbackError<TestNoParamsRequest>(handler, expectedCode, expectedMessage);
 	})({
 		{"RequestError",     {true,  1234,                        "custom error"}},
 		{"GenericException", {false, MessageError::InternalError, "boom"}},
@@ -674,6 +707,47 @@ int main(int argc, char** argv)
 	})({
 		{"RequestError",     {true,  1234,                        "custom error"}},
 		{"GenericException", {false, MessageError::InternalError, "boom"}},
+	});
+
+	app.addTest("Error/MalformedResponseFuture", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		respondWithNonArray(handler);
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, MessageError::InternalError, "JSON value is not array");
+	});
+
+	app.addTest("Error/MalformedResponseCallback", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		respondWithNonArray(handler);
+
+		expectCallbackError<TestNoParamsRequest>(handler, MessageError::InternalError, "JSON value is not array");
+	});
+
+	app.addTest("Error/ResponseThenCallbackThrows", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&](){ return std::vector<int>{1, 2, 3}; });
+
+		auto errorCalled = false;
+
+		handler.sendRequest<TestNoParamsRequest>(
+			[&](const std::vector<int>&){ throw json::TypeError("boom in then"); },
+			[&](const ResponseError&){ errorCalled = true; });
+
+		handler.processNextMessage();
+
+		test::expectException<json::TypeError>([&](){ handler.processNextMessage(); }, "boom in then");
+
+		test::check(!errorCalled, "errorNotCalled");
 	});
 
 	app.addTest("Error/MethodNotFound", [](){
@@ -728,7 +802,25 @@ int main(int argc, char** argv)
 		handler.processNextMessage();
 
 		const auto response = parseMessageBody(stream.takeAll());
+		test::compare(response.object().get("id").integer(), 1);
+		test::check(!response.object().contains("result"), "noResult");
 		test::compare(response.object().get("error").object().get("code").integer(), MessageError::InvalidParams);
+	});
+
+	app.addTest("Error/RequestHandlerThrowsTypeError", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>) -> int
+		{
+			throw json::TypeError("type error inside handler");
+		});
+
+		auto response = handler.sendRequest<TestRequest>({{"x", 1}});
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, MessageError::InternalError, "type error inside handler");
 	});
 
 	/*

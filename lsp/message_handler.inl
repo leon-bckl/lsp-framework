@@ -78,7 +78,16 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 							static_assert(std::invocable<F, typename M::Params>, "Request callback must be callable with matching params");
 
 							auto params = typename M::Params();
-							fromJson(std::move(json), params);
+
+							try
+							{
+								fromJson(std::move(json), params);
+							}
+							catch(const json::Error& e)
+							{
+								throw RequestError(MessageError::InvalidParams, e.what());
+							}
+
 							return RequestResult(callback(std::move(params)), *requestId);
 						}
 						else
@@ -115,7 +124,17 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 					static_assert(std::invocable<F, typename M::Params>, "Notification callback must be callable with matching params");
 
 					auto params = typename M::Params();
-					fromJson(std::move(json), params);
+
+					try
+					{
+						fromJson(std::move(json), params);
+					}
+					catch(const json::Error&)
+					{
+						// Swallow invalid params for notifications since no error response is sent
+						// Might add an error hook for such cases later...
+						return;
+					}
 
 					if constexpr(IsFuture<std::invoke_result_t<F, typename M::Params>>{})
 						m_threadPool.addTask([future = callback(std::move(params))](){ future.wait(); });
@@ -267,28 +286,24 @@ void MessageHandler::sendCustomNotification(std::string_view method)
 }
 
 /*
- * FutureRequestResult
+ * RequestResultBase
  */
 
 template<typename T>
-void MessageHandler::FutureRequestResult<T>::setValueFromJson(json::Value&& json)
+auto MessageHandler::RequestResultBase::setValueFromJson(T& value, json::Value&& json) -> bool
 {
 	try
 	{
-		auto value = T();
 		fromJson(std::move(json), value);
-		m_promise.set_value(std::move(value));
 	}
-	catch(const Exception& e)
+	catch(const json::Error& e)
 	{
-		m_promise.set_exception(std::make_exception_ptr(e));
+		// If an invalid response was received, report it as an internal error
+		setError(ResponseError(MessageError::InternalError, e.what()));
+		return false;
 	}
-}
 
-template<typename T>
-void MessageHandler::FutureRequestResult<T>::setError(ResponseError&& error)
-{
-	m_promise.set_exception(std::make_exception_ptr(std::move(error)));
+	return true;
 }
 
 /*
@@ -296,29 +311,46 @@ void MessageHandler::FutureRequestResult<T>::setError(ResponseError&& error)
  */
 
 template<typename T, typename F, typename E>
-void MessageHandler::CallbackRequestResult<T, F, E>::setValueFromJson(json::Value&& json)
+MessageHandler::CallbackRequestResult<T, F, E>::CallbackRequestResult(F&& then, E&& error)
+	: m_then{std::forward<F>(then)}
+	, m_error{std::forward<E>(error)}
 {
 	static_assert(std::invocable<F, T>,
 		"Response callback must be callable with request result");
 	static_assert(std::invocable<E, const ResponseError&>,
 		"Response error callback must be callable with const RequestError&");
+}
 
-	try
-	{
-		auto value = T();
-		fromJson(std::move(json), value);
+template<typename T, typename F, typename E>
+void MessageHandler::CallbackRequestResult<T, F, E>::setValue(json::Value&& json)
+{
+	auto value = T();
+	if(setValueFromJson(value, std::move(json)))
 		m_then(std::move(value));
-	}
-	catch(const json::Error& error)
-	{
-		m_error(ResponseError(MessageError::InvalidParams, error.what()));
-	}
 }
 
 template<typename T, typename F, typename E>
 void MessageHandler::CallbackRequestResult<T, F, E>::setError(ResponseError&& error)
 {
 	m_error(std::move(error));
+}
+
+/*
+ * FutureRequestResult
+ */
+
+template<typename T>
+void MessageHandler::FutureRequestResult<T>::setValue(json::Value&& json)
+{
+	auto value = T();
+	if(setValueFromJson(value, std::move(json)))
+		m_promise.set_value(std::move(value));
+}
+
+template<typename T>
+void MessageHandler::FutureRequestResult<T>::setError(ResponseError&& error)
+{
+	m_promise.set_exception(std::make_exception_ptr(std::move(error)));
 }
 
 } // namespace lsp

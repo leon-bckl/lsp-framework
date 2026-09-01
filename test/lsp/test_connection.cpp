@@ -186,35 +186,23 @@ int main(int argc, char** argv)
 		test::compare(request.method, std::string("foo"));
 	});
 
-	app.addTest("ReadMessage/MalformedJsonWritesParseErrorResponse", [](){
-		auto stream     = MemoryStream(makeMessage("not valid json"));
+	app.addTest("ReadMessage/RecoversFromMalformedMessage", [](std::string badBody, int expectedErrorCode)
+	{
+		auto stream = MemoryStream(
+			makeMessage(badBody) +
+			makeMessage(R"({"jsonrpc":"2.0","method":"foo"})"));
 		auto connection = Connection(stream);
 
-		test::expectException<json::ParseError>([&](){ (void)connection.readMessage(); });
+		auto  message = connection.readMessage();
+		auto& request = std::get<jsonrpc::Request>(std::get<jsonrpc::Message>(message));
+		test::compare(request.method, std::string("foo"));
 
-		// Connection must write a jsonrpc error response for the client before rethrowing
-		auto errorStream     = MemoryStream(stream.output());
-		auto errorConnection = Connection(errorStream);
-		auto  errorMessage   = errorConnection.readMessage();
-		auto& response       = std::get<jsonrpc::Response>(std::get<jsonrpc::Message>(errorMessage));
-
-		test::check(response.error.has_value(), "hasError");
-		test::compare(response.error->code, jsonrpc::Error::ParseError);
-	});
-
-	app.addTest("ReadMessage/NonObjectOrArrayWritesInvalidRequestResponse", [](){
-		auto stream     = MemoryStream(makeMessage("42"));
-		auto connection = Connection(stream);
-
-		test::expectException<jsonrpc::ProtocolError>([&](){ (void)connection.readMessage(); });
-
-		auto errorStream     = MemoryStream(stream.output());
-		auto errorConnection = Connection(errorStream);
-		auto  errorMessage   = errorConnection.readMessage();
-		auto& response       = std::get<jsonrpc::Response>(std::get<jsonrpc::Message>(errorMessage));
-
-		test::check(response.error.has_value(), "hasError");
-		test::compare(response.error->code, jsonrpc::Error::InvalidRequest);
+		const auto response = parseMessageBody(stream.output());
+		test::check(response.object().get("id").isNull(), "nullErrorId");
+		test::compare(response.object().get("error").object().get("code").integer(), expectedErrorCode);
+	})({
+		{"MalformedJson",    {"not valid json", jsonrpc::Error::ParseError}},
+		{"NonObjectOrArray", {"42",             jsonrpc::Error::InvalidRequest}},
 	});
 
 	app.addTest("ReadMessage/Errors", [](std::string rawInput, std::string_view expectedMessage)
@@ -238,6 +226,8 @@ int main(int argc, char** argv)
 		 {"Content-Length: abc\r\n\r\n{}", "Protocol: Invalid value for Content-Length header field"}},
 		{"TruncatedBody",
 		 {"Content-Length: 100\r\n\r\n{}", "Unexpected end of stream"}},
+		{"MalformedJsonThenEof",
+		 {makeMessage("not valid json"), "Connection lost"}},
 		{"InvalidContentType",
 		 {makeMessage(R"({"jsonrpc":"2.0","method":"foo"})", "text/plain"),
 		  "Protocol: Unsupported or invalid content type: text/plain"}},

@@ -172,61 +172,60 @@ Connection& Connection::operator=(Connection&&) noexcept = default;
 
 auto Connection::readMessage() -> Connection::Message
 {
-	try
+	for(;;) // Keep trying until a message was read or an unrecoverable error happened
 	{
-		auto readLock = std::unique_lock(m->readMutex);
-		auto reader   = InputReader(m->stream);
+		try
+		{
+			auto readLock = std::unique_lock(m->readMutex);
+			auto reader   = InputReader(m->stream);
 
-		if(reader.peek() == io::Stream::Eof)
-			throw ConnectionError("Connection lost");
+			if(reader.peek() == io::Stream::Eof)
+				throw ConnectionError("Connection lost");
 
-		const auto header = readMessageHeader(reader);
+			const auto header = readMessageHeader(reader);
 
-		std::string content;
-		content.resize(header.contentLength);
-		reader.read(&content[0], header.contentLength);
+			std::string content;
+			content.resize(header.contentLength);
+			reader.read(&content[0], header.contentLength);
 
-		readLock.unlock();
+			readLock.unlock();
 
-		// Verify only after reading the entire message so no partially unread message is left in the stream
-		verifyContentType(header.contentType);
+			// Verify only after reading the entire message so no partially unread message is left in the stream
+			verifyContentType(header.contentType);
 
-		auto json = json::parse(content);
+			auto json = json::parse(content);
 #if LSP_MESSAGE_DEBUG_LOG
-		debugLogMessageJson("incoming", json::stringify(json));
+			debugLogMessageJson("incoming", json::stringify(json));
 #endif
 
-		if(json.isObject())
-			return jsonrpc::messageFromJson(std::move(json.object()));
+			if(json.isObject())
+				return jsonrpc::messageFromJson(std::move(json.object()));
 
-		if(!json.isArray())
-			throw jsonrpc::ProtocolError("Message must be a json object or array");
+			if(!json.isArray())
+				throw jsonrpc::ProtocolError("Message must be a json object or array");
 
-		return jsonrpc::messageBatchFromJson(std::move(json.array()));
-	}
-	catch(const json::ParseError& e)
-	{
-		auto responseSender = errorResponse(json::Null(), MessageError::ParseError, e.what());
-		responseSender.submit();
-		throw; // FIXME: This shouldn't abort the connection
-	}
-	catch(const jsonrpc::ProtocolError& e)
-	{
-		auto responseSender = errorResponse(json::Null(), MessageError::InvalidRequest, e.what());
-		responseSender.submit();
-		throw; // FIXME: This shouldn't abort the connection
-	}
-	catch(const ConnectionError&)
-	{
-		throw;
-	}
-	catch(const std::exception& e)
-	{
-		throw ConnectionError(e.what());
-	}
-	catch(...)
-	{
-		throw ConnectionError("Unknown error");
+			return jsonrpc::messageBatchFromJson(std::move(json.array()));
+		}
+		catch(const json::ParseError& e)
+		{
+			auto responseSender = errorResponse(json::Null(), MessageError::ParseError, e.what());
+			responseSender.submit();
+			continue;
+		}
+		catch(const jsonrpc::ProtocolError& e)
+		{
+			auto responseSender = errorResponse(json::Null(), MessageError::InvalidRequest, e.what());
+			responseSender.submit();
+			continue;
+		}
+		catch(const ConnectionError&)
+		{
+			throw;
+		}
+		catch(const std::exception& e)
+		{
+			throw ConnectionError(e.what());
+		}
 	}
 }
 

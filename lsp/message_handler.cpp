@@ -124,11 +124,6 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 			if(!request.isNotification())
 				sendErrorResponse(*request.id, e.code(), e.what(), e.data(), batchSender);
 		}
-		catch(const json::TypeError& e)
-		{
-			if(!request.isNotification())
-				sendErrorResponse(*request.id, MessageError::InvalidParams, e.what(), {}, batchSender);
-		}
 		catch(const std::exception& e)
 		{
 			if(!request.isNotification())
@@ -163,7 +158,7 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 
 	if(response.result.has_value())
 	{
-		result->setValueFromJson(std::move(*response.result));
+		result->setValue(std::move(*response.result));
 	}
 	else // Error response received.
 	{

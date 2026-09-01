@@ -174,20 +174,20 @@ private:
 	class RequestResultBase{
 	public:
 		virtual ~RequestResultBase() = default;
-		virtual void setValueFromJson(json::Value&& json) = 0;
+		virtual void setValue(json::Value&& json) = 0;
 		virtual void setError(ResponseError&& error) = 0;
+
+	protected:
+		template<typename T>
+		auto setValueFromJson(T& value, json::Value&& json) -> bool;
 	};
 
 	template<typename T, typename F, typename E>
 	class CallbackRequestResult final : public RequestResultBase{
 	public:
-		CallbackRequestResult(F&& then, E&& error)
-			: m_then{std::forward<F>(then)}
-			, m_error{std::forward<E>(error)}
-		{
-		}
+		CallbackRequestResult(F&& then, E&& error);
 
-		void setValueFromJson(json::Value&& json) override;
+		void setValue(json::Value&& json) override;
 		void setError(ResponseError&& error) override;
 
 	private:
@@ -198,9 +198,9 @@ private:
 	template<typename T>
 	class FutureRequestResult final : public RequestResultBase{
 	public:
-		std::future<T> future(){ return m_promise.get_future(); }
+		auto future() -> std::future<T>{ return m_promise.get_future(); }
 
-		void setValueFromJson(json::Value&& json) override;
+		void setValue(json::Value&& json) override;
 		void setError(ResponseError&& error) override;
 
 	private:
