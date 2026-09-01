@@ -8,11 +8,7 @@
 #include "type_generator.h"
 #include "util.h"
 
-using namespace lsp;
 using namespace lspgen;
-
-namespace{
-} // namespace
 
 auto main(int argc, char** argv) -> int
 {
