@@ -5,12 +5,14 @@ This is an implementation of the [Language Server Protocol](https://microsoft.gi
 ## Overview
 
 The goal of this library is to make implementing LSP servers and clients easy and type safe.
-All LSP types and messages are proper C++ structs. There's no need to manually read or write JSON, which is inconvenient and error-prone. The framework handles serialization and deserialization automatically.
+All LSP types and messages are proper C++ structs. There's no need to manually read or write JSON, which is inconvenient and error-prone.
+The framework handles serialization and deserialization automatically.
 
-The generated `<lsp/messages.h>` header has one struct per message, with requests in the `lsp::requests` namespace and notifications in `lsp::notifications`.
+The generated `<lsp/messages.h>` header has one struct per message, with requests in the `lsp::requests` and notifications in the `lsp::notifications` namespace.
 Each message struct has a `Method` constant and typedefs for its `Params` and `Result` types. All parameter, result and other LSP types are in `<lsp/types.h>`.
 
-These two headers also serve as a protocol reference and have documentation comments for all types and properties.
+Servers and clients are implemented using the generated `lsp::ServerEndpoint` and `lsp::ClientEndpoint` classes (`<lsp/server_endpoint.h>` and `<lsp/client_endpoint.h>`).
+The `messages.h` and `types.h` headers also serve as a protocol reference and have documentation comments for all types and properties.
 
 ## Building
 
@@ -22,12 +24,12 @@ The project is built as a static library. LSP type definitions, messages and ser
 
 ## Usage
 
-The two entry points are the generated `lsp::ServerEndpoint` and `lsp::ClientEndpoint` classes (`<lsp/server_endpoint.h>` and `<lsp/client_endpoint.h>`).
+The two entry points are `lsp::ServerEndpoint` and `lsp::ClientEndpoint`.
 Each is constructed from an `lsp::io::Stream` and exposes a type-safe method for every message it can send, along with an `on...` method to register a handler for every message it can receive.
 The framework provides streams for standard I/O (`lsp::io::standardIO()`) and TCP sockets (`lsp::io::Socket`).
-To communicate over anything else, subclass `lsp::io::Stream` and implement `read` and `write`. An endpoint does not take ownership of its stream, so the stream must outlive it.
+To communicate over anything else, subclass `lsp::io::Stream` and implement `read` and `write`.
 
-### Writing a Server
+### Implementing a Server
 
 Construct an `lsp::ServerEndpoint` from a stream, register handlers, then run the message loop:
 
@@ -46,7 +48,10 @@ int main()
         .capabilities = {
           .hoverProvider = true,
         },
-        .serverInfo = lsp::ServerInfo{.name = "Example Server", .version = "1.0.0"},
+        .serverInfo = lsp::ServerInfo{
+          .name = "Example Server",
+          .version = "1.0.0"
+        },
       };
     })
   .onTextDocumentHover(
@@ -69,9 +74,9 @@ Each `on...` method returns the endpoint, so registrations can be chained.
 
 `runMessageLoop()` processes messages until the client sends `exit` or the connection is closed. The message loop can also be implemented manually using `processNextMessage()` and looping while `endpoint.isActive()`.
 
-The endpoint enforces the protocol lifecycle: requests that arrive before `initialize` are rejected, requests after `shutdown` are rejected, and `exit` stops the loop. You still register `onInitialize`, `onShutdown` and `onExit` to do your own setup and cleanup.
+The endpoint enforces the protocol lifecycle: requests that arrive before `initialize` or after `shutdown` are rejected and `exit` stops the loop. You can still register `onInitialize`, `onShutdown` and `onExit` to do your own setup and cleanup.
 
-### Writing a Client
+### Implementing a Client
 
 A client usually launches the server process itself (see [Starting a Server Process](#starting-a-server-process)) or connects to a running one over a socket (see [Using Sockets](#using-sockets)). Either way it gets a stream to construct an `lsp::ClientEndpoint` from.
 
