@@ -15,12 +15,12 @@ using TestResult = std::unique_ptr<int>;
 
 auto syncResult(std::unique_ptr<int> value) -> RequestResult<TestResult>
 {
-	return RequestResult<TestResult>(1, std::move(value));
+	return RequestResult<TestResult>(std::move(value), 1);
 }
 
 auto asyncResult(std::future<std::unique_ptr<int>> future) -> RequestResult<TestResult>
 {
-	return RequestResult<TestResult>(1, std::move(future));
+	return RequestResult<TestResult>(std::move(future), 1);
 }
 
 auto readyFuture(int value) -> std::future<std::unique_ptr<int>>

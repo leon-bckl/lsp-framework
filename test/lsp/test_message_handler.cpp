@@ -356,6 +356,40 @@ int main(int argc, char** argv)
 		test::compare(getResult(response), std::vector<int>{4, 5, 6});
 	});
 
+	app.addTest("Async/DynamicResult", [](bool async, int expected){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		const auto mainThread    = std::this_thread::get_id();
+		auto handlerThread       = std::promise<std::thread::id>();
+		auto handlerThreadFuture = handlerThread.get_future();
+
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>) -> RequestResult<int>
+		{
+			if(async)
+				return std::async(std::launch::deferred, [&]() -> int
+				{
+					handlerThread.set_value(std::this_thread::get_id());
+					return 7;
+				});
+
+			handlerThread.set_value(std::this_thread::get_id());
+			return 11;
+		});
+
+		auto response = handler.sendRequest<TestRequest>({{"x", 1}});
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), expected);
+
+		const auto ranOffMessageLoopThread = handlerThreadFuture.get() != mainThread;
+		test::check(ranOffMessageLoopThread == async, "asyncRanOffMessageLoopThread");
+	})({
+		{"ReturnsValue",  {false, 11}},
+		{"ReturnsFuture", {true,  7}},
+	});
+
 	app.addTest("Notification/Async", [](){
 		auto stream = LoopbackStream();
 

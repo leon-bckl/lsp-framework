@@ -79,13 +79,13 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 
 							auto params = typename M::Params();
 							fromJson(std::move(json), params);
-							return RequestResult(*requestId, callback(std::move(params)));
+							return RequestResult(callback(std::move(params)), *requestId);
 						}
 						else
 						{
 							(void)json;
 							static_assert(std::invocable<F>, "Request callback must be callable without params");
-							return RequestResult(*requestId, callback());
+							return RequestResult(callback(), *requestId);
 						}
 					}();
 
@@ -206,7 +206,7 @@ auto MessageHandler::sendCustomRequest(std::string_view method, const typename M
 	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
-	return RequestResult(requestId, std::move(future));
+	return RequestResult(std::move(future), requestId);
 }
 
 template<typename M>
@@ -228,7 +228,7 @@ auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult
 	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
-	return RequestResult(requestId, std::move(future));
+	return RequestResult(std::move(future), requestId);
 }
 
 /*

@@ -12,17 +12,18 @@ using RequestId = jsonrpc::MessageId;
 template<typename T>
 class RequestResult{
 public:
-	using FutureType = std::future<T>;
+	using ValueType  = T;
+	using FutureType = std::future<ValueType>;
 
-	RequestResult(RequestId requestId, T&& result)
-		: m_requestId{std::move(requestId)}
-		, m_result{std::move(result)}
+	RequestResult(ValueType&& value, RequestId requestId = {})
+		: m_result{std::move(value)}
+		, m_requestId{std::move(requestId)}
 	{
 	}
 
-	RequestResult(RequestId requestId, FutureType&& future)
-		: m_requestId{std::move(requestId)}
-		, m_result{std::move(future)}
+	RequestResult(FutureType&& future, RequestId requestId = {})
+		: m_result{std::move(future)}
+		, m_requestId{std::move(requestId)}
 	{
 	}
 
@@ -43,17 +44,24 @@ public:
 		return true;
 	}
 
-	[[nodiscard]] auto get() -> T
+	[[nodiscard]] auto get() -> ValueType
 	{
 		if(auto* future = std::get_if<FutureType>(&m_result))
 			return future->get();
 
-		return std::move(std::get<T>(m_result));
+		return std::move(std::get<ValueType>(m_result));
 	}
 
 private:
-	RequestId                   m_requestId;
-	std::variant<T, FutureType> m_result;
+	std::variant<ValueType, FutureType> m_result;
+	RequestId                           m_requestId;
+
+	friend class MessageHandler;
+	RequestResult(RequestResult&& other, RequestId requestId)
+		: RequestResult{std::move(other)}
+	{
+		m_requestId = std::move(requestId);
+	}
 };
 
 } // namespace lsp

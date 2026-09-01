@@ -80,7 +80,7 @@ The endpoint enforces the protocol lifecycle: requests that arrive before `initi
 
 A client usually launches the server process itself (see [Starting a Server Process](#starting-a-server-process)) or connects to a running one over a socket (see [Using Sockets](#using-sockets)). Either way it gets a stream to construct an `lsp::ClientEndpoint` from.
 
-Unlike a server, a client typically runs the message loop on a background thread so the main thread can send requests and block on their results:
+Unlike a server, a client typically runs the message loop on a background thread so the main thread can send requests and wait for their results:
 
 ```cpp
 #include <thread>
@@ -244,6 +244,24 @@ serverEndpoint.onTextDocumentDefinition(
 ```
 
 `std::launch::deferred` makes the task body run when the framework calls `get()` on the worker thread, so no thread is created beyond the framework's pool. Throwing `lsp::RequestError` from the task still produces an error response.
+
+A request handler can also decide dynamically whether to run asynchronously or not. To do that, its return type must be `lsp::RequestResult<Result>` and it can return either a value or a future.
+
+```cpp
+serverEndpoint.onTextDocumentDefinition(
+  [](lsp::DefinitionParams&& params) -> lsp::RequestResult<lsp::TextDocumentDefinitionResult>
+  {
+    if(auto* cached = lookUpCachedDefinition(params))
+      return *cached; // Response is sent immediately when this function returns
+
+    return std::async(std::launch::deferred,
+      // Response is sent once this is finished running on the worker thread
+      [params = std::move(params)]() -> lsp::TextDocumentDefinitionResult
+      {
+        return computeDefinition(params);
+      });
+  });
+```
 
 Notification handlers can be asynchronous the same way by returning `std::future<void>`.
 

@@ -93,7 +93,7 @@ private:
 	{
 		m_endpoint
 			.onInitialize(
-				[this](auto&& params)
+				[this](auto&& params) -> lsp::RequestResult<lsp::InitializeResult>
 				{
 					return initialize(params);
 				})
