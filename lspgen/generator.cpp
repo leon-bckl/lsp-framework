@@ -20,7 +20,12 @@ R"(/*#############################################################
 void Generator::writeFiles() const
 {
 	for(const auto& [file, content] : m_files)
-		writeFileContentIfNotSame(file, content);
+	{
+		const auto oldFileContent = readFileContent(file, true);
+
+		if(oldFileContent != content)
+			writeFileContent(file, content);
+	}
 }
 
 } // namespace lspgen

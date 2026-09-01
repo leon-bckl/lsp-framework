@@ -1,5 +1,6 @@
 #pragma once
 
+#include <fstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -118,6 +119,39 @@ auto joinStrings(const std::vector<T>& strings, const std::string& separator, F&
 	}
 
 	return result;
+}
+
+inline auto readFileContent(const std::string& fileName, bool mayFail = false) -> std::string
+{
+	auto file = std::ifstream(fileName, std::ios::binary);
+
+	if(!file)
+	{
+		if(mayFail)
+			return {};
+
+		throw std::runtime_error("Failed to read file '" + fileName + '\'');
+	}
+
+	file.seekg(0, std::ios::end);
+	const auto fileSize = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	std::string text;
+	text.resize(static_cast<std::string::size_type>(fileSize));
+	file.read(&text[0], fileSize);
+
+	return text;
+}
+
+inline void writeFileContent(const std::string& fileName, std::string_view content)
+{
+	auto file = std::ofstream(fileName, std::ios::trunc | std::ios::binary);
+
+	if(!file)
+		throw std::runtime_error("Failed to write file '" + fileName + '\'');
+
+	file.write(content.data(), static_cast<std::streamsize>(content.size()));
 }
 
 } // namespace lspgen

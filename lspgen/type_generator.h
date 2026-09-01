@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <vector>
 #include "cpp_writer.h"
+#include "generator.h"
 
 namespace lspgen{
 
@@ -17,20 +18,18 @@ struct TypeAlias;
 class MetaModel;
 using TypePtr = std::unique_ptr<Type>;
 
-class TypeGenerator{
+class TypeGenerator : public Generator{
 public:
-	void generate(const MetaModel& metaModel);
-	auto headerText() const -> std::string;
-	auto sourceText() const -> std::string;
+	void generate(const MetaModel& metaModel, const std::string& fileBaseName);
 
 private:
 	const MetaModel*                             m_metaModel;
 	std::unordered_set<std::string_view>         m_processedTypes;
 	std::unordered_set<std::string_view>         m_typesBeingProcessed;
 	std::unordered_map<const Type*, std::string> m_generatedTypeNames;
-	CppWriter                                    m_typeWriter;
+	CppWriter                                    m_headerWriter;
 	CppWriter                                    m_declWriter;
-	CppWriter                                    m_deserializationWriter;
+	CppWriter                                    m_sourceWriter;
 	CppWriter                                    m_serializationWriter;
 
 	void generateNamedType(std::string_view name);

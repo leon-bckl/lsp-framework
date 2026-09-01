@@ -5,13 +5,29 @@
 namespace lspgen{
 
 CppWriter::CppWriter(int initialIndent)
-	: m_indent{initialIndent}
+	: m_initialIndent{initialIndent}
+	, m_indent{initialIndent}
+	, m_buffer{&m_internalBuffer}
+{
+}
+
+CppWriter::CppWriter(std::string& buffer, int initialIndent)
+	: m_initialIndent{initialIndent}
+	, m_indent{initialIndent}
+	, m_buffer{&buffer}
 {
 }
 
 void CppWriter::reset()
 {
-	m_text.clear();
+	reset(m_internalBuffer);
+}
+
+void CppWriter::reset(std::string& buffer)
+{
+	m_internalBuffer.clear();
+	m_indent = m_initialIndent;
+	m_buffer = &buffer;
 }
 
 void CppWriter::write(std::string_view text, bool indent)
@@ -19,13 +35,13 @@ void CppWriter::write(std::string_view text, bool indent)
 	if(indent)
 		writeIndent();
 
-	m_text += text;
+	(*m_buffer) += text;
 }
 
 void CppWriter::writeLine(std::string_view text, bool indent)
 {
 	write(text, indent);
-	m_text += '\n';
+	(*m_buffer) += '\n';
 }
 
 void CppWriter::writeDocComment(std::string_view title, std::string_view description)
@@ -51,34 +67,34 @@ void CppWriter::writeDocComment(std::string_view title, std::string_view descrip
 
 void CppWriter::writeEmptyLine()
 {
-	if(m_text.empty() || m_text.back() != '\n')
-		m_text += '\n';
+	if(m_buffer->empty() || m_buffer->back() != '\n')
+		(*m_buffer) += '\n';
 
-	m_text += '\n';
+	(*m_buffer) += '\n';
 }
 
 void CppWriter::writeNamespaceStart(std::string_view name)
 {
-	m_text += "namespace";
+	(*m_buffer) += "namespace";
 
 	if(!name.empty())
 	{
-		m_text += ' ';
-		m_text += name;
+		(*m_buffer) += ' ';
+		(*m_buffer) += name;
 	}
 
-	m_text += "{\n\n";
+	(*m_buffer) += "{\n\n";
 }
 
 void CppWriter::writeNamespaceEnd(std::string_view name, bool addEmptyLine)
 {
-	m_text += "} // namespace ";
-	m_text += name;
+	(*m_buffer) += "} // namespace ";
+	(*m_buffer) += name;
 
 	if(addEmptyLine)
 		writeEmptyLine();
 	else
-		m_text += '\n';
+		(*m_buffer) += '\n';
 }
 
 void CppWriter::writeBlockStart(bool newLine)
@@ -93,17 +109,17 @@ void CppWriter::writeBlockStart(bool newLine)
 void CppWriter::writeBlockEnd(bool addSemicolon, bool addEmptyLine)
 {
 	// Strip newlines before block end
-	auto size = m_text.size();
+	auto size = m_buffer->size();
 
 	while(size > 2)
 	{
-		if(m_text[size - 1] != '\n' || m_text[size - 2] != '\n')
+		if((*m_buffer)[size - 1] != '\n' || (*m_buffer)[size - 2] != '\n')
 			break;
 
 		--size;
 	}
 
-	m_text.resize(size);
+	m_buffer->resize(size);
 
 	outdent();
 
@@ -177,10 +193,10 @@ void CppWriter::writeTypedef(std::string_view name, std::string_view type)
 
 void CppWriter::writeIndent()
 {
-	if(m_text.empty() || m_text.back() == '\n')
+	if(m_buffer->empty() || m_buffer->back() == '\n')
 	{
 		for(int i = 0; i < m_indent; ++i)
-			m_text += '\t';
+			(*m_buffer) += '\t';
 	}
 }
 
@@ -267,7 +283,12 @@ void CppWriter::writeFuncSig(std::string_view name, std::string_view returnType,
 
 auto CppWriter::text() const -> std::string_view
 {
-	return m_text;
+	return *m_buffer;
+}
+
+auto CppWriter::currentIndent() const -> int
+{
+	return m_indent;
 }
 
 auto CppWriter::type(std::string_view baseName, int kind) -> std::string

@@ -1,22 +1,21 @@
 #pragma once
 
 #include "cpp_writer.h"
+#include "generator.h"
 
 namespace lspgen{
 
 struct Message;
 class MetaModel;
 
-class EndpointGenerator{
+class EndpointGenerator : public Generator{
 public:
 	enum class Direction{
 		ClientToServer,
 		ServerToClient
 	};
 
-	void generate(const MetaModel& metaModel, Direction direction);
-	auto headerText() const -> std::string;
-	auto sourceText() const -> std::string;
+	void generate(const MetaModel& metaModel, Direction direction, const std::string& fileBaseName);
 
 private:
 	const MetaModel* m_metaModel = nullptr;

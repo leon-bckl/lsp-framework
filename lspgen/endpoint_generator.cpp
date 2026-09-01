@@ -4,18 +4,14 @@
 
 namespace lspgen{
 
-void EndpointGenerator::generate(const MetaModel& metaModel, Direction direction)
+void EndpointGenerator::generate(const MetaModel& metaModel, Direction direction, const std::string& fileBaseName)
 {
 	m_metaModel = &metaModel;
-	m_declWriter.reset();
-	m_implWriter.reset();
+	m_declWriter.reset(*createFile(fileBaseName + ".h"));
+	m_implWriter.reset(*createFile(fileBaseName + ".cpp"));
 
 	m_declWriter.write(
 R"(#pragma once
-
-/*#############################################################
- * NOTE: This is a generated file and it shouldn't be modified!
- *#############################################################*/
 
 #include <lsp/endpoint_base.h>
 #include <lsp/message_handler.h>
@@ -25,17 +21,9 @@ R"(#pragma once
 
 )", false);
 
-	m_implWriter.write(
-R"(/*#############################################################
- * NOTE: This is a generated file and it shouldn't be modified!
- *#############################################################*/
+	const auto className = std::string(direction == Direction::ClientToServer ? "ClientEndpoint" : "ServerEndpoint");
 
-)", false);
-
-	const auto className  = std::string(direction == Direction::ClientToServer ? "ClientEndpoint" : "ServerEndpoint");
-	const auto headerName = std::string(direction == Direction::ClientToServer ? "client_endpoint" : "server_endpoint");
-
-	m_implWriter.writeLine("#include \"" + headerName + ".h\"", false);
+	m_implWriter.writeLine("#include \"" + fileBaseName + ".h\"", false);
 	m_implWriter.writeEmptyLine();
 	m_implWriter.writeNamespaceStart("lsp");
 
@@ -64,16 +52,6 @@ R"(/*#############################################################
 	m_implWriter.writeNamespaceEnd("lsp", false);
 }
 
-auto EndpointGenerator::headerText() const -> std::string
-{
-	return std::string(m_declWriter.text());
-}
-
-auto EndpointGenerator::sourceText() const -> std::string
-{
-	return std::string(m_implWriter.text());
-}
-
 void EndpointGenerator::generateMethods(const std::string& className, Direction direction)
 {
 	const auto outgoingDirection =
@@ -83,7 +61,7 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 
 	// Outgoing methods
 	{
-		auto inlineImplWriter = CppWriter(1);
+		auto inlineImplWriter = CppWriter(m_declWriter.currentIndent());
 
 		m_declWriter.writeDocComment("Outgoing requests", {});
 		m_declWriter.writeEmptyLine();
@@ -106,6 +84,8 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 			if(message.direction == outgoingDirection || message.direction == Message::Direction::Both)
 				generateOutgingMethod(className, method, message, inlineImplWriter);
 		}
+
+		m_declWriter.write(inlineImplWriter.text());
 	}
 
 	// Incoming methods

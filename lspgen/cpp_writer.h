@@ -9,8 +9,10 @@ namespace lspgen{
 class CppWriter{
 public:
 	CppWriter(int initialIndent = 0);
+	CppWriter(std::string& buffer, int initialIndent = 0);
 
 	void reset();
+	void reset(std::string& buffer);
 	void write(std::string_view text, bool indent = true);
 	void writeLine(std::string_view text, bool indent = true);
 	void writeDocComment(std::string_view title, std::string_view description);
@@ -58,6 +60,7 @@ public:
 	void indent(){ ++m_indent; }
 	void outdent(){ --m_indent; }
 	auto text() const -> std::string_view;
+	auto currentIndent() const -> int;
 
 	enum TypeKind{
 		TypeConst  = 0x1,
@@ -71,8 +74,10 @@ public:
 	static auto lowerCaseIdentifier(std::string_view str) -> std::string;
 
 private:
-	std::string m_text;
-	int         m_indent = 0;
+	const int    m_initialIndent = 0;
+	int          m_indent        = m_initialIndent;
+	std::string* m_buffer = nullptr;
+	std::string  m_internalBuffer; // used when no buffer was provided on construction
 
 	void writeIndent();
 };

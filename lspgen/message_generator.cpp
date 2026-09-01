@@ -7,10 +7,6 @@ namespace{
 static constexpr auto MessagesHeaderBegin = std::string_view(
 R"(#pragma once
 
-/*#############################################################
- * NOTE: This is a generated file and it shouldn't be modified!
- *#############################################################*/
-
 #include <string_view>
 #include <lsp/message_base.h>
 #include <lsp/types.h>
@@ -26,11 +22,12 @@ R"(} // namespace lsp
 
 } // namespace
 
-void MessageGenerator::generate(const MetaModel& metaModel)
+void MessageGenerator::generate(const MetaModel& metaModel, const std::string& fileBaseName)
 {
 	m_metaModel = &metaModel;
-	m_messageWriter.reset();
+	m_messageWriter.reset(*createFile(fileBaseName + ".h"));
 
+	m_messageWriter.write(MessagesHeaderBegin);
 	m_messageWriter.writeDocComment("Request messages", {});
 	m_messageWriter.writeEmptyLine();
 	m_messageWriter.writeNamespaceStart("requests");
@@ -47,17 +44,7 @@ void MessageGenerator::generate(const MetaModel& metaModel)
 		generateMessage(method, message, true);
 
 	m_messageWriter.writeNamespaceEnd("notifications");
-}
-
-auto MessageGenerator::headerText() const -> std::string
-{
-	auto text = std::string();
-
-	text += MessagesHeaderBegin;
-	text += m_messageWriter.text();
-	text += MessagesHeaderEnd;
-
-	return text;
+	m_messageWriter.write(MessagesHeaderEnd);
 }
 
 void MessageGenerator::generateMessage(std::string_view method, const Message& message, bool isNotification)

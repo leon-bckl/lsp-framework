@@ -1,5 +1,4 @@
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 #include <lsp/json/json.h>
 #include "endpoint_generator.h"
@@ -7,53 +6,12 @@
 #include "meta_model.h"
 #include "protocol_version_generator.h"
 #include "type_generator.h"
+#include "util.h"
 
 using namespace lsp;
 using namespace lspgen;
 
 namespace{
-
-auto readFileContent(const std::string& fileName, bool mayFail = false) -> std::string
-{
-	auto file = std::ifstream(fileName, std::ios::binary);
-
-	if(!file)
-	{
-		if(mayFail)
-			return {};
-
-		throw std::runtime_error("Failed to read file '" + fileName + '\'');
-	}
-
-	file.seekg(0, std::ios::end);
-	const auto fileSize = file.tellg();
-	file.seekg(0, std::ios::beg);
-
-	std::string text;
-	text.resize(static_cast<std::string::size_type>(fileSize));
-	file.read(&text[0], fileSize);
-
-	return text;
-}
-
-void writeFileContent(const std::string& fileName, std::string_view content)
-{
-	auto file = std::ofstream(fileName, std::ios::trunc | std::ios::binary);
-
-	if(!file)
-		throw std::runtime_error("Failed to write file '" + fileName + '\'');
-
-	file.write(content.data(), static_cast<std::streamsize>(content.size()));
-}
-
-void writeFileContentIfNotSame(const std::string& fileName, std::string_view newFileContent)
-{
-	const auto oldFileContent = readFileContent(fileName, true);
-
-	if(oldFileContent != newFileContent)
-		writeFileContent(fileName, newFileContent);
-}
-
 } // namespace
 
 auto main(int argc, char** argv) -> int
@@ -72,36 +30,27 @@ auto main(int argc, char** argv) -> int
 
 		{
 			auto protocolVersionGenerator = ProtocolVersionGenerator();
-			protocolVersionGenerator.generate(metaModel);
-
-			writeFileContentIfNotSame("protocol_version.h", protocolVersionGenerator.headerText());
+			protocolVersionGenerator.generate(metaModel, "protocol_version");
+			protocolVersionGenerator.writeFiles();
 		}
 
 		{
 			auto typeGenerator = TypeGenerator();
-			typeGenerator.generate(metaModel);
-
-			writeFileContentIfNotSame("types.h", typeGenerator.headerText());
-			writeFileContentIfNotSame("types.cpp", typeGenerator.sourceText());
+			typeGenerator.generate(metaModel,  "types");
+			typeGenerator.writeFiles();
 		}
 
 		{
 			auto messageGenerator = MessageGenerator();
-			messageGenerator.generate(metaModel);
-
-			writeFileContentIfNotSame("messages.h", messageGenerator.headerText());
+			messageGenerator.generate(metaModel, "messages");
+			messageGenerator.writeFiles();
 		}
 
 		{
 			auto endpointGenerator = EndpointGenerator();
-
-			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ClientToServer);
-			writeFileContentIfNotSame("client_endpoint.h", endpointGenerator.headerText());
-			writeFileContentIfNotSame("client_endpoint.cpp", endpointGenerator.sourceText());
-
-			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ServerToClient);
-			writeFileContentIfNotSame("server_endpoint.h", endpointGenerator.headerText());
-			writeFileContentIfNotSame("server_endpoint.cpp", endpointGenerator.sourceText());
+			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ServerToClient, "server_endpoint");
+			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ClientToServer, "client_endpoint");
+			endpointGenerator.writeFiles();
 		}
 	}
 	catch(const json::ParseError& e)
