@@ -90,7 +90,7 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 
 		for(const auto& [method, message] : m_metaModel->messagesByType(MetaModel::MessageType::Request))
 		{
-			if(message.direction == outgoingDirection)
+			if(message.direction == outgoingDirection || message.direction == Message::Direction::Both)
 				generateOutgingMethod(className, method, message, inlineImplWriter);
 		}
 
@@ -103,7 +103,7 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 
 		for(const auto& [method, message] : m_metaModel->messagesByType(MetaModel::MessageType::Notification))
 		{
-			if(message.direction == outgoingDirection)
+			if(message.direction == outgoingDirection || message.direction == Message::Direction::Both)
 				generateOutgingMethod(className, method, message, inlineImplWriter);
 		}
 	}
@@ -116,7 +116,7 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 
 		for(const auto& [method, message] : m_metaModel->messagesByType(MetaModel::MessageType::Request))
 		{
-			if(message.direction == incomingDirection)
+			if(message.direction == incomingDirection || message.direction == Message::Direction::Both)
 				generateIncomingMethod(className, method, message);
 		}
 
@@ -125,7 +125,7 @@ void EndpointGenerator::generateMethods(const std::string& className, Direction 
 
 		for(const auto& [method, message] : m_metaModel->messagesByType(MetaModel::MessageType::Notification))
 		{
-			if(message.direction == incomingDirection)
+			if(message.direction == incomingDirection || message.direction == Message::Direction::Both)
 				generateIncomingMethod(className, method, message);
 		}
 	}
