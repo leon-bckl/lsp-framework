@@ -7,27 +7,26 @@
 
 namespace lsp{
 
-using MessageId = jsonrpc::MessageId;
+using RequestId = jsonrpc::MessageId;
 
-template<typename MessageType>
+template<typename T>
 class RequestResult{
 public:
-	using ResultType = typename MessageType::Result;
-	using FutureType = std::future<ResultType>;
+	using FutureType = std::future<T>;
 
-	RequestResult(MessageId requestId, typename MessageType::Result&& result)
+	RequestResult(RequestId requestId, T&& result)
 		: m_requestId{std::move(requestId)}
 		, m_result{std::move(result)}
 	{
 	}
 
-	RequestResult(MessageId requestId, FutureType&& future)
+	RequestResult(RequestId requestId, FutureType&& future)
 		: m_requestId{std::move(requestId)}
 		, m_result{std::move(future)}
 	{
 	}
 
-	[[nodiscard]] auto requestId() const -> const MessageId&{ return m_requestId; }
+	[[nodiscard]] auto requestId() const -> const RequestId&{ return m_requestId; }
 	[[nodiscard]] auto isAsync() const -> bool{ return std::holds_alternative<FutureType>(m_result); }
 
 	[[nodiscard]] auto wait(int timeoutMs = -1) const -> bool
@@ -43,17 +42,17 @@ public:
 		return true;
 	}
 
-	[[nodiscard]] auto get() -> ResultType
+	[[nodiscard]] auto get() -> T
 	{
 		if(auto* future = std::get_if<FutureType>(&m_result))
 			return future->get();
 
-		return std::move(std::get<ResultType>(m_result));
+		return std::move(std::get<T>(m_result));
 	}
 
 private:
-	MessageId                            m_requestId;
-	std::variant<ResultType, FutureType> m_result;
+	RequestId                   m_requestId;
+	std::variant<T, FutureType> m_result;
 };
 
 } // namespace lsp

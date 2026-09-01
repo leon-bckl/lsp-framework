@@ -112,8 +112,8 @@ json::Value parseMessageBody(std::string_view rawMessage)
 	return json::parse(rawMessage.substr(headerEnd + 4));
 }
 
-template<typename M, typename T = typename M::Result>
-T getResult(RequestResult<M>& result)
+template<typename T>
+T getResult(RequestResult<T>& result)
 {
 	if(!result.wait(2000))
 		test::fail("Timed out waiting for future");

@@ -11,18 +11,16 @@ using namespace lsp;
 namespace{
 
 // Move-only type to make sure ownership is transferred
-struct TestRequest{
-	using Result = std::unique_ptr<int>;
-};
+using TestResult = std::unique_ptr<int>;
 
-auto syncResult(std::unique_ptr<int> value) -> RequestResult<TestRequest>
+auto syncResult(std::unique_ptr<int> value) -> RequestResult<TestResult>
 {
-	return RequestResult<TestRequest>(RequestId(json::Integer(1)), std::move(value));
+	return RequestResult<TestResult>(1, std::move(value));
 }
 
-auto asyncResult(std::future<std::unique_ptr<int>> future) -> RequestResult<TestRequest>
+auto asyncResult(std::future<std::unique_ptr<int>> future) -> RequestResult<TestResult>
 {
-	return RequestResult<TestRequest>(RequestId(json::Integer(1)), std::move(future));
+	return RequestResult<TestResult>(1, std::move(future));
 }
 
 auto readyFuture(int value) -> std::future<std::unique_ptr<int>>

@@ -66,19 +66,19 @@ public:
 
 	template<typename M>
 	requires MessageHasParams<M> && MessageHasResult<M>
-	[[nodiscard]] auto sendRequest(const typename M::Params& params) -> RequestResult<M>;
+	[[nodiscard]] auto sendRequest(const typename M::Params& params) -> RequestResult<typename M::Result>;
 
 	template<typename M>
 	requires MessageHasParams<M> && MessageHasResult<M>
-	[[nodiscard]] auto sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<M>;
+	[[nodiscard]] auto sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<typename M::Result>;
 
 	template<typename M>
 	requires (!MessageHasParams<M>) && MessageHasResult<M>
-	[[nodiscard]] auto sendRequest() -> RequestResult<M>;
+	[[nodiscard]] auto sendRequest() -> RequestResult<typename M::Result>;
 
 	template<typename M>
 	requires (!MessageHasParams<M>) && MessageHasResult<M>
-	[[nodiscard]] auto sendCustomRequest(std::string_view method) -> RequestResult<M>;
+	[[nodiscard]] auto sendCustomRequest(std::string_view method) -> RequestResult<typename M::Result>;
 
 	/*
 	 * sendNotification

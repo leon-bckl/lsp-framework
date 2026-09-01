@@ -30,8 +30,8 @@ void MessageHandler::sendResponse(const MessageId& messageId, const T& result, C
 	}
 }
 
-template<typename M>
-void MessageHandler::handleRequestResult(RequestResult<M>& result, Connection::BatchSender* batchSender)
+template<typename T>
+void MessageHandler::handleRequestResult(RequestResult<T>& result, Connection::BatchSender* batchSender)
 {
 	try
 	{
@@ -79,20 +79,20 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 
 							auto params = typename M::Params();
 							fromJson(std::move(json), params);
-							return RequestResult<M>(*requestId, callback(std::move(params)));
+							return RequestResult(*requestId, callback(std::move(params)));
 						}
 						else
 						{
 							(void)json;
 							static_assert(std::invocable<F>, "Request callback must be callable without params");
-							return RequestResult<M>(*requestId, callback());
+							return RequestResult(*requestId, callback());
 						}
 					}();
 
 				// Requests that are part of a batch cannot be handled asynchronously
 				if(!result.isAsync() || batchSender)
 				{
-					handleRequestResult<M>(result, batchSender);
+					handleRequestResult(result, batchSender);
 				}
 				else
 				{
@@ -100,7 +100,7 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 						[this, requestId = *requestId, result = std::move(result)]() mutable
 						{
 							auto context = RequestContext(*this, std::move(requestId));
-							handleRequestResult<M>(result, nullptr);
+							handleRequestResult(result, nullptr);
 						});
 				}
 			}
@@ -188,14 +188,14 @@ auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& er
 
 template<typename M>
 requires MessageHasParams<M> && MessageHasResult<M>
-auto MessageHandler::sendRequest(const typename M::Params& params) -> RequestResult<M>
+auto MessageHandler::sendRequest(const typename M::Params& params) -> RequestResult<typename M::Result>
 {
 	return sendCustomRequest<M>(M::Method, params);
 }
 
 template<typename M>
 requires MessageHasParams<M> && MessageHasResult<M>
-auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<M>
+auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<typename M::Result>
 {
 	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
 	auto       future        = result->future();
@@ -206,19 +206,19 @@ auto MessageHandler::sendCustomRequest(std::string_view method, const typename M
 	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
-	return RequestResult<M>(requestId, std::move(future));
+	return RequestResult(requestId, std::move(future));
 }
 
 template<typename M>
 requires (!MessageHasParams<M>) && MessageHasResult<M>
-auto MessageHandler::sendRequest() -> RequestResult<M>
+auto MessageHandler::sendRequest() -> RequestResult<typename M::Result>
 {
 	return sendCustomRequest<M>(M::Method);
 }
 
 template<typename M>
 requires (!MessageHasParams<M>) && MessageHasResult<M>
-auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult<M>
+auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult<typename M::Result>
 {
 	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
 	auto       future        = result->future();
@@ -228,7 +228,7 @@ auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult
 	requestSender.submit();
 	addPendingRequest(std::move(result), requestId);
 
-	return RequestResult<M>(requestId, std::move(future));
+	return RequestResult(requestId, std::move(future));
 }
 
 /*

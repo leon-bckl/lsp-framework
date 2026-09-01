@@ -135,8 +135,11 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 {
 	const auto methodName     = CppWriter::lowerCaseIdentifier(method);
 	const auto isNotification = message.resultTypeName.empty();
-	const auto messageType    = (isNotification ? "notifications::" : "requests::") + CppWriter::upperCaseIdentifier(method);
-	const auto returnType     = isNotification ? "void" : "RequestResult<" + messageType + ">";
+	const auto messageType    = (isNotification ? "notifications::" : "requests::")
+	                            + CppWriter::upperCaseIdentifier(method);
+	const auto returnType     = isNotification
+	                            ? "void"
+	                            : "RequestResult<" + CppWriter::upperCaseIdentifier(message.resultTypeName) + ">";
 	const auto hasParams      = !message.paramsTypeName.empty();
 	auto       funcParams     = CppWriter::FuncParamList();
 
