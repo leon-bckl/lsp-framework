@@ -1,7 +1,6 @@
 #include <cassert>
 #include <charconv>
 #include <iterator>
-#include <limits>
 #include "parser.h"
 
 namespace lsp::json{
@@ -427,10 +426,7 @@ auto Parser::parseNumber() -> Value
 	if(ec != std::errc{} || ptr != m_pos)
 		throw ParseError("Invalid number value '" + std::string{numberStart, m_pos} + "'", textOffset(numberStart));
 
-	if(intValue < std::numeric_limits<json::Integer>::min() || intValue > std::numeric_limits<json::Integer>::max())
-		return static_cast<json::Decimal>(intValue);
-
-	return static_cast<json::Integer>(intValue);
+	return intValue;
 }
 
 auto Parser::parseIdentifier() -> Value

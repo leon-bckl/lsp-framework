@@ -1,12 +1,13 @@
 #pragma once
 
-#include <utility>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <concepts>
 #include <initializer_list>
+#include <limits>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 #include <lsp/exception.h>
@@ -134,7 +135,27 @@ public:
 
 	template<typename T>
 	requires (std::integral<T> && !std::same_as<T, Boolean>)
-	constexpr Value(T i) : m_variant(static_cast<Integer>(i)){}
+	constexpr Value(T i)
+	{
+		using Common = std::common_type_t<T, Integer>;
+
+		if(static_cast<Common>(i) > static_cast<Common>(std::numeric_limits<Integer>::max()))
+		{
+			m_variant = static_cast<Decimal>(i);
+			return;
+		}
+
+		if constexpr(std::unsigned_integral<T>)
+		{
+			if(static_cast<Common>(i) < static_cast<Common>(std::numeric_limits<Integer>::min()))
+			{
+				m_variant = static_cast<Decimal>(i);
+				return;
+			}
+		}
+
+		m_variant = static_cast<Integer>(i);
+	}
 
 	template<std::floating_point T>
 	constexpr Value(T d) : m_variant(static_cast<Decimal>(d)){}
