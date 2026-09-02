@@ -39,7 +39,7 @@ public:
 
 		void* mem;
 
-		if(sizeof(ImplType) > StorageSize)
+		if constexpr(sizeof(ImplType) > StorageSize)
 		{
 			m_storage.heap        = operator new(sizeof(ImplType));
 			m_storage.isAllocated = true;
