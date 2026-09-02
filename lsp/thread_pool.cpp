@@ -3,7 +3,7 @@
 namespace lsp{
 
 ThreadPool::ThreadPool(unsigned int initialThreads, unsigned int maxThreads)
-	: m_maxThreads{std::max(maxThreads, 1u)}
+	: m_maxThreads(std::max(maxThreads, 1u))
 {
 	const auto lock = std::lock_guard(m_mutex);
 	m_threads.reserve(initialThreads);
@@ -40,7 +40,7 @@ void ThreadPool::waitUntilFinished()
 	m_event.notify_all();
 }
 
-void ThreadPool::addTask(TaskPtr task)
+void ThreadPool::addTask(Task task)
 {
 	auto lock = std::unique_lock(m_mutex);
 
@@ -62,7 +62,7 @@ void ThreadPool::addThread()
 	{
 		while(true)
 		{
-			TaskPtr task;
+			Task task;
 
 			{
 				auto lock = std::unique_lock(m_mutex);
@@ -80,7 +80,7 @@ void ThreadPool::addThread()
 			if(!task) // No more tasks in the queue. Thread was notified to exit.
 				break;
 
-			task->execute();
+			std::move(task).run();
 		}
 	});
 }

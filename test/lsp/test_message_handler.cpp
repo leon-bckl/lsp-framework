@@ -402,6 +402,32 @@ int main(int argc, char** argv)
 		test::compare(getResult(response), std::vector<int>{4, 5, 6});
 	});
 
+	app.addTest("Async/TaskFunction", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		const auto mainThread = std::this_thread::get_id();
+		auto taskThread       = std::promise<std::thread::id>();
+		auto taskThreadFuture = taskThread.get_future();
+
+		handler.on<TestNoParamsRequest>([&]() -> TaskFunction<TestNoParamsRequest::Result>
+		{
+			return TaskFunction<TestNoParamsRequest::Result>([&]() -> std::vector<int>
+			{
+				taskThread.set_value(std::this_thread::get_id());
+				return std::vector<int>{4, 5, 6};
+			});
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), std::vector<int>{4, 5, 6});
+		test::check(taskThreadFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready, "taskRan");
+		test::check(taskThreadFuture.get() != mainThread, "ranOnWorkerThread");
+	});
+
 	app.addTest("Async/DynamicResult", [](bool async, int expected){
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
@@ -505,6 +531,70 @@ int main(int argc, char** argv)
 		test::check(waitStarted, "asyncWaitStarted");
 		test::check(waitStarted && waitThreadFuture.get() != mainThread, "waitedOnSeparateThread");
 		test::check(stream.empty(), "noResponseWritten");
+	});
+
+	app.addTest("Notification/AsyncCallable", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		const auto mainThread           = std::this_thread::get_id();
+		auto       handlerThread        = std::thread::id();
+		auto       callableThread       = std::promise<std::thread::id>();
+		auto       callableThreadFuture = callableThread.get_future();
+
+		handler.on<TestNoParamsNotification>([&]() -> TaskFunction<void>
+		{
+			handlerThread = std::this_thread::get_id();
+			return TaskFunction<void>([&]{ callableThread.set_value(std::this_thread::get_id()); });
+		});
+
+		handler.sendNotification<TestNoParamsNotification>();
+		handler.processNextMessage();
+
+		const auto ran = callableThreadFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+
+		test::check(handlerThread == mainThread, "handlerRanSynchronously");
+		test::check(ran, "callableRan");
+		test::check(ran && callableThreadFuture.get() != mainThread, "callableRanOnWorkerThread");
+		test::check(stream.empty(), "noResponseWritten");
+	});
+
+	app.addTest("Notification/AsyncCallableWithParams", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		auto received       = std::promise<std::vector<int>>();
+		auto receivedFuture = received.get_future();
+
+		handler.on<TestNotification>([&](std::vector<int> params) -> TaskFunction<void>
+		{
+			return TaskFunction<void>([&received, params = std::move(params)]() mutable
+			{
+				received.set_value(std::move(params));
+			});
+		});
+
+		handler.sendNotification<TestNotification>({1, 2, 3});
+		handler.processNextMessage();
+
+		test::check(receivedFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready, "callableRan");
+		test::compare(receivedFuture.get(), std::vector<int>{1, 2, 3});
+		test::check(stream.empty(), "noResponseWritten");
+	});
+
+	app.addTest("Notification/SyncHandlerRunsOnMessageLoopThread", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		const auto mainThread    = std::this_thread::get_id();
+		auto       handlerThread = std::thread::id();
+
+		handler.on<TestNoParamsNotification>([&]{ handlerThread = std::this_thread::get_id(); });
+
+		handler.sendNotification<TestNoParamsNotification>();
+		handler.processNextMessage();
+
+		test::check(handlerThread == mainThread, "ranSynchronously");
 	});
 
 	/*
@@ -697,6 +787,31 @@ int main(int argc, char** argv)
 				promise.set_exception(std::make_exception_ptr(std::runtime_error("boom")));
 
 			return promise.get_future();
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, expectedCode, expectedMessage);
+	})({
+		{"RequestError",     {true,  1234,                        "custom error"}},
+		{"GenericException", {false, MessageError::InternalError, "boom"}},
+	});
+
+	app.addTest("Error/Task", [](bool useRequestError, int expectedCode, std::string_view expectedMessage){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&]() -> TaskFunction<TestNoParamsRequest::Result>
+		{
+			return TaskFunction<TestNoParamsRequest::Result>([&]() -> std::vector<int>
+			{
+				if(useRequestError)
+					throw RequestError(1234, "custom error");
+
+				throw std::runtime_error("boom");
+			});
 		});
 
 		auto response = handler.sendRequest<TestNoParamsRequest>();

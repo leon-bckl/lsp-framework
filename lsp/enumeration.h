@@ -21,7 +21,7 @@ public:
 	using ConstInitType = typename EnumerationTypeHelper<ValueType>::ConstInitType;
 
 	Enumeration() = default;
-	Enumeration(EnumType index) : m_index{index}{}
+	Enumeration(EnumType index) : m_index(index){}
 	Enumeration(ValueType&& value){ *this = std::move(value); }
 
 	auto operator=(EnumType other) -> Enumeration&{ m_index = other; return *this; }

@@ -64,7 +64,7 @@ void printServerMessage(lsp::MessageType type, const std::string& message)
 class ExampleClient{
 public:
 	explicit ExampleClient(lsp::io::Stream& io)
-		: m_endpoint{io}
+		: m_endpoint(io)
 	{
 		registerHandlers();
 	}

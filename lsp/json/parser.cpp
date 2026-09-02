@@ -77,9 +77,9 @@ struct Parser::StateStackEntry{
 };
 
 Parser::Parser(std::string_view text)
-	: m_start{text.data()}
-	, m_end{text.data() + text.size()}
-	, m_pos{m_start}
+	: m_start(text.data())
+	, m_end(text.data() + text.size())
+	, m_pos(m_start)
 {
 	m_stateStack.reserve(10);
 }

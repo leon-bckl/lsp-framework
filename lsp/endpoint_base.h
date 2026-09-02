@@ -47,7 +47,7 @@ protected:
 	class MessageHook{
 	public:
 		MessageHook(EndpointType& endpoint)
-			: m_endpoint{&endpoint}
+			: m_endpoint(&endpoint)
 		{
 			m_endpoint->template preMethodCall<MessageType>();
 		}

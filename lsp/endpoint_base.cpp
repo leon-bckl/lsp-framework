@@ -8,7 +8,7 @@ namespace lsp{
  */
 
 EndpointBase::EndpointBase(io::Stream& stream)
-	: m_messageHandler{Connection(stream)}
+	: m_messageHandler(Connection(stream))
 {
 	setState(State::Uninitialized);
 }
@@ -61,7 +61,7 @@ void EndpointBase::setState(State state)
  */
 
 ClientEndpointBase::ClientEndpointBase(io::Stream& stream)
-	: EndpointBase{stream}
+	: EndpointBase(stream)
 {
 }
 
@@ -81,7 +81,7 @@ void ClientEndpointBase::verifyInitialized() const
  */
 
 ServerEndpointBase::ServerEndpointBase(io::Stream& stream)
-	: EndpointBase{stream}
+	: EndpointBase(stream)
 {
 }
 

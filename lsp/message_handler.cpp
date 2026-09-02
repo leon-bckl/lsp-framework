@@ -13,8 +13,8 @@ thread_local const MessageHandler::RequestContext* t_requestContext = nullptr;
  */
 
 MessageHandler::RequestContext::RequestContext(MessageHandler& messageHandler, RequestId requestId)
-	: m_messageHandler{&messageHandler}
-	, m_requestId{std::move(requestId)}
+	: m_messageHandler(&messageHandler)
+	, m_requestId(std::move(requestId))
 {
 	assert(!t_requestContext);
 	t_requestContext = this;
@@ -44,7 +44,7 @@ auto MessageHandler::RequestContext::tryGet() -> const RequestContext*
  */
 
 MessageHandler::MessageHandler(Connection connection, unsigned int maxResponseThreads)
-	: m_connection{std::move(connection)}
+	: m_connection(std::move(connection))
 	, m_threadPool(0, maxResponseThreads)
 {
 }

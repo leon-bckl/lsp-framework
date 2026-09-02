@@ -97,7 +97,7 @@ void verifyContentType(std::string_view contentType)
 class Connection::InputReader{
 public:
 	InputReader(io::Stream& stream)
-		: m_stream{stream}
+		: m_stream(stream)
 	{
 	}
 
@@ -153,7 +153,7 @@ struct Connection::Internal{
 	std::mutex  readMutex;
 	std::mutex  writeMutex;
 
-	Internal(io::Stream& _stream) : stream{_stream}{}
+	Internal(io::Stream& _stream) : stream(_stream){}
 };
 
 struct Connection::MessageHeader{
@@ -162,7 +162,7 @@ struct Connection::MessageHeader{
 };
 
 Connection::Connection(io::Stream& stream)
-	: m{std::make_unique<Internal>(stream)}
+	: m(std::make_unique<Internal>(stream))
 {
 }
 
@@ -343,12 +343,12 @@ auto Connection::messageBatch() -> Connection::BatchSender
  */
 
 Connection::MessageSender::MessageSender(Connection& connection)
-	: m_connection{&connection}
-	, m_writer{m_buffer
+	: m_connection(&connection)
+	, m_writer(m_buffer
 #if LSP_MESSAGE_DEBUG_LOG
 		, "\t"
 #endif
-	}
+	)
 {
 }
 
@@ -386,14 +386,14 @@ void Connection::MessageSender::discard()
 
 Connection::RequestSender::RequestSender(
 	Connection& connection, std::string_view method, const jsonrpc::MessageId& id)
-	: MessageSender{connection}
-	, jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeRequest(writer().beginObject(), id, method)}
+	: MessageSender(connection)
+	, jsonrpc::RequestWriter(jsonrpc::RequestWriter::writeRequest(writer().beginObject(), id, method))
 {
 }
 
 Connection::RequestSender::RequestSender(Connection& connection, std::string_view method)
-	: MessageSender{connection}
-	, jsonrpc::RequestWriter{jsonrpc::RequestWriter::writeNotification(writer().beginObject(), method)}
+	: MessageSender(connection)
+	, jsonrpc::RequestWriter(jsonrpc::RequestWriter::writeNotification(writer().beginObject(), method))
 {
 }
 
@@ -408,15 +408,15 @@ void Connection::RequestSender::submit()
  */
 
 Connection::ResponseSender::ResponseSender(Connection& connection, const jsonrpc::MessageId& id)
-	: MessageSender{connection}
-	, jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeResponse(writer().beginObject(), id)}
+	: MessageSender(connection)
+	, jsonrpc::ResponseWriter(jsonrpc::ResponseWriter::writeResponse(writer().beginObject(), id))
 {
 }
 
 Connection::ResponseSender::ResponseSender(
 	Connection& connection, const jsonrpc::MessageId& id, int code, std::string_view message)
-	: MessageSender{connection}
-	, jsonrpc::ResponseWriter{jsonrpc::ResponseWriter::writeError(writer().beginObject(), id, code, message)}
+	: MessageSender(connection)
+	, jsonrpc::ResponseWriter(jsonrpc::ResponseWriter::writeError(writer().beginObject(), id, code, message))
 {
 }
 
@@ -431,8 +431,8 @@ void Connection::ResponseSender::submit()
  */
 
 Connection::BatchSender::BatchSender(Connection& connection)
-	: MessageSender{connection}
-	, jsonrpc::BatchWriter{writer().beginArray()}
+	: MessageSender(connection)
+	, jsonrpc::BatchWriter(writer().beginArray())
 {
 }
 

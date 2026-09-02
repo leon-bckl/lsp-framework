@@ -62,11 +62,11 @@ void appendStringLiteral(std::string_view str, std::string& out)
  */
 
 Writer::Writer(std::string& outStr, std::string_view indent)
-	: m_outStr{&outStr}
-	, m_indent{indent}
-	, m_keySep{indent.empty() ? ":" : ": "}
-	, m_valueSep{indent.empty() ? "," : ",\n"}
-	, m_newline{indent.empty() ? "" : "\n"}
+	: m_outStr(&outStr)
+	, m_indent(indent)
+	, m_keySep(indent.empty() ? ":" : ": ")
+	, m_valueSep(indent.empty() ? "," : ",\n")
+	, m_newline(indent.empty() ? "" : "\n")
 {
 }
 
@@ -230,7 +230,7 @@ void Writer::writePreValue(bool first)
  */
 
 ObjectWriter::ObjectWriter(Writer& writer)
-	: m_writer{&writer}
+	: m_writer(&writer)
 {
 	m_writer->writeObjectStart();
 }
@@ -241,8 +241,8 @@ ObjectWriter::~ObjectWriter()
 }
 
 ObjectWriter::ObjectWriter(ObjectWriter&& other) noexcept
-	: m_writer{std::exchange(other.m_writer, nullptr)}
-	, m_first{other.m_first}
+	: m_writer(std::exchange(other.m_writer, nullptr))
+	, m_first(other.m_first)
 {
 }
 
@@ -286,7 +286,7 @@ auto ObjectWriter::beginArray(std::string_view key) -> ArrayWriter
  */
 
 ArrayWriter::ArrayWriter(Writer& writer)
-	: m_writer{&writer}
+	: m_writer(&writer)
 {
 	m_writer->writeArrayStart();
 }
@@ -297,8 +297,8 @@ ArrayWriter::~ArrayWriter()
 }
 
 ArrayWriter::ArrayWriter(ArrayWriter&& other) noexcept
-	: m_writer{std::exchange(other.m_writer, nullptr)}
-	, m_first{other.m_first}
+	: m_writer(std::exchange(other.m_writer, nullptr))
+	, m_first(other.m_first)
 {
 }
 

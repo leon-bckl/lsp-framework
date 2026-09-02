@@ -52,9 +52,9 @@ struct Socket::Impl : Stream{
 	unsigned short m_backlog  = 1; // Only relevant for listen
 
 	Impl(SocketHandle socket, unsigned short port, unsigned short backlog = 1)
-		: m_socketFd{socket}
-		, m_port{port}
-		, m_backlog{backlog}
+		: m_socketFd(socket)
+		, m_port(port)
+		, m_backlog(backlog)
 	{
 	}
 

@@ -30,7 +30,7 @@ namespace{
 class MemoryStream : public io::Stream{
 public:
 	explicit MemoryStream(std::string input = {})
-		: m_input{std::move(input)}
+		: m_input(std::move(input))
 	{
 	}
 

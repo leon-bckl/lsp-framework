@@ -228,36 +228,35 @@ On the sending side the error arrives as an `lsp::ResponseError` with `code()`, 
 
 ### Asynchronous Handlers
 
-A request handler that returns `std::future<Result>` instead of the result directly is still invoked synchronously on the message-loop thread, but the framework then resolves the returned future (calls `get()` on it) on a worker thread, so long-running work doesn't block the message loop. The framework only spawns worker threads if at least one asynchronous handler is registered.
+Instead of the result, a request handler can return a callable that takes no parameters and produces the result. The handler itself still runs synchronously on the message-loop thread, but the callable is run on a worker thread, so long-running work doesn't block the message loop. The framework only spawns worker threads if at least one asynchronous handler is registered.
 
 ```cpp
 serverEndpoint.onTextDocumentDefinition(
-  [](lsp::DefinitionParams&& params) -> std::future<lsp::TextDocumentDefinitionResult>
+  [](lsp::DefinitionParams&& params)
   {
-    return std::async(std::launch::deferred,
-      [params = std::move(params)]() -> lsp::TextDocumentDefinitionResult
-      {
-        // Runs on a worker thread
-        return computeDefinition(params);
-      });
+    return [params = std::move(params)]() -> lsp::TextDocumentDefinitionResult
+    {
+      // Runs on a worker thread
+      return computeDefinition(params);
+    };
   });
 ```
 
-`std::launch::deferred` makes the task body run when the framework calls `get()` on the worker thread, so no thread is created beyond the framework's pool. Throwing `lsp::RequestError` from the task still produces an error response.
+Throwing `lsp::RequestError` from the callable still produces an error response.
 
-Notification handlers can be asynchronous the same way by returning `std::future<void>`.
+Notification handlers can be asynchronous the same way by returning a no-parameter callable. They can return non-void but the result is discarded.
 
-A request handler can also decide dynamically whether to run asynchronously or not. To do that, its return type must be `lsp::RequestResult<Result>` and it can return either a value or a future.
+A request handler can also decide *per call* whether to run synchronously or asynchronously by declaring its return type as `lsp::RequestResult<Result>` and returning either a value or a callable. In this form the callable has to be wrapped in an `lsp::TaskFunction<Result>` explicitly.
 
 ```cpp
 serverEndpoint.onTextDocumentDefinition(
   [](lsp::DefinitionParams&& params) -> lsp::RequestResult<lsp::TextDocumentDefinitionResult>
   {
-    if(auto* cached = lookUpCachedDefinition(params))
-      return *cached; // Response is sent immediately when this function returns
+    if(isCached(params))
+      return computeDefinition(params); // Response is sent when the handler returns
 
-    return std::async(std::launch::deferred,
-      // Response is sent once this is finished running on the worker thread
+    return lsp::TaskFunction<lsp::TextDocumentDefinitionResult>(
+      // Response is sent once this has finished running on the worker thread
       [params = std::move(params)]() -> lsp::TextDocumentDefinitionResult
       {
         return computeDefinition(params);
@@ -308,7 +307,7 @@ serverEndpoint.onTextDocumentReferences(
 `RequestContext::get()` throws `std::logic_error` when there is no active request. Code that runs both inside and outside a handler should use `RequestContext::tryGet()` instead,
 which returns a `const RequestContext*` that is null when there is no context.
 
-The context is set in regular and [asynchronous](#asynchronous-handlers) request handler callbacks, including the body of a deferred task that runs when the framework calls `future.get()`.
+The context is set in regular and [asynchronous](#asynchronous-handlers) request handler callbacks, including the body of a callable returned by an asynchronous handler while it runs on a worker thread.
 It is also available in response and error callbacks. It is not set in notification handlers.
 
 ## Starting a Server Process

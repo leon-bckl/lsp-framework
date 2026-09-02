@@ -22,7 +22,7 @@ void writeMessageBase(json::ObjectWriter& writer, const MessageId* id = nullptr,
  */
 
 RequestWriter::RequestWriter(json::ObjectWriter&& writer, std::string_view method, const MessageId* id)
-	: m_paramsWriter{std::move(writer)}
+	: m_paramsWriter(std::move(writer))
 {
 	writeMessageBase(m_paramsWriter, id, method);
 }
@@ -47,15 +47,15 @@ auto RequestWriter::writeNotification(json::ObjectWriter&& writer, std::string_v
  */
 
 ResponseWriter::ResponseWriter(json::ObjectWriter&& writer, const MessageId& id)
-	: m_resultWriter{std::move(writer)}
+	: m_resultWriter(std::move(writer))
 {
 	writeMessageBase(m_resultWriter, &id);
 }
 
 ResponseWriter::ResponseWriter(ResponseWriter&& other) noexcept
-	: m_hasData{std::exchange(other.m_hasData, true)}
-	, m_resultWriter{std::move(other.m_resultWriter)}
-	, m_errorWriter{std::move(other.m_errorWriter)}
+	: m_hasData(std::exchange(other.m_hasData, true))
+	, m_resultWriter(std::move(other.m_resultWriter))
+	, m_errorWriter(std::move(other.m_errorWriter))
 {
 }
 
@@ -110,7 +110,7 @@ auto ResponseWriter::writeError(json::ObjectWriter&& objectWriter, const Message
  */
 
 BatchWriter::BatchWriter(json::ArrayWriter&& writer)
-	: m_writer{std::move(writer)}
+	: m_writer(std::move(writer))
 {
 }
 

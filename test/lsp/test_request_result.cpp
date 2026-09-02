@@ -23,6 +23,11 @@ auto asyncResult(std::future<std::unique_ptr<int>> future) -> RequestResult<Test
 	return RequestResult<TestResult>(std::move(future), 1);
 }
 
+auto taskResult(TaskFunction<std::unique_ptr<int>> task) -> RequestResult<TestResult>
+{
+	return RequestResult<TestResult>(std::move(task), 1);
+}
+
 auto readyFuture(int value) -> std::future<std::unique_ptr<int>>
 {
 	auto promise = std::promise<std::unique_ptr<int>>();
@@ -38,7 +43,7 @@ int main(int argc, char** argv)
 
 	app.addTest("RequestResult::SyncConstruction", [](){
 		auto result = syncResult(std::make_unique<int>(42));
-		test::check(!result.isAsync());
+		test::check(!result.isDeferred());
 		test::check(result.wait(), "waitBlocking");
 		test::check(result.wait(0), "waitTimed");
 		test::compare(std::get<json::Integer>(result.requestId()), 1);
@@ -47,9 +52,32 @@ int main(int argc, char** argv)
 
 	app.addTest("RequestResult::AsyncConstruction", [](){
 		auto result = asyncResult(readyFuture(99));
-		test::check(result.isAsync());
+		test::check(result.isDeferred());
 		test::check(result.wait(), "waitReady");
 		test::compare(*result.get(), 99);
+	});
+
+	app.addTest("RequestResult::TaskConstruction", [](){
+		auto result = taskResult(TaskFunction<std::unique_ptr<int>>([]{ return std::make_unique<int>(55); }));
+		test::check(result.isDeferred(), "isDeferred");
+		test::check(result.isReady(), "readyImmediately");
+		test::check(result.wait(0), "waitTimed");
+		test::compare(std::get<json::Integer>(result.requestId()), 1);
+		test::compare(*result.get(), 55);
+	});
+
+	app.addTest("RequestResult::TaskRunsLazilyOnGet", [](){
+		auto ran    = false;
+		auto result = taskResult(TaskFunction<std::unique_ptr<int>>([&]{ ran = true; return std::make_unique<int>(3); }));
+
+		test::check(!ran, "notRunBeforeGet");
+		test::compare(*result.get(), 3);
+		test::check(ran, "runByGet");
+	});
+
+	app.addTest("RequestResult::TaskExceptionPropagatesOnGet", [](){
+		auto result = taskResult(TaskFunction<std::unique_ptr<int>>([]() -> std::unique_ptr<int> { throw std::runtime_error("boom"); }));
+		test::expectException<std::runtime_error>([&](){ (void)result.get(); }, "boom");
 	});
 
 	app.addTest("RequestResult::IsReady", [](){

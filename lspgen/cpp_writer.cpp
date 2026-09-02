@@ -5,16 +5,16 @@
 namespace lspgen{
 
 CppWriter::CppWriter(int initialIndent)
-	: m_initialIndent{initialIndent}
-	, m_indent{initialIndent}
-	, m_buffer{&m_internalBuffer}
+	: m_initialIndent(initialIndent)
+	, m_indent(initialIndent)
+	, m_buffer(&m_internalBuffer)
 {
 }
 
 CppWriter::CppWriter(std::string& buffer, int initialIndent)
-	: m_initialIndent{initialIndent}
-	, m_indent{initialIndent}
-	, m_buffer{&buffer}
+	: m_initialIndent(initialIndent)
+	, m_indent(initialIndent)
+	, m_buffer(&buffer)
 {
 }
 

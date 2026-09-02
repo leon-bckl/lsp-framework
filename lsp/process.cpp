@@ -638,7 +638,7 @@ Process::Process(Process&&) noexcept = default;
 Process& Process::operator=(Process&&) noexcept = default;
 
 Process::Process(std::unique_ptr<Impl> impl)
-	: m_impl{std::move(impl)}
+	: m_impl(std::move(impl))
 {
 }
 

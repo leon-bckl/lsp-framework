@@ -24,14 +24,19 @@ protected:
 
 class TypeError : public Error{
 public:
-	TypeError(const std::string& message = "Unexpected json value") : Error{message}{}
+	TypeError(const std::string& message = "Unexpected json value")
+		: Error(message)
+		{
+		}
 };
 
 class ParseError : public Error{
 public:
 	ParseError(const std::string& message, std::size_t textPos)
-		: Error{message}
-		, m_textPos{textPos}{}
+		: Error(message)
+		, m_textPos(textPos)
+	{
+	}
 
 	std::size_t textPos() const noexcept{ return m_textPos; }
 
@@ -125,23 +130,23 @@ public:
 	// without having to make constructors explicit which is inconvenient for this class.
 
 	template<std::same_as<Boolean> T>
-	constexpr Value(T b) : m_variant{b}{}
+	constexpr Value(T b) : m_variant(b){}
 
 	template<typename T>
 	requires (std::integral<T> && !std::same_as<T, Boolean>)
-	constexpr Value(T i) : m_variant{static_cast<Integer>(i)}{}
+	constexpr Value(T i) : m_variant(static_cast<Integer>(i)){}
 
 	template<std::floating_point T>
-	constexpr Value(T d) : m_variant{static_cast<Decimal>(d)}{}
+	constexpr Value(T d) : m_variant(static_cast<Decimal>(d)){}
 
-	Value(const char* s)      : m_variant{String(s)}{}
-	Value(std::string_view s) : m_variant{String(s)}{}
-	Value(const String& s)    : m_variant{s}{}
-	Value(String&& s)         : m_variant{std::move(s)}{}
-	Value(const Array& a)     : m_variant{a}{}
-	Value(Array&& a)          : m_variant{std::move(a)}{}
-	Value(const Object& o)    : m_variant{o}{}
-	Value(Object&& o)         : m_variant{std::move(o)}{}
+	Value(const char* s)      : m_variant(String(s)){}
+	Value(std::string_view s) : m_variant(String(s)){}
+	Value(const String& s)    : m_variant(s){}
+	Value(String&& s)         : m_variant(std::move(s)){}
+	Value(const Array& a)     : m_variant(a){}
+	Value(Array&& a)          : m_variant(std::move(a)){}
+	Value(const Object& o)    : m_variant(o){}
+	Value(Object&& o)         : m_variant(std::move(o)){}
 
 	template<typename T>
 	Value(T) = delete;

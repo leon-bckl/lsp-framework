@@ -31,7 +31,7 @@ public:
 
 protected:
 	MessageError(int code, const std::string& message, std::optional<json::Value> data = {})
-		: Exception{message},
+		: Exception(message),
 		  m_code{code},
 		  m_data{std::move(data)}
 	{
@@ -48,7 +48,7 @@ private:
 class RequestError : public MessageError{
 public:
 	RequestError(int code, const std::string& message, std::optional<json::Value> data = {})
-		: MessageError{code, message, std::move(data)}
+		: MessageError(code, message, std::move(data))
 	{
 	}
 };
@@ -59,7 +59,7 @@ public:
 class ResponseError : public MessageError{
 public:
 	ResponseError(int code, const std::string& message, std::optional<json::Value> data = {})
-		: MessageError{code, message, std::move(data)}
+		: MessageError(code, message, std::move(data))
 	{
 	}
 };

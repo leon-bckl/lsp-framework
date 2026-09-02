@@ -47,7 +47,7 @@ void Value::throwTypeError(const char* expectedType)
  */
 
 Object::Object(std::initializer_list<KeyValuePair> pairs)
-	: m_keyValuePairs{pairs}
+	: m_keyValuePairs(pairs)
 {
 	// TODO: Check for duplicates?
 }

@@ -35,8 +35,8 @@ auto Value::get(const char* typeName) const -> const T&
 class Object::KeyValuePair{
 public:
 	KeyValuePair(String key, Value value)
-		: m_key{std::move(key)}
-		, m_value{std::move(value)}
+		: m_key(std::move(key))
+		, m_value(std::move(value))
 	{
 	}
 

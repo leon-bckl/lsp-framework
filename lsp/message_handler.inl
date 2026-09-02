@@ -75,7 +75,11 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 					{
 						if constexpr(MessageHasParams<M>)
 						{
-							static_assert(std::invocable<F, typename M::Params>, "Request callback must be callable with matching params");
+							static_assert(std::invocable<F, typename M::Params>,
+								"Request callback must be callable with matching params");
+							static_assert(std::constructible_from<RequestResult<typename M::Result>,
+								std::invoke_result_t<F, typename M::Params>>,
+								"Request callback must return a value or callable that can construct a MessageType::Result");
 
 							auto params = typename M::Params();
 
@@ -88,18 +92,20 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 								throw RequestError(MessageError::InvalidParams, e.what());
 							}
 
-							return RequestResult(callback(std::move(params)), *requestId);
+							return RequestResult<typename M::Result>(callback(std::move(params)), *requestId);
 						}
 						else
 						{
 							(void)json;
 							static_assert(std::invocable<F>, "Request callback must be callable without params");
-							return RequestResult(callback(), *requestId);
+							static_assert(std::constructible_from<RequestResult<typename M::Result>, std::invoke_result_t<F>>,
+								"Request callback must return a value or callable that can construct a MessageType::Result");
+							return RequestResult<typename M::Result>(callback(), *requestId);
 						}
 					}();
 
 				// Requests that are part of a batch cannot be handled asynchronously
-				if(!result.isAsync() || batchSender)
+				if(!result.isDeferred() || batchSender)
 				{
 					handleRequestResult(result, batchSender);
 				}
@@ -138,6 +144,8 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 
 					if constexpr(IsFuture<std::invoke_result_t<F, typename M::Params>>{})
 						m_threadPool.addTask([future = callback(std::move(params))](){ future.wait(); });
+					else if constexpr(std::invocable<std::invoke_result_t<F, typename M::Params>>)
+						m_threadPool.addTask(callback(std::move(params)));
 					else
 						callback(std::move(params));
 				}
@@ -147,6 +155,8 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 
 					if constexpr(IsFuture<std::invoke_result_t<F>>{})
 						m_threadPool.addTask([future = callback()](){ future.wait(); });
+					else if constexpr(std::invocable<std::invoke_result_t<F>>)
+						m_threadPool.addTask(callback());
 					else
 						callback();
 				}
@@ -312,8 +322,8 @@ auto MessageHandler::RequestResultBase::setValueFromJson(T& value, json::Value&&
 
 template<typename T, typename F, typename E>
 MessageHandler::CallbackRequestResult<T, F, E>::CallbackRequestResult(F&& then, E&& error)
-	: m_then{std::forward<F>(then)}
-	, m_error{std::forward<E>(error)}
+	: m_then(std::forward<F>(then))
+	, m_error(std::forward<E>(error))
 {
 	static_assert(std::invocable<F, T>,
 		"Response callback must be callable with request result");

@@ -59,7 +59,7 @@ auto computeDiagnostics(std::string_view text) -> std::vector<lsp::Diagnostic>
 class ExampleServer{
 public:
 	explicit ExampleServer(lsp::io::Stream& io)
-		: m_endpoint{io}
+		: m_endpoint(io)
 	{
 		registerHandlers();
 	}
