@@ -38,14 +38,14 @@ auto main(int argc, char** argv) -> int
 
 		{
 			auto messageGenerator = MessageGenerator();
-			messageGenerator.generate(metaModel, "messages");
+			messageGenerator.generate(metaModel, "messages", "types");
 			messageGenerator.writeFiles();
 		}
 
 		{
 			auto endpointGenerator = EndpointGenerator();
-			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ServerToClient, "server_endpoint");
-			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ClientToServer, "client_endpoint");
+			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ServerToClient, "server_endpoint", "messages");
+			endpointGenerator.generate(metaModel, EndpointGenerator::Direction::ClientToServer, "client_endpoint", "messages");
 			endpointGenerator.writeFiles();
 		}
 	}

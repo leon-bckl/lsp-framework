@@ -4,7 +4,7 @@
 
 namespace lspgen{
 
-void EndpointGenerator::generate(const MetaModel& metaModel, Direction direction, const std::string& fileBaseName)
+void EndpointGenerator::generate(const MetaModel& metaModel, Direction direction, const std::string& fileBaseName, const std::string& messagesHeaderBaseName)
 {
 	m_metaModel = &metaModel;
 	m_declWriter.reset(*createFile(fileBaseName + ".h"));
@@ -14,12 +14,10 @@ void EndpointGenerator::generate(const MetaModel& metaModel, Direction direction
 R"(#pragma once
 
 #include <lsp/endpoint_base.h>
-#include <lsp/message_handler.h>
-#include <lsp/messages.h>
-#include <lsp/request_result.h>
-#include <lsp/types.h>
-
 )", false);
+
+	m_declWriter.writeLine("#include <lsp/" + messagesHeaderBaseName + ".h>", false);
+	m_declWriter.writeEmptyLine();
 
 	const auto className = std::string(direction == Direction::ClientToServer ? "ClientEndpoint" : "ServerEndpoint");
 

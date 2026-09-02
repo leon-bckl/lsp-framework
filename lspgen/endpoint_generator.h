@@ -15,7 +15,7 @@ public:
 		ServerToClient
 	};
 
-	void generate(const MetaModel& metaModel, Direction direction, const std::string& fileBaseName);
+	void generate(const MetaModel& metaModel, Direction direction, const std::string& fileBaseName, const std::string& messagesHeaderBaseName);
 
 private:
 	const MetaModel* m_metaModel = nullptr;

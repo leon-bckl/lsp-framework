@@ -11,7 +11,7 @@ struct Message;
 
 class MessageGenerator : public Generator{
 public:
-	void generate(const MetaModel& metaModel, const std::string& fileBaseName);
+	void generate(const MetaModel& metaModel, const std::string& fileBaseName, const std::string& typesHeaderBaseName);
 
 private:
 	const MetaModel* m_metaModel = nullptr;

@@ -1,5 +1,6 @@
 #include "message_generator.h"
 #include "meta_model.h"
+#include "util.h"
 
 namespace lspgen{
 namespace{
@@ -9,7 +10,7 @@ R"(#pragma once
 
 #include <string_view>
 #include <lsp/message_base.h>
-#include <lsp/types.h>
+#include <lsp/${TYPES_H}.h>
 
 namespace lsp{
 
@@ -22,12 +23,12 @@ R"(} // namespace lsp
 
 } // namespace
 
-void MessageGenerator::generate(const MetaModel& metaModel, const std::string& fileBaseName)
+void MessageGenerator::generate(const MetaModel& metaModel, const std::string& fileBaseName, const std::string& typesHeaderBaseName)
 {
 	m_metaModel = &metaModel;
 	m_messageWriter.reset(*createFile(fileBaseName + ".h"));
 
-	m_messageWriter.write(MessagesHeaderBegin);
+	m_messageWriter.write(replaceString(MessagesHeaderBegin, "${TYPES_H}", typesHeaderBaseName));
 	m_messageWriter.writeDocComment("Request messages", {});
 	m_messageWriter.writeEmptyLine();
 	m_messageWriter.writeNamespaceStart("requests");
