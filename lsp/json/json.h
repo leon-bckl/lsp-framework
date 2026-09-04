@@ -27,22 +27,22 @@ class TypeError : public Error{
 public:
 	TypeError(const std::string& message = "Unexpected json value")
 		: Error(message)
-		{
-		}
+	{
+	}
 };
 
 class ParseError : public Error{
 public:
-	ParseError(const std::string& message, std::size_t textPos)
+	ParseError(const std::string& message, int textPos)
 		: Error(message)
 		, m_textPos(textPos)
 	{
 	}
 
-	std::size_t textPos() const noexcept{ return m_textPos; }
+	auto textPos() const noexcept -> int{ return m_textPos; }
 
 private:
-	std::size_t m_textPos = 0;
+	int m_textPos = 0;
 };
 
 /*

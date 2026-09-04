@@ -44,7 +44,7 @@ inline auto capitalizeString(std::string_view str) -> std::string
 	auto result = std::string(str);
 
 	if(!result.empty())
-		result[0] = static_cast<char>(toUpper(result[0]));
+		result[0] = toUpper(result[0]);
 
 	return result;
 }
@@ -54,7 +54,7 @@ inline auto uncapitalizeString(std::string_view str) -> std::string
 	auto result = std::string(str);
 
 	if(!result.empty())
-		result[0] = static_cast<char>(toLower(result[0]));
+		result[0] = toLower(result[0]);
 
 	return result;
 }

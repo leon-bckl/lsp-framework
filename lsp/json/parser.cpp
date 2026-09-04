@@ -90,12 +90,12 @@ auto Parser::atEnd() const -> bool
 	return m_pos >= m_end;
 }
 
-auto Parser::textOffset(const char* pos) const -> std::size_t
+auto Parser::textOffset(const char* pos) const -> int
 {
-	return static_cast<std::size_t>(std::distance(m_start, pos));
+	return static_cast<int>(std::distance(m_start, pos));
 }
 
-auto Parser::currentTextOffset() const -> std::size_t
+auto Parser::currentTextOffset() const -> int
 {
 	return textOffset(m_pos);
 }

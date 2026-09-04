@@ -10,8 +10,8 @@ public:
 	~Parser();
 
 	[[nodiscard]] auto atEnd() const -> bool;
-	[[nodiscard]] auto textOffset(const char* pos) const -> std::size_t;
-	[[nodiscard]] auto currentTextOffset() const -> std::size_t;
+	[[nodiscard]] auto textOffset(const char* pos) const -> int;
+	[[nodiscard]] auto currentTextOffset() const -> int;
 	[[nodiscard]] auto parse() -> Value;
 	void reset();
 
