@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <concepts>
 #include <lsp/io/stream.h>
 #include <lsp/message_handler.h>
 
@@ -30,6 +31,53 @@ public:
 	void runMessageLoop();
 
 	static void nullError(const ResponseError&){}
+
+	template<typename F>
+	void onCustomRequest(std::string_view method, F&& callback)
+	{
+		if constexpr(std::invocable<F, json::Value>)
+			messageHandler().onCustom<GenericRequest>(method, std::forward<F>(callback));
+		else if constexpr(std::invocable<F>)
+			messageHandler().onCustom<GenericRequestNoParams>(method, std::forward<F>(callback));
+		else
+			static_assert(false, "Custom request callback must be callable with json::Value param or no params at all");
+	}
+
+	template<typename F>
+
+	void onCustomNotification(std::string_view method, F&& callback)
+	{
+		if constexpr(std::invocable<F, json::Value>)
+			messageHandler().onCustom<GenericNotification>(method, std::forward<F>(callback));
+		else if constexpr(std::invocable<F>)
+			messageHandler().onCustom<GenericNotificationNoParams>(method, std::forward<F>(callback));
+		else
+			static_assert(false, "Custom notification callback must be callable with json::Value param or no params at all");
+	}
+
+	template<typename F, typename E = MessageHandler::ResponseErrorCallback>
+	requires std::invocable<F, json::Value>
+	auto customRequest(std::string_view method, const json::Value& params, F&& then, E&& error = nullError) -> MessageId
+	{
+		return messageHandler().sendCustomRequest<GenericRequest>(method, params, std::forward<F>(then), std::forward<E>(error));
+	}
+
+	template<typename F, typename E = MessageHandler::ResponseErrorCallback>
+	requires std::invocable<F, json::Value>
+	auto customRequest(std::string_view method, F&& then, E&& error = nullError) -> MessageId
+	{
+		return messageHandler().sendCustomRequest<GenericRequestNoParams>(method, std::forward<F>(then), std::forward<E>(error));
+	}
+
+	void customNotification(std::string_view method, const json::Value& params)
+	{
+		messageHandler().sendCustomNotification<GenericNotification>(method, params);
+	}
+
+	void customNotification(std::string_view method)
+	{
+		messageHandler().sendCustomNotification<GenericNotificationNoParams>(method);
+	}
 
 protected:
 	enum class State{

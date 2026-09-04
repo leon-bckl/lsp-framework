@@ -156,7 +156,7 @@ catch(const lsp::ResponseError& e)
 }
 ```
 
-The second form takes a result callback and an optional error callback and returns the `lsp::MessageId` of the request. The callbacks run on the message-loop thread once the response arrives, which makes this form safe to use from inside a message handler, where `get()` would deadlock:
+The second form takes a result callback and an optional error callback and returns the `lsp::RequestId` of the request. The callbacks run on the message-loop thread once the response arrives, which makes this form safe to use from inside a message handler, where `get()` would deadlock:
 
 ```cpp
 clientEndpoint.textDocumentHover(params,
@@ -266,29 +266,46 @@ serverEndpoint.onTextDocumentDefinition(
 
 ### Custom Messages
 
-Messages that aren't part of the meta model, such as proprietary `$/` extensions, can still be received and sent using `endpoint.messageHandler()`. The `lsp::GenericRequest` and `lsp::GenericNotification` message types carry `lsp::json::Value` parameters and results instead of generated structs.
+Messages that aren't part of the meta model, such as proprietary `$/` extensions, can still be sent and received. Their parameters and results are `lsp::json::Value` instead of generated structs.
+
+Register handlers with `onCustomRequest` and `onCustomNotification`:
 
 ```cpp
-auto& handler = clientEndpoint.messageHandler();
-
-// Send a custom request and wait for the response
-auto params = lsp::json::Object();
-params["path"] = "example.txt";
-
-const lsp::json::Value result =
-  handler.sendCustomRequest<lsp::GenericRequest>("$/myExtension/stat", params).get();
-
-// Handle a custom request
-handler.onCustom<lsp::GenericRequest>("$/myExtension/stat",
+serverEndpoint.onCustomRequest("$/myExtension/stat",
   [](lsp::json::Value&& params) -> lsp::json::Value
   {
     auto response = lsp::json::Object();
     response["size"] = 42;
     return response;
   });
+
+serverEndpoint.onCustomNotification("$/myExtension/touch",
+  [](lsp::json::Value&& params)
+  {
+    // ...
+  });
 ```
 
-Use `lsp::GenericRequestNoParams` / `lsp::GenericNotificationNoParams` for messages without parameters, and `sendCustomNotification` to send a notification.
+Send them with `customRequest` and `customNotification`. `customRequest` takes a result callback and an optional error callback, like the [callback form](#sending-requests-and-notifications) of a generated request, and returns the request's `lsp::RequestId`:
+
+```cpp
+auto params = lsp::json::Object();
+params["path"] = "example.txt";
+
+clientEndpoint.customRequest("$/myExtension/stat", params,
+  [](lsp::json::Value&& result)
+  {
+    // Success
+  },
+  [](const lsp::ResponseError& error)
+  {
+    // Failure (optional, omit to ignore errors)
+  });
+
+clientEndpoint.customNotification("$/myExtension/touch", params);
+```
+
+For messages without parameters, pass a handler that takes none (`onCustomRequest("...", []() -> lsp::json::Value { ... })`, `onCustomNotification("...", []() { ... })`) and use the parameterless send overloads (`customRequest(method, then, error)`, `customNotification(method)`).
 
 ### Request Context
 

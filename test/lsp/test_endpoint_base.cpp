@@ -1,48 +1,20 @@
-#include <cstring>
-#include <functional>
 #include <string>
 #include <string_view>
 #include <test/test.h>
+#include "loopback_stream.h"
 #include <lsp/connection.h>
 #include <lsp/endpoint_base.h>
 #include <lsp/error.h>
-#include <lsp/io/stream.h>
+#include <lsp/json/json.h>
 #include <lsp/message_base.h>
 #include <lsp/message_handler.h>
 
 using namespace lsp;
+using lsptest::LoopbackStream;
 
 namespace{
 
 struct DummyMessage{};
-
-class LoopbackStream : public io::Stream{
-public:
-	std::function<void()> onRead;
-	int                   readCount = 0;
-
-	void read(char* buffer, std::size_t size) override
-	{
-		++readCount;
-
-		if(onRead)
-			onRead();
-
-		if(m_buffer.size() < size)
-			throw io::Error("LoopbackStream is empty");
-
-		std::memcpy(buffer, m_buffer.data(), size);
-		m_buffer.erase(0, size);
-	}
-
-	void write(const char* buffer, std::size_t size) override
-	{
-		m_buffer.append(buffer, size);
-	}
-
-private:
-	std::string m_buffer;
-};
 
 // Mirrors the internal state of the endpoint which is not accessible from outside
 enum class State{ Uninitialized, Active, Shutdown, Inactive };
@@ -137,6 +109,7 @@ int main(int argc, char** argv)
 		auto server = ServerEndpointBase(stream);
 
 		// No more messages are expected once inactive, so a dropped connection is not an error
+		stream.close();
 		gotoState(server, State::Inactive);
 		server.processNextMessage();
 
@@ -147,6 +120,7 @@ int main(int argc, char** argv)
 		auto stream = LoopbackStream();
 		auto server = ServerEndpointBase(stream);
 
+		stream.close();
 		gotoState(server, State::Active);
 		test::expectException<ConnectionError>([&](){ server.processNextMessage(); });
 
@@ -170,6 +144,7 @@ int main(int argc, char** argv)
 		auto stream = LoopbackStream();
 		auto server = ServerEndpointBase(stream);
 
+		stream.close();
 		gotoState(server, State::Active);
 		test::expectException<ConnectionError>([&](){ server.runMessageLoop(); });
 
@@ -184,6 +159,7 @@ int main(int argc, char** argv)
 		gotoState(server, State::Active);
 
 		// Simulate the connection dropping right as the endpoint transitions to Inactive
+		stream.close();
 		stream.onRead = [&server](){ server.preMethodCall<notifications::Exit>(); };
 
 		server.runMessageLoop();
@@ -351,6 +327,91 @@ int main(int argc, char** argv)
 		gotoState(server, State::Inactive);
 
 		test::check(!server.isActive(), "inactive");
+	});
+
+	/*
+	 * Custom messages
+	 */
+
+	app.addTest("Custom/RequestRoundTrip", [](){
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
+		gotoState(server, State::Active);
+
+		auto receivedPing = 0;
+		server.onCustomRequest("test/echo", [&](json::Value&& params) -> json::Value
+		{
+			receivedPing = params.object().get("ping").integer();
+			return json::Object({{"pong", receivedPing}});
+		});
+
+		auto pong      = 0;
+		auto gotResult = false;
+		server.customRequest("test/echo", json::Object({{"ping", 7}}),
+			[&](json::Value&& result){ pong = result.object().get("pong").integer(); gotResult = true; });
+
+		server.processNextMessage(); // handle the request, send the response
+		server.processNextMessage(); // handle the response, invoke the callback
+
+		test::check(gotResult, "gotResult");
+		test::compare(receivedPing, 7);
+		test::compare(pong, 7);
+	});
+
+	app.addTest("Custom/RequestNoParamsRoundTrip", [](){
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
+		gotoState(server, State::Active);
+
+		auto handled = false;
+		server.onCustomRequest("test/ping", [&]() -> json::Value
+		{
+			handled = true;
+			return json::Value(json::Integer(1));
+		});
+
+		auto result = 0;
+		server.customRequest("test/ping", [&](json::Value&& r){ result = r.integer(); });
+
+		server.processNextMessage();
+		server.processNextMessage();
+
+		test::check(handled, "handled");
+		test::compare(result, 1);
+	});
+
+	app.addTest("Custom/NotificationRoundTrip", [](){
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
+		gotoState(server, State::Active);
+
+		auto received = 0;
+		auto notified = false;
+		server.onCustomNotification("test/touch", [&](json::Value&& params)
+		{
+			received = params.object().get("v").integer();
+			notified = true;
+		});
+
+		server.customNotification("test/touch", json::Object({{"v", 3}}));
+		server.processNextMessage();
+
+		test::check(notified, "notified");
+		test::compare(received, 3);
+	});
+
+	app.addTest("Custom/NotificationNoParamsRoundTrip", [](){
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
+		gotoState(server, State::Active);
+
+		auto notified = false;
+		server.onCustomNotification("test/tick", [&](){ notified = true; });
+
+		server.customNotification("test/tick");
+		server.processNextMessage();
+
+		test::check(notified, "notified");
 	});
 
 	return app.main(argc, argv);
