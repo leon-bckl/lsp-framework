@@ -15,8 +15,6 @@
 
 namespace lsp{
 
-using MessageId = jsonrpc::MessageId;
-
 /*
  * MessageHandler
  */
@@ -55,19 +53,19 @@ public:
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires MessageHasParams<M>
-	auto sendRequest(const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> MessageId;
+	auto sendRequest(const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> RequestId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires MessageHasParams<M>
-	auto sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> MessageId;
+	auto sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error = nullErrorCallback) -> RequestId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires (!MessageHasParams<M>)
-	auto sendRequest(F&& then, E&& error = nullErrorCallback) -> MessageId;
+	auto sendRequest(F&& then, E&& error = nullErrorCallback) -> RequestId;
 
 	template<typename M, typename F, typename E = ResponseErrorCallback>
 	requires (!MessageHasParams<M>)
-	auto sendCustomRequest(std::string_view method, F&& then, E&& error = nullErrorCallback) -> MessageId;
+	auto sendCustomRequest(std::string_view method, F&& then, E&& error = nullErrorCallback) -> RequestId;
 
 	template<typename M>
 	requires MessageHasParams<M> && MessageHasResult<M>
@@ -145,10 +143,10 @@ private:
 	std::mutex                                      m_requestHandlersMutex;
 	// Outgoing requests
 	std::mutex                                      m_pendingRequestsMutex;
-	std::unordered_map<MessageId, RequestResultPtr> m_pendingRequests;
+	std::vector<RequestResultPtr>                   m_pendingRequests;
 
 	template<typename T>
-	void sendResponse(const MessageId& messageId, const T& result, Connection::BatchSender* batchSender);
+	void sendResponse(const RequestId& requestId, const T& result, Connection::BatchSender* batchSender);
 
 	template<typename M>
 	void handleRequestResult(RequestResult<M>& result, Connection::BatchSender* batchSender);
@@ -156,9 +154,9 @@ private:
 	void processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender);
 	void processResponse(jsonrpc::Response&& response);
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
-	void addPendingRequest(RequestResultPtr result, json::Integer id);
+	void addPendingRequest(RequestResultPtr result);
 	void sendErrorResponse(
-		const MessageId& messageId,
+		const RequestId& requestId,
 		int errorCode,
 		std::string_view errorMessage,
 		const std::optional<json::Value>& errorData,
@@ -178,19 +176,25 @@ private:
 
 	class RequestResultBase{
 	public:
+		RequestResultBase(RequestId id) : m_requestId(std::move(id)){}
 		virtual ~RequestResultBase() = default;
 		virtual void setValue(json::Value&& json) = 0;
 		virtual void setError(ResponseError&& error) = 0;
 
+		auto requestId() const -> const RequestId&{ return m_requestId; }
+
 	protected:
 		template<typename T>
 		auto setValueFromJson(T& value, json::Value&& json) -> bool;
+
+	private:
+		RequestId m_requestId;
 	};
 
 	template<typename T, typename F, typename E>
 	class CallbackRequestResult final : public RequestResultBase{
 	public:
-		CallbackRequestResult(F&& then, E&& error);
+		CallbackRequestResult(RequestId id, F&& then, E&& error);
 
 		void setValue(json::Value&& json) override;
 		void setError(ResponseError&& error) override;
@@ -203,6 +207,8 @@ private:
 	template<typename T>
 	class FutureRequestResult final : public RequestResultBase{
 	public:
+		FutureRequestResult(RequestId id) : RequestResultBase(std::move(id)){}
+
 		auto future() -> std::future<T>{ return m_promise.get_future(); }
 
 		void setValue(json::Value&& json) override;

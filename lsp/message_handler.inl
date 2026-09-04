@@ -11,11 +11,11 @@ namespace lsp{
  */
 
 template<typename T>
-void MessageHandler::sendResponse(const MessageId& messageId, const T& result, Connection::BatchSender* batchSender)
+void MessageHandler::sendResponse(const RequestId& requestId, const T& result, Connection::BatchSender* batchSender)
 {
 	if(batchSender)
 	{
-		auto responseWriter = batchSender->writeResponse(messageId);
+		auto responseWriter = batchSender->writeResponse(requestId);
 		responseWriter.writeData(
 			[](std::string_view key, const T& value, json::ObjectWriter& objectWriter)
 			{
@@ -24,7 +24,7 @@ void MessageHandler::sendResponse(const MessageId& messageId, const T& result, C
 	}
 	else
 	{
-		auto responseSender = m_connection.response(messageId);
+		auto responseSender = m_connection.response(requestId);
 		responseSender.writeData(result);
 		responseSender.submit();
 	}
@@ -180,45 +180,49 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 
 template<typename M, typename F, typename E>
 requires MessageHasParams<M>
-auto MessageHandler::sendRequest(const typename M::Params& params, F&& then, E&& error) -> MessageId
+auto MessageHandler::sendRequest(const typename M::Params& params, F&& then, E&& error) -> RequestId
 {
 	return sendCustomRequest<M>(M::Method, params, std::forward<F>(then), std::forward<E>(error));
 }
 
 template<typename M, typename F, typename E>
 requires MessageHasParams<M>
-auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error) -> MessageId
+auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error) -> RequestId
 {
+	const auto requestId = nextUniqueRequestId();
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
-		std::forward<F>(then), std::forward<E>(error));
-	const auto requestId     = nextUniqueRequestId();
-	auto       requestSender = m_connection.request(method, requestId);
+		requestId,
+		std::forward<F>(then),
+		std::forward<E>(error));
+	auto requestSender = m_connection.request(method, requestId);
 
 	requestSender.writeParams(params);
 	requestSender.submit();
-	addPendingRequest(std::move(result), requestId);
+	addPendingRequest(std::move(result));
 
 	return requestId;
 }
 
 template<typename M, typename F, typename E>
 requires (!MessageHasParams<M>)
-auto MessageHandler::sendRequest(F&& then, E&& error) -> MessageId
+auto MessageHandler::sendRequest(F&& then, E&& error) -> RequestId
 {
 	return sendCustomRequest<M>(M::Method, std::forward<F>(then), std::forward<E>(error));
 }
 
 template<typename M, typename F, typename E>
 requires (!MessageHasParams<M>)
-auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& error) -> MessageId
+auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& error) -> RequestId
 {
+	const auto requestId = nextUniqueRequestId();
 	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
-		std::forward<F>(then), std::forward<E>(error));
-	const auto requestId     = nextUniqueRequestId();
-	auto       requestSender = m_connection.request(method, requestId);
+		requestId,
+		std::forward<F>(then),
+		std::forward<E>(error));
+	auto requestSender = m_connection.request(method, requestId);
 
 	requestSender.submit();
-	addPendingRequest(std::move(result), requestId);
+	addPendingRequest(std::move(result));
 
 	return requestId;
 }
@@ -234,14 +238,14 @@ template<typename M>
 requires MessageHasParams<M> && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<typename M::Result>
 {
-	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
-	auto       future        = result->future();
 	const auto requestId     = nextUniqueRequestId();
+	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>(requestId);
+	auto       future        = result->future();
 	auto       requestSender = m_connection.request(method, requestId);
 
 	requestSender.writeParams(params);
 	requestSender.submit();
-	addPendingRequest(std::move(result), requestId);
+	addPendingRequest(std::move(result));
 
 	return RequestResult(std::move(future), requestId);
 }
@@ -257,13 +261,13 @@ template<typename M>
 requires (!MessageHasParams<M>) && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult<typename M::Result>
 {
-	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>();
-	auto       future        = result->future();
 	const auto requestId     = nextUniqueRequestId();
+	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>(requestId);
+	auto       future        = result->future();
 	auto       requestSender = m_connection.request(method, requestId);
 
 	requestSender.submit();
-	addPendingRequest(std::move(result), requestId);
+	addPendingRequest(std::move(result));
 
 	return RequestResult(std::move(future), requestId);
 }
@@ -329,8 +333,9 @@ auto MessageHandler::RequestResultBase::setValueFromJson(T& value, json::Value&&
  */
 
 template<typename T, typename F, typename E>
-MessageHandler::CallbackRequestResult<T, F, E>::CallbackRequestResult(F&& then, E&& error)
-	: m_then(std::forward<F>(then))
+MessageHandler::CallbackRequestResult<T, F, E>::CallbackRequestResult(RequestId id, F&& then, E&& error)
+	: RequestResultBase(std::move(id))
+	, m_then(std::forward<F>(then))
 	, m_error(std::forward<E>(error))
 {
 	static_assert(std::invocable<F, T>,

@@ -569,7 +569,7 @@ int main(int argc, char** argv)
 	app.addTest("RequestContext/Id", [](){
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
-		auto ids     = std::vector<MessageId>();
+		auto ids     = std::vector<RequestId>();
 
 		handler.on<TestNoParamsRequest>([&]()
 		{
@@ -597,7 +597,7 @@ int main(int argc, char** argv)
 
 		handler.on<TestNoParamsRequest>([&](){ return std::vector<int>{}; });
 
-		auto thenId = std::optional<MessageId>();
+		auto thenId = std::optional<RequestId>();
 
 		const auto requestId = handler.sendRequest<TestNoParamsRequest>(
 			[&](const std::vector<int>&)
@@ -623,7 +623,7 @@ int main(int argc, char** argv)
 			throw RequestError(1234, "custom error");
 		});
 
-		auto errorId = std::optional<MessageId>();
+		auto errorId = std::optional<RequestId>();
 
 		const auto requestId = handler.sendRequest<TestNoParamsRequest>(
 			[](const std::vector<int>&){ test::fail("Expected no result"); },
@@ -644,7 +644,7 @@ int main(int argc, char** argv)
 		auto stream  = LoopbackStream();
 		auto handler = MessageHandler(Connection(stream));
 
-		auto deferredContextId       = std::promise<std::optional<MessageId>>();
+		auto deferredContextId       = std::promise<std::optional<RequestId>>();
 		auto deferredContextIdFuture = deferredContextId.get_future();
 
 		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
@@ -653,7 +653,7 @@ int main(int argc, char** argv)
 			{
 				const auto* context = MessageHandler::RequestContext::tryGet();
 				deferredContextId.set_value(
-					context ? std::optional<MessageId>(context->id()) : std::nullopt);
+					context ? std::optional<RequestId>(context->id()) : std::nullopt);
 				return std::vector<int>{1, 2, 3};
 			});
 		});

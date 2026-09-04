@@ -139,14 +139,20 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 
 void MessageHandler::processResponse(jsonrpc::Response&& response)
 {
-	RequestResultPtr result;
+	auto result = RequestResultPtr();
 
 	// Find pending request for the response that was received based on the message id.
 	{
-		std::lock_guard lock{m_pendingRequestsMutex};
-		if(auto it = m_pendingRequests.find(response.id); it != m_pendingRequests.end())
+		const auto lock = std::lock_guard(m_pendingRequestsMutex);
+		const auto it   = std::ranges::find_if(m_pendingRequests,
+			[&id = response.id](const RequestResultPtr& result)
+			{
+				return result->requestId() == id;
+			});
+
+		if(it != m_pendingRequests.end())
 		{
-			result = std::move(it->second);
+			result = std::move(*it);
 			m_pendingRequests.erase(it);
 		}
 	}
@@ -174,11 +180,10 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
-void MessageHandler::addPendingRequest(RequestResultPtr result, json::Integer id)
+void MessageHandler::addPendingRequest(RequestResultPtr result)
 {
 	const auto lock = std::lock_guard(m_pendingRequestsMutex);
-	assert(!m_pendingRequests.contains(id));
-	m_pendingRequests[id] = std::move(result);
+	m_pendingRequests.emplace_back(std::move(result));
 }
 
 void MessageHandler::sendNotification(std::string_view method, const json::Value& params)
@@ -192,7 +197,7 @@ void MessageHandler::sendNotification(std::string_view method, const json::Value
 }
 
 void MessageHandler::sendErrorResponse(
-	const MessageId& messageId,
+	const RequestId& requestId,
 	int errorCode,
 	std::string_view errorMessage,
 	const std::optional<json::Value>& errorData,
@@ -200,7 +205,7 @@ void MessageHandler::sendErrorResponse(
 {
 	if(batchSender)
 	{
-		auto responseWriter = batchSender->writeError(messageId, errorCode, errorMessage);
+		auto responseWriter = batchSender->writeError(requestId, errorCode, errorMessage);
 
 		if(errorData.has_value())
 		{
@@ -213,7 +218,7 @@ void MessageHandler::sendErrorResponse(
 	}
 	else
 	{
-		auto errorResponse = m_connection.errorResponse(messageId, errorCode, errorMessage);
+		auto errorResponse = m_connection.errorResponse(requestId, errorCode, errorMessage);
 
 		if(errorData.has_value())
 			errorResponse.writeData(*errorData);

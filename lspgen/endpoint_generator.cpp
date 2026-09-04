@@ -146,7 +146,7 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 		inlineImplWriter.writeLine("template<typename F, typename E = MessageHandler::ResponseErrorCallback>");
 		funcParams.push_back({"F&&", "then"});
 		funcParams.push_back({"E&&", "error", "nullError"});
-		inlineImplWriter.writeFuncSig(methodName, "MessageId", funcParams);
+		inlineImplWriter.writeFuncSig(methodName, "RequestId", funcParams);
 		inlineImplWriter.writeBlockStart(true);
 		inlineImplWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 
