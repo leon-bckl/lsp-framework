@@ -37,6 +37,11 @@ public:
 	auto on(F&& callback) -> MessageHandler&;
 
 	template<typename M, typename F>
+	requires (M::Kind == MessageKind::Request)
+	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
+
+	template<typename M, typename F>
+	requires (M::Kind == MessageKind::Notification)
 	auto onCustom(std::string_view method, F&& callback) -> MessageHandler&;
 
 	void remove(const std::string& method);

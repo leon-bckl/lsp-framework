@@ -58,108 +58,116 @@ auto MessageHandler::on(F&& callback) -> MessageHandler&
 }
 
 template<typename M, typename F>
+requires (M::Kind == MessageKind::Request)
 auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
 {
 	addHandler(method,
 		[this, callback = std::forward<F>(callback)](
 			[[maybe_unused]] json::Value&& json, [[maybe_unused]] const RequestId* requestId, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
 		{
-			if constexpr(M::Kind == MessageKind::Request)
-			{
-				assert(requestId);
+			assert(requestId);
 
-				auto context = RequestContext(*this, *requestId);
+			auto context = RequestContext(*this, *requestId);
 
-				auto result =
-					[&json, &callback, requestId]() mutable
+			auto result =
+				[&json, &callback, requestId]() mutable
+				{
+					if constexpr(MessageHasParams<M>)
 					{
-						if constexpr(MessageHasParams<M>)
+						static_assert(std::invocable<F, typename M::Params>,
+							"Request callback must be callable with matching params");
+						static_assert(std::constructible_from<RequestResult<typename M::Result>,
+							std::invoke_result_t<F, typename M::Params>>,
+							"Request callback must return a value or callable that can construct a MessageType::Result");
+
+						auto params = typename M::Params();
+
+						try
 						{
-							static_assert(std::invocable<F, typename M::Params>,
-								"Request callback must be callable with matching params");
-							static_assert(std::constructible_from<RequestResult<typename M::Result>,
-								std::invoke_result_t<F, typename M::Params>>,
-								"Request callback must return a value or callable that can construct a MessageType::Result");
-
-							auto params = typename M::Params();
-
-							try
-							{
-								fromJson(std::move(json), params);
-							}
-							catch(const json::Error& e)
-							{
-								throw RequestError(MessageError::InvalidParams, e.what());
-							}
-
-							return RequestResult<typename M::Result>(callback(std::move(params)), *requestId);
+							fromJson(std::move(json), params);
 						}
-						else
+						catch(const json::Error& e)
 						{
-							(void)json;
-							static_assert(std::invocable<F>, "Request callback must be callable without params");
-							static_assert(std::constructible_from<RequestResult<typename M::Result>, std::invoke_result_t<F>>,
-								"Request callback must return a value or callable that can construct a MessageType::Result");
-							return RequestResult<typename M::Result>(callback(), *requestId);
+							throw RequestError(MessageError::InvalidParams, e.what());
 						}
-					}();
 
-				// Requests that are part of a batch cannot be handled asynchronously
-				if(!result.isDeferred() || batchSender)
-				{
-					handleRequestResult(result, batchSender);
-				}
-				else
-				{
-					m_threadPool.addTask(
-						[this, requestId = *requestId, result = std::move(result)]() mutable
-						{
-							auto context = RequestContext(*this, std::move(requestId));
-							handleRequestResult(result, nullptr);
-						});
-				}
+						return RequestResult<typename M::Result>(callback(std::move(params)), *requestId);
+					}
+					else
+					{
+						(void)json;
+						static_assert(std::invocable<F>, "Request callback must be callable without params");
+						static_assert(std::constructible_from<RequestResult<typename M::Result>, std::invoke_result_t<F>>,
+							"Request callback must return a value or callable that can construct a MessageType::Result");
+						return RequestResult<typename M::Result>(callback(), *requestId);
+					}
+				}();
+
+			// Requests that are part of a batch cannot be handled asynchronously
+			if(!result.isDeferred() || batchSender)
+			{
+				handleRequestResult(result, batchSender);
 			}
-			else // Notification
+			else
 			{
-				(void)this;
-				static_assert(M::Kind == MessageKind::Notification);
-				assert(!requestId);
+				m_threadPool.addTask(
+					[this, requestId = *requestId, result = std::move(result)]() mutable
+					{
+						auto context = RequestContext(*this, std::move(requestId));
+						handleRequestResult(result, nullptr);
+					});
+			}
+		});
 
-				if constexpr(MessageHasParams<M>)
+	return *this;
+}
+
+template<typename M, typename F>
+requires (M::Kind == MessageKind::Notification)
+auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
+{
+	addHandler(method,
+		[this, callback = std::forward<F>(callback)](
+			[[maybe_unused]] json::Value&& json, [[maybe_unused]] const RequestId* requestId, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
+		{
+			(void)this; // Only used for async requests within if constexpr
+			static_assert(M::Kind == MessageKind::Notification);
+			assert(!requestId);
+
+			if constexpr(MessageHasParams<M>)
+			{
+				static_assert(std::invocable<F, typename M::Params>, "Notification callback must be callable with matching params");
+
+				auto params = typename M::Params();
+
+				try
 				{
-					static_assert(std::invocable<F, typename M::Params>, "Notification callback must be callable with matching params");
-
-					auto params = typename M::Params();
-
-					try
-					{
-						fromJson(std::move(json), params);
-					}
-					catch(const json::Error&)
-					{
-						// Swallow invalid params for notifications since no error response is sent
-						// Might add an error hook for such cases later...
-						return;
-					}
-
-					if constexpr(IsFuture<std::invoke_result_t<F, typename M::Params>>{})
-						m_threadPool.addTask([future = callback(std::move(params))](){ future.wait(); });
-					else if constexpr(std::invocable<std::invoke_result_t<F, typename M::Params>>)
-						m_threadPool.addTask(callback(std::move(params)));
-					else
-						callback(std::move(params));
+					fromJson(std::move(json), params);
 				}
+				catch(const json::Error&)
+				{
+					// Swallow invalid params for notifications since no error response is sent
+					// Might add an error hook for such cases later...
+					return;
+				}
+
+				if constexpr(IsFuture<std::invoke_result_t<F, typename M::Params>>{})
+					m_threadPool.addTask([future = callback(std::move(params))](){ future.wait(); });
+				else if constexpr(std::invocable<std::invoke_result_t<F, typename M::Params>>)
+					m_threadPool.addTask(callback(std::move(params)));
 				else
-				{
-					static_assert(std::invocable<F>, "Notification callback must be callable without params");
+					callback(std::move(params));
+			}
+			else
+			{
+				static_assert(std::invocable<F>, "Notification callback must be callable without params");
 
-					if constexpr(IsFuture<std::invoke_result_t<F>>{})
-						m_threadPool.addTask([future = callback()](){ future.wait(); });
-					else if constexpr(std::invocable<std::invoke_result_t<F>>)
-						m_threadPool.addTask(callback());
-					else
-						callback();
-				}
+				if constexpr(IsFuture<std::invoke_result_t<F>>{})
+					m_threadPool.addTask([future = callback()](){ future.wait(); });
+				else if constexpr(std::invocable<std::invoke_result_t<F>>)
+					m_threadPool.addTask(callback());
+				else
+					callback();
 			}
 		});
 
