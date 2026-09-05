@@ -57,14 +57,14 @@ public:
 
 	template<typename F, typename E = MessageHandler::ResponseErrorCallback>
 	requires std::invocable<F, json::Value>
-	auto customRequest(std::string_view method, const json::Value& params, F&& then, E&& error = nullError) -> MessageId
+	auto customRequest(std::string_view method, const json::Value& params, F&& then, E&& error = nullError) -> RequestId
 	{
 		return messageHandler().sendCustomRequest<GenericRequest>(method, params, std::forward<F>(then), std::forward<E>(error));
 	}
 
 	template<typename F, typename E = MessageHandler::ResponseErrorCallback>
 	requires std::invocable<F, json::Value>
-	auto customRequest(std::string_view method, F&& then, E&& error = nullError) -> MessageId
+	auto customRequest(std::string_view method, F&& then, E&& error = nullError) -> RequestId
 	{
 		return messageHandler().sendCustomRequest<GenericRequestNoParams>(method, std::forward<F>(then), std::forward<E>(error));
 	}
