@@ -344,9 +344,9 @@ auto Connection::messageBatch() -> Connection::BatchSender
 
 Connection::MessageSender::MessageSender(Connection& connection)
 	: m_connection(&connection)
-	, m_writer(m_buffer
+	, m_writer(
 #if LSP_MESSAGE_DEBUG_LOG
-		, "\t"
+		"\t"
 #endif
 	)
 {
@@ -368,9 +368,9 @@ void Connection::MessageSender::submit()
 	if(m_connection)
 	{
 #if LSP_MESSAGE_DEBUG_LOG
-		debugLogMessageJson("outgoing", std::string(m_buffer));
+		debugLogMessageJson("outgoing", m_writer.text());
 #endif
-		m_connection->writeMessageData(m_buffer);
+		m_connection->writeMessageData(m_writer.text());
 		m_connection = nullptr;
 	}
 }

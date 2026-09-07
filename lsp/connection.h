@@ -53,7 +53,6 @@ public:
 
 	private:
 		Connection*  m_connection = nullptr;
-		std::string  m_buffer;
 		json::Writer m_writer;
 	};
 

@@ -22,12 +22,15 @@ class Writer{
 	friend class ObjectWriter;
 	friend class ArrayWriter;
 public:
-	Writer(std::string& outStr, std::string_view indent = {});
+	Writer(std::string_view indent = {});
 
 	Writer(const Writer&)            = delete;
 	Writer(Writer&&)                 = delete;
 	Writer& operator=(const Writer&) = delete;
 	Writer& operator=(Writer&&)      = delete;
+
+	auto text() const& -> const std::string&;
+	auto text() && -> std::string;
 
 	template<std::integral T>
 	void write(T t)
@@ -54,7 +57,7 @@ public:
 	[[nodiscard]] ArrayWriter  beginArray();
 
 private:
-	std::string*           m_outStr       = nullptr;
+	std::string            m_text;
 	int                    m_nestingLevel = 0;
 	const std::string_view m_indent;
 	const std::string_view m_keySep;

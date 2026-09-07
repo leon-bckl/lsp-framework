@@ -59,10 +59,9 @@ namespace{
 
 std::string build(auto&& fn)
 {
-	auto out    = std::string();
-	auto writer = json::Writer(out);
+	auto writer = json::Writer();
 	fn(writer);
-	return out;
+	return std::move(writer).text();
 }
 
 } // namespace

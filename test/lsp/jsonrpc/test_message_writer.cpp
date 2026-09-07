@@ -13,10 +13,9 @@ namespace{
 
 auto build(std::string_view indent, auto&& fn) -> std::string
 {
-	auto out    = std::string();
-	auto writer = json::Writer(out, indent);
+	auto writer = json::Writer(indent);
 	fn(writer);
-	return out;
+	return std::move(writer).text();
 }
 
 constexpr auto asValue = [](std::string_view key, const auto& value, json::ObjectWriter& writer)
@@ -199,10 +198,8 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("Response/MoveAssign", [](){
-		auto outA    = std::string();
-		auto outB    = std::string();
-		auto writerA = json::Writer(outA);
-		auto writerB = json::Writer(outB);
+		auto writerA = json::Writer();
+		auto writerB = json::Writer();
 
 		{
 			auto rw = ResponseWriter::writeResponse(writerA.beginObject(), MessageId(json::Integer(1)));
@@ -210,8 +207,8 @@ int main(int argc, char** argv)
 			rw.writeData(asValue, 2);
 		}
 
-		test::compare(outA, std::string_view(R"({"jsonrpc":"2.0","id":1,"result":null})"));
-		test::compare(outB, std::string_view(R"({"jsonrpc":"2.0","id":2,"result":2})"));
+		test::compare(writerA.text(), R"({"jsonrpc":"2.0","id":1,"result":null})");
+		test::compare(writerB.text(), R"({"jsonrpc":"2.0","id":2,"result":2})");
 	});
 
 	app.addTest("Request/ManualFinalize", [](){
@@ -254,25 +251,23 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("Response/ManualFinalizeClosesErrorObject", [](){
-		auto out    = std::string();
-		auto writer = json::Writer(out);
+		auto writer = json::Writer();
 		auto rw     = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), jsonrpc::Error::InvalidRequest, "Invalid Request");
 
 		rw.finalize();
 
 		// Make sure the nested error object is closed with finalize
-		test::compare(out, std::string_view(R"({"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"}})"));
+		test::compare(writer.text(), std::string_view(R"({"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"}})"));
 	});
 
 	app.addTest("Response/ManualFinalizeClosesErrorDataObject", [](){
-		auto out    = std::string();
-		auto writer = json::Writer(out);
+		auto writer = json::Writer();
 		auto rw     = ResponseWriter::writeError(writer.beginObject(), MessageId(json::Integer(1)), jsonrpc::Error::InvalidRequest, "Invalid Request");
 		rw.writeData(withField("reason"), std::string_view("bad"));
 
 		rw.finalize();
 
-		test::compare(out, std::string_view(
+		test::compare(writer.text(), std::string_view(
 			R"({"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request","data":{"reason":"bad"}}})"));
 	});
 

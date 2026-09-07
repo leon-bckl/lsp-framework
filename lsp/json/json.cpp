@@ -16,10 +16,9 @@ auto parse(std::string_view text) -> Value
 
 auto stringify(const Value& json, std::string_view indent) -> std::string
 {
-	auto str    = std::string();
-	auto writer = Writer(str, indent);
+	auto writer = Writer(indent);
 	writer.write(json);
-	return str;
+	return std::move(writer).text();
 }
 
 /*

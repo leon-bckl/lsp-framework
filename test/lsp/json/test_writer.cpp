@@ -13,10 +13,9 @@ int main(int argc, char** argv)
 
 	auto build = [](std::string_view indent, auto&& fn) -> std::string
 	{
-		auto out    = std::string();
-		auto writer = Writer(out, indent);
+		auto writer = Writer(indent);
 		fn(writer);
-		return out;
+		return std::move(writer).text();
 	};
 
 	app.addTest("ArrayWriter/ObjectElements", [&build](){
@@ -95,10 +94,8 @@ int main(int argc, char** argv)
 	});
 
 	app.addTest("ObjectWriter/MoveAssign", [](){
-		auto outA    = std::string();
-		auto outB    = std::string();
-		auto writerA = Writer(outA);
-		auto writerB = Writer(outB);
+		auto writerA = Writer();
+		auto writerB = Writer();
 
 		{
 			auto ow = writerA.beginObject();
@@ -107,15 +104,13 @@ int main(int argc, char** argv)
 			ow.write("y", 2);
 		}
 
-		test::compare(outA, R"({"x":1})");
-		test::compare(outB, R"({"y":2})");
+		test::compare(writerA.text(), R"({"x":1})");
+		test::compare(writerB.text(), R"({"y":2})");
 	});
 
 	app.addTest("ArrayWriter/MoveAssign", [](){
-		auto outA    = std::string();
-		auto outB    = std::string();
-		auto writerA = Writer(outA);
-		auto writerB = Writer(outB);
+		auto writerA = Writer();
+		auto writerB = Writer();
 
 		{
 			auto aw = writerA.beginArray();
@@ -124,8 +119,8 @@ int main(int argc, char** argv)
 			aw.write(2);
 		}
 
-		test::compare(outA, "[1]");
-		test::compare(outB, "[2]");
+		test::compare(writerA.text(), "[1]");
+		test::compare(writerB.text(), "[2]");
 	});
 
 	app.addTest("Object/ManualFinalize", [&build](){

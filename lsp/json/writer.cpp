@@ -61,44 +61,53 @@ void appendStringLiteral(std::string_view str, std::string& out)
  * Writer
  */
 
-Writer::Writer(std::string& outStr, std::string_view indent)
-	: m_outStr(&outStr)
-	, m_indent(indent)
+Writer::Writer(std::string_view indent)
+	: m_indent(indent)
 	, m_keySep(indent.empty() ? ":" : ": ")
 	, m_valueSep(indent.empty() ? "," : ",\n")
 	, m_newline(indent.empty() ? "" : "\n")
 {
 }
 
+auto Writer::text() const& -> const std::string&
+{
+	return m_text;
+}
+
+auto Writer::text() && -> std::string
+{
+	return std::move(m_text);
+}
+
 void Writer::write(std::nullptr_t)
 {
-	*m_outStr += "null";
+	m_text += "null";
 }
 
 void Writer::write(bool value)
 {
-	*m_outStr += value ? "true" : "false";
+	m_text += value ? "true" : "false";
 }
 
 void Writer::write(long long value)
 {
 	char buffer[32];
 	const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
-	*m_outStr += std::string_view(buffer, ptr);
+	m_text += std::string_view(buffer, ptr);
 }
 
 void Writer::write(unsigned long long value)
 {
 	char buffer[32];
 	const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
-	*m_outStr += std::string_view(buffer, ptr);
+	m_text += std::string_view(buffer, ptr);
 }
 
 void Writer::write(double value)
 {
 	if(!std::isfinite(value))
 	{
-		*m_outStr += "null"; // There's no nan/inf in json
+		m_text += "null"; // There's no nan/inf in json
 		return;
 	}
 
@@ -110,25 +119,25 @@ void Writer::write(double value)
 	char buffer[32];
 	const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value, numberFormat);
 	const auto numberStr = std::string_view(buffer, ptr);
-	*m_outStr += numberStr;
+	m_text += numberStr;
 
 	if(numberStr.find_first_of(".eE") == std::string::npos)
-		*m_outStr += ".0";
+		m_text += ".0";
 }
 
 void Writer::write(const char* value)
 {
-	appendStringLiteral(value, *m_outStr);
+	appendStringLiteral(value, m_text);
 }
 
 void Writer::write(const std::string& value)
 {
-	appendStringLiteral(value, *m_outStr);
+	appendStringLiteral(value, m_text);
 }
 
 void Writer::write(std::string_view value)
 {
-	appendStringLiteral(value, *m_outStr);
+	appendStringLiteral(value, m_text);
 }
 
 void Writer::write(const Value& value)
@@ -167,13 +176,13 @@ void Writer::writeIndent()
 	if(!m_indent.empty())
 	{
 		for(int i = 0; i < m_nestingLevel; ++i)
-			*m_outStr += m_indent;
+			m_text += m_indent;
 	}
 }
 
 void Writer::writeObjectStart()
 {
-	*m_outStr += '{';
+	m_text += '{';
 	++m_nestingLevel;
 }
 
@@ -183,16 +192,16 @@ void Writer::writeObjectEnd(bool hasItems)
 
 	if(hasItems)
 	{
-		*m_outStr += m_newline;
+		m_text += m_newline;
 		writeIndent();
 	}
 
-	*m_outStr += '}';
+	m_text += '}';
 }
 
 void Writer::writeArrayStart()
 {
-	*m_outStr += '[';
+	m_text += '[';
 	++m_nestingLevel;
 }
 
@@ -202,25 +211,25 @@ void Writer::writeArrayEnd(bool hasItems)
 
 	if(hasItems)
 	{
-		*m_outStr += m_newline;
+		m_text += m_newline;
 		writeIndent();
 	}
 
-	*m_outStr += ']';
+	m_text += ']';
 }
 
 void Writer::writeObjectKey(std::string_view key)
 {
-	appendStringLiteral(key, *m_outStr);
-	*m_outStr += m_keySep;
+	appendStringLiteral(key, m_text);
+	m_text += m_keySep;
 }
 
 void Writer::writePreValue(bool first)
 {
 	if(first)
-		*m_outStr += m_newline;
+		m_text += m_newline;
 	else
-		*m_outStr += m_valueSep;
+		m_text += m_valueSep;
 
 	writeIndent();
 }
