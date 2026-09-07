@@ -87,8 +87,6 @@ public:
 	 * sendNotification
 	 */
 
-	void sendNotification(std::string_view method, const json::Value& params = {});
-
 	template<typename M>
 	requires MessageHasParams<M> && (!MessageHasResult<M>)
 	void sendNotification(const typename M::Params& params);

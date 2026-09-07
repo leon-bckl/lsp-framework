@@ -174,13 +174,13 @@ int main(int argc, char** argv)
 
 		gotoState(server, State::Active);
 
-		server.messageHandler().onCustom<GenericNotification>("test/stop", [&](json::Value&&)
+		server.onCustomNotification("test/stop", [&](json::Value&&)
 		{
 			++handled;
 			server.preMethodCall<notifications::Exit>();
 		});
 
-		server.messageHandler().sendNotification("test/stop", json::Value(json::Object()));
+		server.customNotification("test/stop", json::Value(json::Object()));
 		server.runMessageLoop();
 
 		test::compare(handled, 1);

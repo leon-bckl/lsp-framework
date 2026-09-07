@@ -965,7 +965,7 @@ int main(int argc, char** argv)
 			received = params;
 		});
 
-		handler.sendNotification("generic/notification", json::Value(json::Object({{"x", 1}})));
+		handler.sendCustomNotification<GenericNotification>("generic/notification", json::Value(json::Object({{"x", 1}})));
 		handler.processNextMessage();
 
 		test::check(called, "called");

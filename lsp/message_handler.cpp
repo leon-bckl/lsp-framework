@@ -186,16 +186,6 @@ void MessageHandler::addPendingRequest(PendingRequestPtr pendingRequest)
 	m_pendingRequests.emplace_back(std::move(pendingRequest));
 }
 
-void MessageHandler::sendNotification(std::string_view method, const json::Value& params)
-{
-	auto notificationSender = m_connection.notification(method);
-
-	if(!params.isNull())
-		notificationSender.writeParams(params);
-
-	notificationSender.submit();
-}
-
 void MessageHandler::sendErrorResponse(
 	const RequestId& requestId,
 	int errorCode,
