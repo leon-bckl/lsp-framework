@@ -139,38 +139,38 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 
 void MessageHandler::processResponse(jsonrpc::Response&& response)
 {
-	auto result = RequestResultPtr();
+	auto pendingRequest = PendingRequestPtr();
 
 	// Find pending request for the response that was received based on the message id.
 	{
 		const auto lock = std::lock_guard(m_pendingRequestsMutex);
 		const auto it   = std::ranges::find_if(m_pendingRequests,
-			[&id = response.id](const RequestResultPtr& result)
+			[&id = response.id](const PendingRequestPtr& result)
 			{
 				return result->requestId() == id;
 			});
 
 		if(it != m_pendingRequests.end())
 		{
-			result = std::move(*it);
+			pendingRequest = std::move(*it);
 			m_pendingRequests.erase(it);
 		}
 	}
 
-	if(!result) // If there's no result it means a response was received without a request which makes no sense but just ignore it...
+	if(!pendingRequest)
 		return;
 
 	const auto requestContext = RequestContext(*this, response.id);
 
 	if(response.result.has_value())
 	{
-		result->setValue(std::move(*response.result));
+		pendingRequest->setValue(std::move(*response.result));
 	}
-	else // Error response received.
+	else
 	{
 		assert(response.error.has_value());
 		auto& error = *response.error;
-		result->setError(ResponseError(error.code, std::move(error.message), std::move(error.data)));
+		pendingRequest->setError(ResponseError(error.code, std::move(error.message), std::move(error.data)));
 	}
 }
 
@@ -180,10 +180,10 @@ void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handle
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
-void MessageHandler::addPendingRequest(RequestResultPtr result)
+void MessageHandler::addPendingRequest(PendingRequestPtr pendingRequest)
 {
 	const auto lock = std::lock_guard(m_pendingRequestsMutex);
-	m_pendingRequests.emplace_back(std::move(result));
+	m_pendingRequests.emplace_back(std::move(pendingRequest));
 }
 
 void MessageHandler::sendNotification(std::string_view method, const json::Value& params)

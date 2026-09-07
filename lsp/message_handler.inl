@@ -190,7 +190,7 @@ requires MessageHasParams<M>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error) -> RequestId
 {
 	const auto requestId = nextUniqueRequestId();
-	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
+	auto result = std::make_unique<PendingRequestCallback<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
 		requestId,
 		std::forward<F>(then),
 		std::forward<E>(error));
@@ -215,7 +215,7 @@ requires (!MessageHasParams<M>)
 auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& error) -> RequestId
 {
 	const auto requestId = nextUniqueRequestId();
-	auto result = std::make_unique<CallbackRequestResult<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
+	auto result = std::make_unique<PendingRequestCallback<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
 		requestId,
 		std::forward<F>(then),
 		std::forward<E>(error));
@@ -239,7 +239,7 @@ requires MessageHasParams<M> && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<typename M::Result>
 {
 	const auto requestId     = nextUniqueRequestId();
-	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>(requestId);
+	auto       result        = std::make_unique<PendingRequestFuture<typename M::Result>>(requestId);
 	auto       future        = result->future();
 	auto       requestSender = m_connection.request(method, requestId);
 
@@ -262,7 +262,7 @@ requires (!MessageHasParams<M>) && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult<typename M::Result>
 {
 	const auto requestId     = nextUniqueRequestId();
-	auto       result        = std::make_unique<FutureRequestResult<typename M::Result>>(requestId);
+	auto       result        = std::make_unique<PendingRequestFuture<typename M::Result>>(requestId);
 	auto       future        = result->future();
 	auto       requestSender = m_connection.request(method, requestId);
 
@@ -312,7 +312,7 @@ void MessageHandler::sendCustomNotification(std::string_view method)
  */
 
 template<typename T>
-auto MessageHandler::RequestResultBase::setValueFromJson(T& value, json::Value&& json) -> bool
+auto MessageHandler::PendingRequestBase::setValueFromJson(T& value, json::Value&& json) -> bool
 {
 	try
 	{
@@ -333,8 +333,8 @@ auto MessageHandler::RequestResultBase::setValueFromJson(T& value, json::Value&&
  */
 
 template<typename T, typename F, typename E>
-MessageHandler::CallbackRequestResult<T, F, E>::CallbackRequestResult(RequestId id, F&& then, E&& error)
-	: RequestResultBase(std::move(id))
+MessageHandler::PendingRequestCallback<T, F, E>::PendingRequestCallback(RequestId id, F&& then, E&& error)
+	: PendingRequestBase(std::move(id))
 	, m_then(std::forward<F>(then))
 	, m_error(std::forward<E>(error))
 {
@@ -345,7 +345,7 @@ MessageHandler::CallbackRequestResult<T, F, E>::CallbackRequestResult(RequestId 
 }
 
 template<typename T, typename F, typename E>
-void MessageHandler::CallbackRequestResult<T, F, E>::setValue(json::Value&& json)
+void MessageHandler::PendingRequestCallback<T, F, E>::setValue(json::Value&& json)
 {
 	auto value = T();
 	if(setValueFromJson(value, std::move(json)))
@@ -353,7 +353,7 @@ void MessageHandler::CallbackRequestResult<T, F, E>::setValue(json::Value&& json
 }
 
 template<typename T, typename F, typename E>
-void MessageHandler::CallbackRequestResult<T, F, E>::setError(ResponseError&& error)
+void MessageHandler::PendingRequestCallback<T, F, E>::setError(ResponseError&& error)
 {
 	m_error(std::move(error));
 }
@@ -363,7 +363,7 @@ void MessageHandler::CallbackRequestResult<T, F, E>::setError(ResponseError&& er
  */
 
 template<typename T>
-void MessageHandler::FutureRequestResult<T>::setValue(json::Value&& json)
+void MessageHandler::PendingRequestFuture<T>::setValue(json::Value&& json)
 {
 	auto value = T();
 	if(setValueFromJson(value, std::move(json)))
@@ -371,7 +371,7 @@ void MessageHandler::FutureRequestResult<T>::setValue(json::Value&& json)
 }
 
 template<typename T>
-void MessageHandler::FutureRequestResult<T>::setError(ResponseError&& error)
+void MessageHandler::PendingRequestFuture<T>::setError(ResponseError&& error)
 {
 	m_promise.set_exception(std::make_exception_ptr(std::move(error)));
 }

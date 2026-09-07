@@ -129,10 +129,8 @@ public:
 	};
 
 private:
-	class ResponseResultBase;
-	class RequestResultBase;
-	using RequestResultPtr  = std::unique_ptr<RequestResultBase>;
-	using ResponseResultPtr = std::unique_ptr<ResponseResultBase>;
+	class PendingRequestBase;
+	using PendingRequestPtr = std::unique_ptr<PendingRequestBase>;
 	using HandlerWrapper    = std::function<void(json::Value&&, const RequestId*, Connection::BatchSender*)>;
 
 	// General
@@ -143,7 +141,7 @@ private:
 	std::mutex                                      m_requestHandlersMutex;
 	// Outgoing requests
 	std::mutex                                      m_pendingRequestsMutex;
-	std::vector<RequestResultPtr>                   m_pendingRequests;
+	std::vector<PendingRequestPtr>                  m_pendingRequests;
 
 	template<typename T>
 	void sendResponse(const RequestId& requestId, const T& result, Connection::BatchSender* batchSender);
@@ -154,7 +152,7 @@ private:
 	void processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender);
 	void processResponse(jsonrpc::Response&& response);
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
-	void addPendingRequest(RequestResultPtr result);
+	void addPendingRequest(PendingRequestPtr pendingRequest);
 	void sendErrorResponse(
 		const RequestId& requestId,
 		int errorCode,
@@ -174,10 +172,10 @@ private:
 	 * Request result wrapper
 	 */
 
-	class RequestResultBase{
+	class PendingRequestBase{
 	public:
-		RequestResultBase(RequestId id) : m_requestId(std::move(id)){}
-		virtual ~RequestResultBase() = default;
+		PendingRequestBase(RequestId id) : m_requestId(std::move(id)){}
+		virtual ~PendingRequestBase() = default;
 		virtual void setValue(json::Value&& json) = 0;
 		virtual void setError(ResponseError&& error) = 0;
 
@@ -192,9 +190,9 @@ private:
 	};
 
 	template<typename T, typename F, typename E>
-	class CallbackRequestResult final : public RequestResultBase{
+	class PendingRequestCallback final : public PendingRequestBase{
 	public:
-		CallbackRequestResult(RequestId id, F&& then, E&& error);
+		PendingRequestCallback(RequestId id, F&& then, E&& error);
 
 		void setValue(json::Value&& json) override;
 		void setError(ResponseError&& error) override;
@@ -205,9 +203,9 @@ private:
 	};
 
 	template<typename T>
-	class FutureRequestResult final : public RequestResultBase{
+	class PendingRequestFuture final : public PendingRequestBase{
 	public:
-		FutureRequestResult(RequestId id) : RequestResultBase(std::move(id)){}
+		PendingRequestFuture(RequestId id) : PendingRequestBase(std::move(id)){}
 
 		auto future() -> std::future<T>{ return m_promise.get_future(); }
 
