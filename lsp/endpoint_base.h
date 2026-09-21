@@ -15,6 +15,8 @@ namespace notifications{
 struct Exit;
 } // namespace notifications
 
+struct InitializeParams;
+
 using RequestContext = MessageHandler::RequestContext;
 
 /*
@@ -44,7 +46,6 @@ public:
 	}
 
 	template<typename F>
-
 	void onCustomNotification(std::string_view method, F&& callback)
 	{
 		if constexpr(std::invocable<F, json::Value>)
@@ -69,15 +70,12 @@ public:
 		return messageHandler().sendCustomRequest<GenericRequestNoParams>(method, std::forward<F>(then), std::forward<E>(error));
 	}
 
-	void customNotification(std::string_view method, const json::Value& params)
-	{
-		messageHandler().sendCustomNotification<GenericNotification>(method, params);
-	}
+	void customNotification(std::string_view method, const json::Value& params);
+	void customNotification(std::string_view method);
 
-	void customNotification(std::string_view method)
-	{
-		messageHandler().sendCustomNotification<GenericNotificationNoParams>(method);
-	}
+	using LogHook = std::function<void(std::string_view, std::string_view)>;
+
+	void setLogHook(LogHook hook);
 
 protected:
 	enum class State{
@@ -94,10 +92,11 @@ protected:
 	template<typename MessageType, typename EndpointType>
 	class MessageHook{
 	public:
-		MessageHook(EndpointType& endpoint)
+		template<typename... Args>
+		MessageHook(EndpointType& endpoint, const Args&... params)
 			: m_endpoint(&endpoint)
 		{
-			m_endpoint->template preMethodCall<MessageType>();
+			m_endpoint->template preMethodCall<MessageType>(params...);
 		}
 
 		~MessageHook()
@@ -109,15 +108,16 @@ protected:
 		EndpointType* m_endpoint = nullptr;
 	};
 
-	template<typename MessageType, typename EndpointType>
-	[[nodiscard]] static auto messageHook(EndpointType& endpoint) -> MessageHook<MessageType, EndpointType>
+	template<typename MessageType, typename EndpointType, typename... Args>
+	[[nodiscard]] static auto messageHook(EndpointType& endpoint, const Args&... params) -> MessageHook<MessageType, EndpointType>
 	{
-		return MessageHook<MessageType, EndpointType>(endpoint);
+		return MessageHook<MessageType, EndpointType>(endpoint, params...);
 	}
 
 private:
 	std::atomic<State> m_state = State::Inactive;
 	MessageHandler     m_messageHandler;
+	LogHook            m_logHook;
 };
 
 /*
@@ -128,8 +128,8 @@ class ClientEndpointBase : public EndpointBase{
 public:
 	ClientEndpointBase(io::Stream& stream);
 
-	template<typename M>
-	void preMethodCall(){ verifyInitialized(); }
+	template<typename M, typename... Args>
+	void preMethodCall(const Args&...){ verifyInitialized(); }
 
 	template<typename M>
 	void postMethodCall(){}
@@ -139,26 +139,16 @@ private:
 };
 
 template<>
-inline void ClientEndpointBase::preMethodCall<requests::Initialize>(){}
+void ClientEndpointBase::preMethodCall<requests::Initialize, InitializeParams>(const InitializeParams& params);
 
 template<>
-inline void ClientEndpointBase::postMethodCall<requests::Initialize>()
-{
-	setState(State::Active);
-}
+void ClientEndpointBase::postMethodCall<requests::Initialize>();
 
 template<>
-inline void ClientEndpointBase::preMethodCall<requests::Shutdown>()
-{
-	verifyInitialized();
-	setState(State::Shutdown);
-}
+void ClientEndpointBase::preMethodCall<requests::Shutdown>();
 
 template<>
-inline void ClientEndpointBase::preMethodCall<notifications::Exit>()
-{
-	setState(State::Inactive);
-}
+void ClientEndpointBase::preMethodCall<notifications::Exit>();
 
 /*
  * ServerEndpointBase
@@ -170,52 +160,27 @@ public:
 
 	auto isInitialized() const -> bool;
 
-	template<typename M>
-	void preMethodCall(){ verifyInitialized(); }
+	template<typename M, typename... Args>
+	void preMethodCall(const Args&...){ verifyInitialized(); }
 
 	template<typename M>
 	void postMethodCall(){}
 
 private:
 	void verifyInitialized() const;
+	void registerBaseHandlers();
 };
 
 template<>
-inline void ServerEndpointBase::preMethodCall<requests::Initialize>()
-{
-	if(isInitialized())
-		throw lsp::RequestError(lsp::MessageError::InvalidRequest, "Server already initialized");
-}
+void ServerEndpointBase::preMethodCall<requests::Initialize, InitializeParams>(const InitializeParams& params);
 
 template<>
-inline void ServerEndpointBase::postMethodCall<requests::Initialize>()
-{
-	if(state() == State::Uninitialized)
-		setState(State::Active);
-}
-
-inline void ServerEndpointBase::verifyInitialized() const
-{
-	const auto currentState = state();
-
-	if(currentState <= State::Uninitialized)
-		throw lsp::RequestError(lsp::MessageError::ServerNotInitialized, "Server not initialized");
-
-	if(currentState == State::Shutdown)
-		throw lsp::RequestError(lsp::MessageError::InvalidRequest, "Server has received shutdown request");
-}
+void ServerEndpointBase::postMethodCall<requests::Initialize>();
 
 template<>
-inline void ServerEndpointBase::preMethodCall<requests::Shutdown>()
-{
-	verifyInitialized();
-	setState(State::Shutdown);
-}
+void ServerEndpointBase::preMethodCall<requests::Shutdown>();
 
 template<>
-inline void ServerEndpointBase::preMethodCall<notifications::Exit>()
-{
-	setState(State::Inactive);
-}
+void ServerEndpointBase::preMethodCall<notifications::Exit>();
 
 } // namespace lsp

@@ -12,44 +12,8 @@
 #include <lsp/io/stream.h>
 #include <lsp/json/json.h>
 
-#ifndef LSP_MESSAGE_DEBUG_LOG
-	#ifdef NDEBUG
-		#define LSP_MESSAGE_DEBUG_LOG 0
-	#else
-		#define LSP_MESSAGE_DEBUG_LOG 1
-	#endif
-#endif
-
-#if LSP_MESSAGE_DEBUG_LOG
-	#ifdef __APPLE__
-		#include <os/log.h>
-	#elif defined(_WIN32)
-		#define WIN32_LEAN_AND_MEAN
-		#include <Windows.h>
-	#else
-		#include <cstdio>
-	#endif
-#endif
-
 namespace lsp{
 namespace{
-
-/*
- * Message logging
- */
-
-#if LSP_MESSAGE_DEBUG_LOG
-void debugLogMessageJson([[maybe_unused]] const std::string& messageType, [[maybe_unused]] const std::string& json)
-{
-#ifdef __APPLE__
-	os_log_debug(OS_LOG_DEFAULT, "%{public}s", (messageType + ": " + json).c_str());
-#elif defined(_WIN32)
-	OutputDebugStringA((messageType + ": " + json + '\n').c_str());
-#elif defined(__linux__) || defined(__HAIKU__)
-	std::fprintf(stderr, "%s\n",  (messageType + ": " + json).c_str());
-#endif
-}
-#endif
 
 auto trimWhitespace(std::string_view str) -> std::string_view
 {
@@ -194,9 +158,6 @@ auto Connection::readMessage() -> Connection::Message
 			verifyContentType(header.contentType);
 
 			auto json = json::parse(content);
-#if LSP_MESSAGE_DEBUG_LOG
-			debugLogMessageJson("incoming", json::stringify(json));
-#endif
 
 			if(json.isObject())
 				return jsonrpc::messageFromJson(std::move(json.object()));
@@ -344,11 +305,6 @@ auto Connection::messageBatch() -> Connection::BatchSender
 
 Connection::MessageSender::MessageSender(Connection& connection)
 	: m_connection(&connection)
-	, m_writer(
-#if LSP_MESSAGE_DEBUG_LOG
-		"\t"
-#endif
-	)
 {
 }
 
@@ -367,9 +323,6 @@ void Connection::MessageSender::submit()
 {
 	if(m_connection)
 	{
-#if LSP_MESSAGE_DEBUG_LOG
-		debugLogMessageJson("outgoing", m_writer.text());
-#endif
 		m_connection->writeMessageData(m_writer.text());
 		m_connection = nullptr;
 	}

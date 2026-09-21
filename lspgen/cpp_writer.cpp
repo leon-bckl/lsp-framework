@@ -32,6 +32,9 @@ void CppWriter::reset(std::string& buffer)
 
 void CppWriter::write(std::string_view text, bool indent)
 {
+	if(text.empty())
+		return;
+
 	if(indent)
 		writeIndent();
 

@@ -132,7 +132,11 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 
 	m_implWriter.writeFuncSig(className + "::" + methodName, returnType, funcParams);
 	m_implWriter.writeBlockStart(true);
-	m_implWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
+
+	if(hasParams)
+		m_implWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this, params);");
+	else
+		m_implWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 
 	if(isNotification)
 		m_implWriter.writeLine("messageHandler().sendNotification<" + messageType + ">(" + (hasParams ? "params" : "") + ");");
@@ -148,12 +152,17 @@ void EndpointGenerator::generateOutgingMethod(const std::string& className, cons
 		funcParams.push_back({"E&&", "error", "nullError"});
 		inlineImplWriter.writeFuncSig(methodName, "RequestId", funcParams);
 		inlineImplWriter.writeBlockStart(true);
-		inlineImplWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 
 		if(hasParams)
+		{
+			inlineImplWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this, params);");
 			inlineImplWriter.writeLine("return messageHandler().sendRequest<" + messageType + ">(params, std::forward<F>(then), std::forward<E>(error));");
+		}
 		else
+		{
+			inlineImplWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 			inlineImplWriter.writeLine("return messageHandler().sendRequest<" + messageType + ">(std::forward<F>(then), std::forward<E>(error));");
+		}
 
 		inlineImplWriter.writeBlockEnd(false, true);
 	}
@@ -179,7 +188,11 @@ void EndpointGenerator::generateIncomingMethod(const std::string& className, con
 
 	m_declWriter.write(") mutable");
 	m_declWriter.writeBlockStart(true);
-	m_declWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
+
+	if(hasParams)
+		m_declWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this, params);");
+	else
+		m_declWriter.writeLine("const auto hook = messageHook<" + messageType + ">(*this);");
 
 	if(hasResult)
 		m_declWriter.write("return ");

@@ -31,7 +31,7 @@ namespace{
 // Write messages to stderr because stdout is already used for lsp messages
 void logStdErr(std::string_view message)
 {
-	std::cerr << "example_server: " << message << std::endl;
+	std::cerr << message << std::endl;
 }
 
 // Find TODO messages and report them as diagnostics

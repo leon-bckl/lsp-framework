@@ -3,7 +3,6 @@
 #include <functional>
 #include <future>
 #include <mutex>
-#include <utility>
 #include <unordered_map>
 #include <lsp/connection.h>
 #include <lsp/error.h>
@@ -14,6 +13,9 @@
 #include <lsp/thread_pool.h>
 
 namespace lsp{
+
+using RequestTimestamp = std::chrono::steady_clock::time_point;
+using RequestDuration  = std::chrono::steady_clock::duration;
 
 /*
  * MessageHandler
@@ -117,41 +119,89 @@ public:
 		[[nodiscard]] static auto get() -> const RequestContext&;
 		[[nodiscard]] static auto tryGet() -> const RequestContext*;
 
+		[[nodiscard]] auto method() const -> std::string_view{ return m_method; }
 		[[nodiscard]] auto id() const -> const RequestId&{ return m_requestId; }
+		[[nodiscard]] auto timestamp() const -> RequestTimestamp{ return m_requestTimestamp; }
 
 	private:
 		[[maybe_unused]] MessageHandler* m_messageHandler = nullptr;
-		RequestId       m_requestId;
+		std::string_view m_method;
+		const RequestId& m_requestId;
+		RequestTimestamp m_requestTimestamp;
 
-		RequestContext(MessageHandler& messageHandler, RequestId requestId);
+		RequestContext(
+			MessageHandler& messageHandler,
+			std::string_view method,
+			const RequestId& requestId,
+			RequestTimestamp requestTimestamp);
 	};
+
+	/*
+	 * Message log
+	 */
+
+	enum class MessageLogLevel{
+		Off,
+		Info,
+		InfoAndPayload
+	};
+
+	struct MessageLog{
+		struct ErrorData{
+			int              code;
+			std::string_view message;
+		};
+
+		bool                           incoming;
+		std::string_view               method;
+		std::optional<RequestDuration> requestDuration = {}; // Only set for responses
+		std::optional<ErrorData>       error           = {}; // Only set for error responses
+		std::optional<RequestId>       id              = {}; // Not set for notifications
+		std::optional<std::string>     payload         = {}; // Only set if verbose
+
+		auto isNotification() const{ return !id.has_value(); }
+		auto isRequest() const{ return id.has_value() && !requestDuration.has_value(); }
+		auto isResponse() const{ return requestDuration.has_value(); }
+	};
+
+	using MessageLogCallback = std::function<void(const MessageLog&)>;
+
+	void setMessageLogLevel(MessageLogLevel msgLogLevel);
+	void addMessageLogCallback(MessageLogCallback callback);
 
 private:
 	class PendingRequestBase;
 	using PendingRequestPtr = std::unique_ptr<PendingRequestBase>;
-	using HandlerWrapper    = std::function<void(json::Value&&, const RequestId*, Connection::BatchSender*)>;
+	using HandlerWrapper    = std::function<void(json::Value&&, Connection::BatchSender*)>;
 
 	// General
 	Connection                                      m_connection;
 	ThreadPool                                      m_threadPool;
+	std::atomic<MessageLogLevel>                    m_msgLogLevel = MessageHandler::MessageLogLevel::Off;
+	std::vector<MessageLogCallback>                 m_msgLogCallbacks;
 	// Incoming requests
 	std::unordered_map<std::string, HandlerWrapper> m_requestHandlersByMethod;
-	std::mutex                                      m_requestHandlersMutex;
 	// Outgoing requests
 	std::mutex                                      m_pendingRequestsMutex;
 	std::vector<PendingRequestPtr>                  m_pendingRequests;
 
+	auto shouldLog() const -> bool;
+
 	template<typename T>
-	void sendResponse(const RequestId& requestId, const T& result, Connection::BatchSender* batchSender);
+	void dispatchMessageLog(MessageLog& msgLog, const T& payload);
+
+	void dispatchMessageLog(const MessageLog& msgLog);
 
 	template<typename M>
-	void handleRequestResult(RequestResult<M>& result, Connection::BatchSender* batchSender);
+	void sendResponse(RequestResult<typename M::Result>& result, Connection::BatchSender* batchSender);
 
 	void processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender);
 	void processResponse(jsonrpc::Response&& response);
 	void addHandler(std::string_view method, HandlerWrapper&& handlerFunc);
 	void addPendingRequest(PendingRequestPtr pendingRequest);
 	void sendErrorResponse(
+		std::string_view method,
+		RequestTimestamp requestTimestamp,
 		const RequestId& requestId,
 		int errorCode,
 		std::string_view errorMessage,
@@ -172,11 +222,13 @@ private:
 
 	class PendingRequestBase{
 	public:
-		PendingRequestBase(RequestId id) : m_requestId(std::move(id)){}
+		PendingRequestBase(std::string method, RequestTimestamp timestamp, RequestId id);
 		virtual ~PendingRequestBase() = default;
 		virtual void setValue(json::Value&& json) = 0;
 		virtual void setError(ResponseError&& error) = 0;
 
+		auto method() const -> std::string_view{ return m_method; }
+		auto requestTimestamp() const -> RequestTimestamp{ return m_requestTimestamp; }
 		auto requestId() const -> const RequestId&{ return m_requestId; }
 
 	protected:
@@ -184,13 +236,15 @@ private:
 		auto setValueFromJson(T& value, json::Value&& json) -> bool;
 
 	private:
-		RequestId m_requestId;
+		std::string      m_method;
+		RequestTimestamp m_requestTimestamp;
+		RequestId        m_requestId;
 	};
 
 	template<typename T, typename F, typename E>
 	class PendingRequestCallback final : public PendingRequestBase{
 	public:
-		PendingRequestCallback(RequestId id, F&& then, E&& error);
+		PendingRequestCallback(std::string method, RequestTimestamp timestamp, RequestId id, F&& then, E&& error);
 
 		void setValue(json::Value&& json) override;
 		void setError(ResponseError&& error) override;
@@ -203,7 +257,7 @@ private:
 	template<typename T>
 	class PendingRequestFuture final : public PendingRequestBase{
 	public:
-		PendingRequestFuture(RequestId id) : PendingRequestBase(std::move(id)){}
+		PendingRequestFuture(std::string method, RequestTimestamp timestamp, RequestId id);
 
 		auto future() -> std::future<T>{ return m_promise.get_future(); }
 

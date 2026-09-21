@@ -12,9 +12,15 @@ thread_local const MessageHandler::RequestContext* t_requestContext = nullptr;
  * MessageHandler::RequestContext
  */
 
-MessageHandler::RequestContext::RequestContext(MessageHandler& messageHandler, RequestId requestId)
+MessageHandler::RequestContext::RequestContext(
+	MessageHandler& messageHandler,
+	std::string_view method,
+	const RequestId& requestId,
+	RequestTimestamp requestTimestamp)
 	: m_messageHandler(&messageHandler)
-	, m_requestId(std::move(requestId))
+	, m_method(method)
+	, m_requestId(requestId)
+	, m_requestTimestamp(requestTimestamp)
 {
 	assert(!t_requestContext);
 	t_requestContext = this;
@@ -87,53 +93,110 @@ void MessageHandler::setConnection(Connection connection)
 
 void MessageHandler::remove(const std::string& method)
 {
-	std::lock_guard lock{m_requestHandlersMutex};
-
 	if(const auto it = m_requestHandlersByMethod.find(method); it != m_requestHandlersByMethod.end())
 		m_requestHandlersByMethod.erase(it);
 }
 
+void MessageHandler::setMessageLogLevel(MessageLogLevel msgLogLevel)
+{
+	m_msgLogLevel.store(msgLogLevel);
+}
+
+void MessageHandler::addMessageLogCallback(MessageLogCallback callback)
+{
+	if(callback)
+		m_msgLogCallbacks.emplace_back(std::move(callback));
+}
+
+auto MessageHandler::shouldLog() const -> bool
+{
+	return !m_msgLogCallbacks.empty() && m_msgLogLevel.load() != MessageLogLevel::Off;
+}
+
+void MessageHandler::dispatchMessageLog(const MessageLog& msgLog)
+{
+	for(const auto& callback : m_msgLogCallbacks)
+		callback(msgLog);
+}
+
 void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::BatchSender* batchSender)
 {
-	auto lock = std::unique_lock(m_requestHandlersMutex);
+	const auto requestTimestamp = std::chrono::steady_clock::now();
+
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming = true,
+			.method   = request.method,
+			.id       = request.id,
+		};
+
+		if(request.params.has_value())
+			dispatchMessageLog(msgLog, *request.params);
+		else
+			dispatchMessageLog(msgLog);
+	}
 
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
 	{
 		try
 		{
-			lock.unlock();
-
 			if(request.isNotification())
 			{
 				handlerIt->second(
 					request.params.has_value() ? std::move(*request.params) : json::Null{},
-					nullptr,
 					nullptr);
 			}
 			else
 			{
+				// Instantiate request context for request handler
+				auto context = RequestContext(*this, request.method, *request.id, requestTimestamp);
+
 				handlerIt->second(
 					request.params.has_value() ? std::move(*request.params) : json::Null{},
-					&*request.id,
 					batchSender);
 			}
 		}
 		catch(const RequestError& e)
 		{
 			if(!request.isNotification())
-				sendErrorResponse(*request.id, e.code(), e.what(), e.data(), batchSender);
+				sendErrorResponse(
+					request.method,
+					requestTimestamp,
+					*request.id,
+					e.code(),
+					e.what(),
+					e.data(), batchSender);
 		}
 		catch(const std::exception& e)
 		{
 			if(!request.isNotification())
-				sendErrorResponse(*request.id, MessageError::InternalError, e.what(), {}, batchSender);
+			{
+				sendErrorResponse(
+					request.method,
+					requestTimestamp,
+					*request.id,
+					MessageError::InternalError,
+					e.what(),
+					{},
+					batchSender);
+			}
 		}
 	}
 	else
 	{
 		if(!request.isNotification())
-			sendErrorResponse(*request.id, MessageError::MethodNotFound, "Method not found", {}, nullptr);
+		{
+			sendErrorResponse(
+				request.method,
+				requestTimestamp,
+				*request.id,
+				MessageError::MethodNotFound,
+				"Method not found",
+				{},
+				nullptr);
+		}
 	}
 }
 
@@ -160,7 +223,37 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 	if(!pendingRequest)
 		return;
 
-	const auto requestContext = RequestContext(*this, response.id);
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming        = true,
+			.method          = pendingRequest->method(),
+			.requestDuration = std::chrono::steady_clock::now() - pendingRequest->requestTimestamp(),
+			.id              = pendingRequest->requestId(),
+		};
+
+		if(response.error.has_value())
+			msgLog.error = {{response.error->code, response.error->message}};
+
+		if(response.error.has_value())
+		{
+			if(response.error->data.has_value())
+				dispatchMessageLog(msgLog, response.error->data);
+			else
+				dispatchMessageLog(msgLog);
+		}
+		else
+		{
+			dispatchMessageLog(msgLog, response.result);
+		}
+	}
+
+	// Instantiate request context for response handler
+	const auto requestContext = RequestContext(
+		*this,
+		pendingRequest->method(),
+		response.id,
+		pendingRequest->requestTimestamp());
 
 	if(response.result.has_value())
 	{
@@ -176,7 +269,6 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 
 void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handlerFunc)
 {
-	std::lock_guard lock{m_requestHandlersMutex};
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
@@ -187,12 +279,30 @@ void MessageHandler::addPendingRequest(PendingRequestPtr pendingRequest)
 }
 
 void MessageHandler::sendErrorResponse(
+	std::string_view method,
+	RequestTimestamp requestTimestamp,
 	const RequestId& requestId,
 	int errorCode,
 	std::string_view errorMessage,
 	const std::optional<json::Value>& errorData,
 	Connection::BatchSender* batchSender)
 {
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming        = false,
+			.method          = method,
+			.requestDuration = std::chrono::steady_clock::now() - requestTimestamp,
+			.error           = {{errorCode, errorMessage}},
+			.id              = requestId
+		};
+
+		if(errorData.has_value())
+			dispatchMessageLog(msgLog, *errorData);
+		else
+			dispatchMessageLog(msgLog);
+	}
+
 	if(batchSender)
 	{
 		auto responseWriter = batchSender->writeError(requestId, errorCode, errorMessage);
@@ -221,6 +331,13 @@ auto MessageHandler::nextUniqueRequestId() -> json::Integer
 {
 	static std::atomic<json::Integer> s_uniqueRequestId = 0;
 	return ++s_uniqueRequestId;
+}
+
+MessageHandler::PendingRequestBase::PendingRequestBase(std::string method, RequestTimestamp timestamp, RequestId id)
+	: m_method(std::move(method))
+	, m_requestTimestamp(timestamp)
+	, m_requestId(id)
+{
 }
 
 } // namespace lsp

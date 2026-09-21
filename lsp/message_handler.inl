@@ -2,48 +2,73 @@
 
 #include <cassert>
 #include <concepts>
+#include <utility>
 #include "message_handler.h"
 
 namespace lsp{
+
+template<typename T>
+void MessageHandler::dispatchMessageLog(MessageLog& msgLog, const T& payload)
+{
+	if(m_msgLogLevel.load() >= MessageLogLevel::InfoAndPayload)
+	{
+		auto writer = json::Writer("    ");
+		writeJson(payload, writer);
+		msgLog.payload = std::move(writer).text();
+	}
+
+	dispatchMessageLog(msgLog);
+}
 
 /*
  * sendResponse
  */
 
-template<typename T>
-void MessageHandler::sendResponse(const RequestId& requestId, const T& result, Connection::BatchSender* batchSender)
+template<typename M>
+void MessageHandler::sendResponse(RequestResult<typename M::Result>& result, Connection::BatchSender* batchSender)
 {
-	if(batchSender)
-	{
-		auto responseWriter = batchSender->writeResponse(requestId);
-		responseWriter.writeData(
-			[](std::string_view key, const T& value, json::ObjectWriter& objectWriter)
-			{
-				writeJson(key, value, objectWriter);
-			}, result);
-	}
-	else
-	{
-		auto responseSender = m_connection.response(requestId);
-		responseSender.writeData(result);
-		responseSender.submit();
-	}
-}
+	const auto ctx = RequestContext::get();
 
-template<typename T>
-void MessageHandler::handleRequestResult(RequestResult<T>& result, Connection::BatchSender* batchSender)
-{
+	// Result.get() can throw if the result invokes a callback or calls std::future::get
 	try
 	{
-		sendResponse(result.requestId(), result.get(), batchSender);
+		const auto resultValue = result.get();
+
+		if(shouldLog())
+		{
+			auto msgLog = MessageLog{
+				.incoming        = false,
+				.method          = ctx.method(),
+				.requestDuration = std::chrono::steady_clock::now() - ctx.timestamp(),
+				.id              = ctx.id(),
+			};
+
+			dispatchMessageLog(msgLog, resultValue);
+		}
+
+		if(batchSender)
+		{
+			auto responseWriter = batchSender->writeResponse(ctx.id());
+			responseWriter.writeData(
+				[](std::string_view key, const typename M::Result& value, json::ObjectWriter& objectWriter)
+				{
+					writeJson(key, value, objectWriter);
+				}, resultValue);
+		}
+		else
+		{
+			auto responseSender = m_connection.response(result.requestId());
+			responseSender.writeData(resultValue);
+			responseSender.submit();
+		}
 	}
 	catch(const RequestError& e)
 	{
-		sendErrorResponse(result.requestId(), e.code(), e.what(), e.data(), batchSender);
+		sendErrorResponse(ctx.method(), ctx.timestamp(), ctx.id(), e.code(), e.what(), e.data(), batchSender);
 	}
 	catch(std::exception& e)
 	{
-		sendErrorResponse(result.requestId(), MessageError::InternalError, e.what(), {}, batchSender);
+		sendErrorResponse(ctx.method(), ctx.timestamp(), ctx.id(), MessageError::InternalError, e.what(), {}, batchSender);
 	}
 }
 
@@ -62,15 +87,13 @@ requires (M::Kind == MessageKind::Request)
 auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageHandler&
 {
 	addHandler(method,
-		[this, callback = std::forward<F>(callback)](
-			[[maybe_unused]] json::Value&& json, [[maybe_unused]] const RequestId* requestId, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
+		[this, method = std::string(method), callback = std::forward<F>(callback)](
+			[[maybe_unused]] json::Value&& json, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
 		{
-			assert(requestId);
-
-			auto context = RequestContext(*this, *requestId);
+			const auto context = RequestContext::get();
 
 			auto result =
-				[&json, &callback, requestId]() mutable
+				[&json, &callback, &context]() mutable
 				{
 					if constexpr(MessageHasParams<M>)
 					{
@@ -91,7 +114,7 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 							throw RequestError(MessageError::InvalidParams, e.what());
 						}
 
-						return RequestResult<typename M::Result>(callback(std::move(params)), *requestId);
+						return RequestResult<typename M::Result>(callback(std::move(params)), context.id());
 					}
 					else
 					{
@@ -99,22 +122,22 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 						static_assert(std::invocable<F>, "Request callback must be callable without params");
 						static_assert(std::constructible_from<RequestResult<typename M::Result>, std::invoke_result_t<F>>,
 							"Request callback must return a value or callable that can construct a MessageType::Result");
-						return RequestResult<typename M::Result>(callback(), *requestId);
+						return RequestResult<typename M::Result>(callback(), context.id());
 					}
 				}();
 
 			// Requests that are part of a batch cannot be handled asynchronously
 			if(!result.isDeferred() || batchSender)
 			{
-				handleRequestResult(result, batchSender);
+				sendResponse<M>(result, batchSender);
 			}
 			else
 			{
 				m_threadPool.addTask(
-					[this, requestId = *requestId, result = std::move(result)]() mutable
+					[this, method = method, timestamp = context.timestamp(), requestId = context.id(), result = std::move(result)]() mutable
 					{
-						auto context = RequestContext(*this, std::move(requestId));
-						handleRequestResult(result, nullptr);
+						auto context = RequestContext(*this, method, requestId, timestamp);
+						sendResponse<M>(result, nullptr);
 					});
 			}
 		});
@@ -128,11 +151,10 @@ auto MessageHandler::onCustom(std::string_view method, F&& callback) -> MessageH
 {
 	addHandler(method,
 		[this, callback = std::forward<F>(callback)](
-			[[maybe_unused]] json::Value&& json, [[maybe_unused]] const RequestId* requestId, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
+			[[maybe_unused]] json::Value&& json, [[maybe_unused]] Connection::BatchSender* batchSender) mutable
 		{
 			(void)this; // Only used for async requests within if constexpr
 			static_assert(M::Kind == MessageKind::Notification);
-			assert(!requestId);
 
 			if constexpr(MessageHasParams<M>)
 			{
@@ -190,7 +212,22 @@ requires MessageHasParams<M>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params, F&& then, E&& error) -> RequestId
 {
 	const auto requestId = nextUniqueRequestId();
+	const auto timestamp = std::chrono::steady_clock::now();
+
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming = false,
+			.method   = method,
+			.id       = requestId,
+		};
+
+		dispatchMessageLog(msgLog, params);
+	}
+
 	auto result = std::make_unique<PendingRequestCallback<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
+		std::string(method),
+		timestamp,
 		requestId,
 		std::forward<F>(then),
 		std::forward<E>(error));
@@ -215,7 +252,22 @@ requires (!MessageHasParams<M>)
 auto MessageHandler::sendCustomRequest(std::string_view method, F&& then, E&& error) -> RequestId
 {
 	const auto requestId = nextUniqueRequestId();
+	const auto timestamp = std::chrono::steady_clock::now();
+
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming = false,
+			.method   = method,
+			.id       = requestId,
+		};
+
+		dispatchMessageLog(msgLog);
+	}
+
 	auto result = std::make_unique<PendingRequestCallback<typename M::Result, std::decay_t<F>, std::decay_t<E>>>(
+		std::string(method),
+		timestamp,
 		requestId,
 		std::forward<F>(then),
 		std::forward<E>(error));
@@ -238,8 +290,21 @@ template<typename M>
 requires MessageHasParams<M> && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method, const typename M::Params& params) -> RequestResult<typename M::Result>
 {
-	const auto requestId     = nextUniqueRequestId();
-	auto       result        = std::make_unique<PendingRequestFuture<typename M::Result>>(requestId);
+	const auto requestId = nextUniqueRequestId();
+	const auto timestamp = std::chrono::steady_clock::now();
+
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming = false,
+			.method   = method,
+			.id       = requestId,
+		};
+
+		dispatchMessageLog(msgLog, params);
+	}
+
+	auto       result        = std::make_unique<PendingRequestFuture<typename M::Result>>(std::string(method), timestamp, requestId);
 	auto       future        = result->future();
 	auto       requestSender = m_connection.request(method, requestId);
 
@@ -261,8 +326,21 @@ template<typename M>
 requires (!MessageHasParams<M>) && MessageHasResult<M>
 auto MessageHandler::sendCustomRequest(std::string_view method) -> RequestResult<typename M::Result>
 {
-	const auto requestId     = nextUniqueRequestId();
-	auto       result        = std::make_unique<PendingRequestFuture<typename M::Result>>(requestId);
+	const auto requestId = nextUniqueRequestId();
+	const auto timestamp = std::chrono::steady_clock::now();
+
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming = false,
+			.method   = method,
+			.id       = requestId,
+		};
+
+		dispatchMessageLog(msgLog);
+	}
+
+	auto       result        = std::make_unique<PendingRequestFuture<typename M::Result>>(std::string(method), timestamp, requestId);
 	auto       future        = result->future();
 	auto       requestSender = m_connection.request(method, requestId);
 
@@ -287,6 +365,16 @@ template<typename M>
 requires MessageHasParams<M> && (!MessageHasResult<M>)
 void MessageHandler::sendCustomNotification(std::string_view method, const typename M::Params& params)
 {
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming = false,
+			.method   = method,
+		};
+
+		dispatchMessageLog(msgLog, params);
+	}
+
 	auto notificationSender = m_connection.notification(method);
 	notificationSender.writeParams(params);
 	notificationSender.submit();
@@ -303,6 +391,16 @@ template<typename M>
 requires (!MessageHasParams<M>) && (!MessageHasResult<M>)
 void MessageHandler::sendCustomNotification(std::string_view method)
 {
+	if(shouldLog())
+	{
+		auto msgLog = MessageLog{
+			.incoming = false,
+			.method   = method,
+		};
+
+		dispatchMessageLog(msgLog);
+	}
+
 	auto notificationSender = m_connection.notification(method);
 	notificationSender.submit();
 }
@@ -329,12 +427,17 @@ auto MessageHandler::PendingRequestBase::setValueFromJson(T& value, json::Value&
 }
 
 /*
- * CallbackRequestResult
+ * PendingRequestCallback
  */
 
 template<typename T, typename F, typename E>
-MessageHandler::PendingRequestCallback<T, F, E>::PendingRequestCallback(RequestId id, F&& then, E&& error)
-	: PendingRequestBase(std::move(id))
+MessageHandler::PendingRequestCallback<T, F, E>::PendingRequestCallback(
+	std::string method,
+	RequestTimestamp timestamp,
+	RequestId id,
+	F&& then,
+	E&& error)
+	: PendingRequestBase(std::move(method), timestamp, std::move(id))
 	, m_then(std::forward<F>(then))
 	, m_error(std::forward<E>(error))
 {
@@ -359,8 +462,17 @@ void MessageHandler::PendingRequestCallback<T, F, E>::setError(ResponseError&& e
 }
 
 /*
- * FutureRequestResult
+ * PendingRequestFuture
  */
+
+template<typename T>
+MessageHandler::PendingRequestFuture<T>::PendingRequestFuture(
+	std::string method,
+	RequestTimestamp timestamp,
+	RequestId id)
+	: PendingRequestBase(std::move(method), timestamp, std::move(id))
+{
+}
 
 template<typename T>
 void MessageHandler::PendingRequestFuture<T>::setValue(json::Value&& json)

@@ -36,7 +36,7 @@ namespace{
 // Write messages to stderr because stdout is already used for lsp messages
 void logStdErr(std::string_view message)
 {
-	std::cerr << "example_client: " << message << std::endl;
+	std::cerr << message << std::endl;
 }
 
 auto messageTypeName(lsp::MessageType type) -> std::string
@@ -85,6 +85,8 @@ public:
 		auto params = lsp::InitializeParams();
 		params.processId = lsp::Process::currentProcessId();
 		params.rootUri   = lsp::Uri::fileUriFromPath(".");
+		params.trace     = lsp::TraceValue::Verbose;
+		m_endpoint.messageHandler().setMessageLogLevel(lsp::MessageHandler::MessageLogLevel::InfoAndPayload);
 
 		// ClientInfo only became a standalone type in 3.18
 		// When built with the older meta model, it uses a generated type name
@@ -225,7 +227,23 @@ private:
 
 	void registerHandlers()
 	{
+		m_endpoint.setLogHook(
+			[](std::string_view message, std::string_view verbose){
+				logStdErr(message);
+
+				if(!verbose.empty())
+					logStdErr(verbose);
+			});
+
 		m_endpoint
+			.onLogTrace(
+				[](const auto& params)
+				{
+					logStdErr(params.message);
+
+					if(params.verbose.has_value())
+						logStdErr(*params.verbose);
+				})
 			.onWindowLogMessage(
 				[](auto&& params)
 				{
