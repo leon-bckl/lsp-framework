@@ -106,6 +106,55 @@ void respondWithNonArray(MessageHandler& handler)
 	});
 }
 
+/*
+ * A copy of MessageHandler::MessageLog that owns its strings, since the original
+ * holds string_views into data that is only valid for the duration of the callback.
+ */
+struct LoggedMessage{
+	std::string                 direction; // "in" or "out"
+	std::string                 kind;      // "request", "notification" or "response"
+	std::string                 method;
+	std::optional<RequestId>    id;
+	bool                        hasDuration;
+	std::optional<int>          errorCode;
+	std::optional<std::string>  errorMessage;
+	std::optional<std::string>  payload;
+};
+
+LoggedMessage toLoggedMessage(const MessageHandler::MessageLog& log)
+{
+	auto logged = LoggedMessage{
+		.direction   = log.incoming ? "in" : "out",
+		.kind        = log.isNotification() ? "notification" : log.isResponse() ? "response" : "request",
+		.method      = std::string(log.method),
+		.id          = log.id,
+		.hasDuration = log.requestDuration.has_value(),
+		.payload     = log.payload,
+	};
+
+	if(log.error.has_value())
+	{
+		logged.errorCode    = log.error->code;
+		logged.errorMessage = std::string(log.error->message);
+	}
+
+	return logged;
+}
+
+void expectLogKind(const LoggedMessage& log, std::string_view direction, std::string_view kind)
+{
+	test::compare(log.direction, std::string(direction));
+	test::compare(log.kind, std::string(kind));
+}
+
+void expectLogError(const LoggedMessage& log, int expectedCode, std::string_view expectedMessage)
+{
+	test::check(log.errorCode.has_value(), "hasErrorCode");
+	test::compare(*log.errorCode, expectedCode);
+	test::check(log.errorMessage.has_value(), "hasErrorMessage");
+	test::compare(*log.errorMessage, std::string(expectedMessage));
+}
+
 int main(int argc, char** argv)
 {
 	auto app = test::TestApp();
@@ -970,6 +1019,210 @@ int main(int argc, char** argv)
 
 		test::check(called, "called");
 		test::compare(received.object().get("x").integer(), 1);
+	});
+
+	/*
+	 * Message log
+	 */
+
+	app.addTest("MessageLog/OffByDefault", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto logs    = std::vector<LoggedMessage>();
+
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog& log){ logs.push_back(toLoggedMessage(log)); });
+
+		handler.on<TestNoParamsRequest>([&](){ return std::vector<int>{}; });
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), std::vector<int>{});
+		test::check(logs.empty(), "noLogsWithoutExplicitLevel");
+	});
+
+	app.addTest("MessageLog/RoundTripLogsAllFourEvents", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto logs    = std::vector<LoggedMessage>();
+
+		handler.setMessageLogLevel(MessageHandler::MessageLogLevel::Info);
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog& log){ logs.push_back(toLoggedMessage(log)); });
+
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>){ return 42; });
+
+		auto response = handler.sendRequest<TestRequest>({{"x", 1}});
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), 42);
+		test::compare(logs.size(), 4);
+
+		expectLogKind(logs[0], "out", "request");
+		expectLogKind(logs[1], "in",  "request");
+		expectLogKind(logs[2], "out", "response");
+		expectLogKind(logs[3], "in",  "response");
+
+		for(const auto& log : logs)
+		{
+			test::compare(log.method, std::string(TestRequest::Method));
+			test::check(log.id.has_value(), "hasId");
+			test::compare(*log.id, response.requestId());
+		}
+
+		test::check(!logs[0].hasDuration, "outgoingRequestHasNoDuration");
+		test::check(!logs[1].hasDuration, "incomingRequestHasNoDuration");
+		test::check(logs[2].hasDuration, "outgoingResponseHasDuration");
+		test::check(logs[3].hasDuration, "incomingResponseHasDuration");
+	});
+
+	app.addTest("MessageLog/NotificationLoggedBothSides", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto logs    = std::vector<LoggedMessage>();
+
+		handler.setMessageLogLevel(MessageHandler::MessageLogLevel::Info);
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog& log){ logs.push_back(toLoggedMessage(log)); });
+
+		auto called = false;
+		handler.on<TestNoParamsNotification>([&](){ called = true; });
+
+		handler.sendNotification<TestNoParamsNotification>();
+		handler.processNextMessage();
+
+		test::check(called, "called");
+		test::compare(logs.size(), 2);
+
+		expectLogKind(logs[0], "out", "notification");
+		test::check(!logs[0].id.has_value(), "outgoingNotificationHasNoId");
+
+		expectLogKind(logs[1], "in", "notification");
+		test::check(!logs[1].id.has_value(), "incomingNotificationHasNoId");
+
+		for(const auto& log : logs)
+			test::compare(log.method, std::string(TestNoParamsNotification::Method));
+	});
+
+	app.addTest("MessageLog/ErrorResponseLogged", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto logs    = std::vector<LoggedMessage>();
+
+		handler.setMessageLogLevel(MessageHandler::MessageLogLevel::Info);
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog& log){ logs.push_back(toLoggedMessage(log)); });
+
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
+		{
+			throw RequestError(1234, "custom error");
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, 1234, "custom error");
+
+		test::compare(logs.size(), 4);
+
+		test::check(!logs[1].errorCode.has_value(), "incomingRequestHasNoError");
+
+		expectLogKind(logs[2], "out", "response");
+		expectLogError(logs[2], 1234, "custom error");
+
+		expectLogKind(logs[3], "in", "response");
+		test::check(logs[3].errorCode.has_value(), "incomingResponseHasErrorCode");
+		test::compare(*logs[3].errorCode, 1234);
+	});
+
+	app.addTest("MessageLog/MethodNotFoundLogsIncomingRequestAndErrorResponse", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto logs    = std::vector<LoggedMessage>();
+
+		handler.setMessageLogLevel(MessageHandler::MessageLogLevel::Info);
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog& log){ logs.push_back(toLoggedMessage(log)); });
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		expectResponseError(response, MessageError::MethodNotFound, "Method not found");
+
+		test::compare(logs.size(), 4);
+
+		expectLogKind(logs[1], "in", "request");
+		test::check(!logs[1].errorCode.has_value(), "incomingRequestHasNoError");
+
+		expectLogKind(logs[2], "out", "response");
+		expectLogError(logs[2], MessageError::MethodNotFound, "Method not found");
+	});
+
+	app.addTest("MessageLog/PayloadOnlyAtVerboseLevel", [](MessageHandler::MessageLogLevel level, bool expectPayload){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto logs    = std::vector<LoggedMessage>();
+
+		handler.setMessageLogLevel(level);
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog& log){ logs.push_back(toLoggedMessage(log)); });
+
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>){ return 42; });
+
+		auto response = handler.sendRequest<TestRequest>({{"x", 1}});
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), 42);
+		test::compare(logs.size(), 4);
+
+		for(const auto& log : logs)
+			test::compare(log.payload.has_value(), expectPayload);
+	})({
+		{"Info",           {MessageHandler::MessageLogLevel::Info,           false}},
+		{"InfoAndPayload", {MessageHandler::MessageLogLevel::InfoAndPayload, true}},
+	});
+
+	app.addTest("MessageLog/VerbosePayloadContainsParamsAndResult", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto logs    = std::vector<LoggedMessage>();
+
+		handler.setMessageLogLevel(MessageHandler::MessageLogLevel::InfoAndPayload);
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog& log){ logs.push_back(toLoggedMessage(log)); });
+
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>){ return 42; });
+
+		auto response = handler.sendRequest<TestRequest>({{"x", 1}});
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), 42);
+		test::compare(logs.size(), 4);
+
+		test::check(logs[0].payload.has_value(), "outgoingRequestHasPayload");
+		test::compare(json::parse(*logs[0].payload).object().get("x").integer(), 1);
+
+		test::check(logs[2].payload.has_value(), "outgoingResponseHasPayload");
+		test::compare(json::parse(*logs[2].payload).integer(), 42);
+	});
+
+	app.addTest("MessageLog/MultipleCallbacksAllInvoked", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto countA  = 0;
+		auto countB  = 0;
+
+		handler.setMessageLogLevel(MessageHandler::MessageLogLevel::Info);
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog&){ ++countA; });
+		handler.addMessageLogCallback([&](const MessageHandler::MessageLog&){ ++countB; });
+
+		handler.on<TestNoParamsNotification>([&](){});
+
+		handler.sendNotification<TestNoParamsNotification>();
+		handler.processNextMessage();
+
+		test::compare(countA, 2);
+		test::compare(countB, 2);
 	});
 
 	/*
