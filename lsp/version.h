@@ -1,8 +1,8 @@
 #pragma once
 
-#define LSP_VERSION_MAJOR 1
-#define LSP_VERSION_MINOR 3
-#define LSP_VERSION_PATCH 1
+#define LSP_VERSION_MAJOR 2
+#define LSP_VERSION_MINOR 0
+#define LSP_VERSION_PATCH 0
 
 #define LSP_STR_INNER(v) #v
 #define LSP_STR(v) LSP_STR_INNER(v)
