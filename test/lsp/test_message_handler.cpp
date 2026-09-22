@@ -145,12 +145,14 @@ struct LoggedMessage{
 LoggedMessage toLoggedMessage(const MessageHandler::MessageLog& log)
 {
 	auto logged = LoggedMessage{
-		.direction   = log.incoming ? "in" : "out",
-		.kind        = log.isNotification() ? "notification" : log.isResponse() ? "response" : "request",
-		.method      = std::string(log.method),
-		.id          = log.id,
-		.hasDuration = log.requestDuration.has_value(),
-		.payload     = log.payload,
+		.direction    = log.incoming ? "in" : "out",
+		.kind         = log.isNotification() ? "notification" : log.isResponse() ? "response" : "request",
+		.method       = std::string(log.method),
+		.id           = log.id,
+		.hasDuration  = log.requestDuration.has_value(),
+		.errorCode    = {},
+		.errorMessage = {},
+		.payload      = log.payload,
 	};
 
 	if(log.error.has_value())
