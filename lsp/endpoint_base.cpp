@@ -1,5 +1,5 @@
 #include <stdexcept>
-#include <lsp/types.h>
+#include <lsp/types.h> // Generated type dependency needed for initialize params
 #include "endpoint_base.h"
 
 namespace lsp{
@@ -12,6 +12,23 @@ EndpointBase::EndpointBase(io::Stream& stream)
 	: m_messageHandler(Connection(stream))
 {
 	setState(State::Uninitialized);
+
+	onCustomNotification("$/cancelRequest",
+		[this](json::Value&& params)
+		{
+			if(!params.isObject())
+				return;
+
+			const auto* idValue = params.object().find("id");
+
+			if(!idValue)
+				return;
+
+			if(idValue->isInteger())
+				messageHandler().cancel(idValue->integer());
+			else if(idValue->isString())
+				messageHandler().cancel(idValue->string());
+		});
 
 	messageHandler().addMessageLogCallback(
 		[this](const MessageHandler::MessageLog& msgLog)

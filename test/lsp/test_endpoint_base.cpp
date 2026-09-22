@@ -1,3 +1,5 @@
+#include <chrono>
+#include <future>
 #include <string>
 #include <string_view>
 #include <test/test.h>
@@ -8,6 +10,7 @@
 #include <lsp/json/json.h>
 #include <lsp/message_base.h>
 #include <lsp/message_handler.h>
+#include <lsp/types.h>
 
 using namespace lsp;
 using lsptest::LoopbackStream;
@@ -24,7 +27,7 @@ void gotoState(ServerEndpointBase& server, State state)
 	if(state == State::Uninitialized)
 		return;
 
-	server.preMethodCall<requests::Initialize>();
+	server.preMethodCall<requests::Initialize>(InitializeParams{});
 	server.postMethodCall<requests::Initialize>();
 
 	if(state == State::Shutdown)
@@ -277,7 +280,7 @@ int main(int argc, char** argv)
 		auto stream = LoopbackStream();
 		auto server = ServerEndpointBase(stream);
 
-		server.preMethodCall<requests::Initialize>();
+		server.preMethodCall<requests::Initialize>(InitializeParams{});
 		test::check(!server.isInitialized(), "notInitializedUntilPost");
 
 		server.postMethodCall<requests::Initialize>();
@@ -295,7 +298,7 @@ int main(int argc, char** argv)
 		gotoState(server, State::Active);
 
 		expectRequestError(
-			[&](){ server.preMethodCall<requests::Initialize>(); },
+			[&](){ server.preMethodCall<requests::Initialize>(InitializeParams{}); },
 			MessageError::InvalidRequest, "Server already initialized");
 	});
 
@@ -412,6 +415,45 @@ int main(int argc, char** argv)
 		server.processNextMessage();
 
 		test::check(notified, "notified");
+	});
+
+	app.addTest("Custom/CancelRequestNotificationCancelsActiveRequest", [](){
+		auto stream = LoopbackStream();
+		auto server = ServerEndpointBase(stream);
+		gotoState(server, State::Active);
+
+		auto started            = std::promise<void>();
+		auto startedFuture      = started.get_future();
+		auto released           = std::promise<void>();
+		auto releasedFuture     = released.get_future();
+		auto canceledDuringWork = false;
+
+		server.onCustomRequest("test/longOp", [&](json::Value&&) -> std::future<json::Value>
+		{
+			return std::async(std::launch::deferred, [&]() -> json::Value
+			{
+				started.set_value();
+				(void)releasedFuture.wait_for(std::chrono::seconds(5));
+				canceledDuringWork = RequestContext::get().isCanceled();
+				return json::Value(json::Null{});
+			});
+		});
+
+		const auto requestId = server.customRequest("test/longOp", json::Value(json::Null{}),
+			[](json::Value&&){});
+
+		server.processNextMessage(); // Dispatch the request; deferred work starts on a worker thread
+
+		test::check(startedFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready, "workStarted");
+
+		const auto idInt = std::get<json::Integer>(requestId);
+		server.customNotification("$/cancelRequest", json::Object({{"id", idInt}}));
+		server.processNextMessage(); // Handle the cancel notification
+
+		released.set_value();
+		server.processNextMessage(); // Response for test/longOp
+
+		test::check(canceledDuringWork, "canceledDuringWork");
 	});
 
 	return app.main(argc, argv);

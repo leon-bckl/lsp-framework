@@ -33,6 +33,7 @@ void MessageHandler::sendResponse(RequestResult<typename M::Result>& result, Con
 	try
 	{
 		const auto resultValue = result.get();
+		removeActive(ctx.id());
 
 		if(shouldLog())
 		{
@@ -64,10 +65,12 @@ void MessageHandler::sendResponse(RequestResult<typename M::Result>& result, Con
 	}
 	catch(const RequestError& e)
 	{
+		removeActive(ctx.id());
 		sendErrorResponse(ctx.method(), ctx.timestamp(), ctx.id(), e.code(), e.what(), e.data(), batchSender);
 	}
 	catch(std::exception& e)
 	{
+		removeActive(ctx.id());
 		sendErrorResponse(ctx.method(), ctx.timestamp(), ctx.id(), MessageError::InternalError, e.what(), {}, batchSender);
 	}
 }

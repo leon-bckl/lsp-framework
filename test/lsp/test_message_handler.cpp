@@ -107,6 +107,27 @@ void respondWithNonArray(MessageHandler& handler)
 }
 
 /*
+ * Synchronizes a std::async(std::launch::deferred, ...) task with the test.
+ */
+class DeferredGate{
+public:
+	void started(){ m_started.set_value(); }
+	void waitForRelease(){ (void)m_releasedFuture.wait_for(std::chrono::seconds(5)); }
+
+	void release(){ m_released.set_value(); }
+	void waitForStart()
+	{
+		test::check(m_startedFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready, "workStarted");
+	}
+
+private:
+	std::promise<void> m_started;
+	std::future<void>  m_startedFuture  = m_started.get_future();
+	std::promise<void> m_released;
+	std::future<void>  m_releasedFuture = m_released.get_future();
+};
+
+/*
  * A copy of MessageHandler::MessageLog that owns its strings, since the original
  * holds string_views into data that is only valid for the duration of the callback.
  */
@@ -719,6 +740,161 @@ int main(int argc, char** argv)
 		test::check(contextId.has_value(), "contextSetInDeferredWork");
 		test::compare(*contextId, response.requestId());
 		test::check(!MessageHandler::RequestContext::tryGet(), "contextCleared");
+	});
+
+	/*
+	 * Cancelation
+	 */
+
+	app.addTest("Cancelation/UnknownIdIsNotCanceled", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		test::check(!handler.isCanceled(RequestId(json::Integer(999))), "notCanceled");
+
+		handler.cancel(RequestId(json::Integer(999)));
+		test::check(!handler.isCanceled(RequestId(json::Integer(999))), "stillNotCanceledAfterCancel");
+	});
+
+	app.addTest("Cancelation/ActiveRequestObservesCancelViaIsCanceled", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto gate    = DeferredGate();
+
+		auto canceledBefore = false;
+		auto canceledAfter  = false;
+
+		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
+		{
+			return std::async(std::launch::deferred, [&]() -> std::vector<int>
+			{
+				canceledBefore = MessageHandler::RequestContext::get().isCanceled();
+				gate.started();
+				gate.waitForRelease();
+				canceledAfter = MessageHandler::RequestContext::get().isCanceled();
+				return std::vector<int>{};
+			});
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+
+		gate.waitForStart();
+
+		handler.cancel(response.requestId());
+		gate.release();
+
+		handler.processNextMessage();
+		test::compare(getResult(response), std::vector<int>{});
+
+		test::check(!canceledBefore, "notCanceledBeforeCancelCall");
+		test::check(canceledAfter, "canceledAfterCancelCall");
+	});
+
+	app.addTest("Cancelation/ThrowIfCanceledIsNoOpWhenNotCanceled", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&]() -> std::vector<int>
+		{
+			MessageHandler::RequestContext::get().throwIfCanceled();
+			return std::vector<int>{1, 2, 3};
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), std::vector<int>{1, 2, 3});
+	});
+
+	app.addTest("Cancelation/ThrowIfCanceledSendsRequestCancelledError", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto gate    = DeferredGate();
+
+		handler.on<TestNoParamsRequest>([&]() -> std::future<TestNoParamsRequest::Result>
+		{
+			return std::async(std::launch::deferred, [&]() -> std::vector<int>
+			{
+				gate.started();
+				gate.waitForRelease();
+				MessageHandler::RequestContext::get().throwIfCanceled();
+				return std::vector<int>{};
+			});
+		});
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+
+		gate.waitForStart();
+
+		handler.cancel(response.requestId());
+		gate.release();
+
+		handler.processNextMessage();
+
+		expectResponseError(response, MessageError::RequestCancelled, "Canceled");
+	});
+
+	app.addTest("Cancelation/IdIsForgottenAfterRequestCompletes", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+
+		handler.on<TestNoParamsRequest>([&](){ return std::vector<int>{}; });
+
+		auto response = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(response), std::vector<int>{});
+
+		// The request already completed, so canceling its id now must be a safe no-op
+		handler.cancel(response.requestId());
+		test::check(!handler.isCanceled(response.requestId()), "idForgottenAfterCompletion");
+	});
+
+	app.addTest("Cancelation/CancelingOneDoesNotAffectAnother", [](){
+		auto stream  = LoopbackStream();
+		auto handler = MessageHandler(Connection(stream));
+		auto gateA   = DeferredGate();
+		auto gateB   = DeferredGate();
+
+		handler.on<TestRequest>([&](std::unordered_map<std::string, int>) -> std::future<int>
+		{
+			return std::async(std::launch::deferred, [&]() -> int
+			{
+				gateA.waitForRelease();
+				return 1;
+			});
+		});
+
+		handler.on<TestNoParamsRequest>([&]() -> std::future<std::vector<int>>
+		{
+			return std::async(std::launch::deferred, [&]() -> std::vector<int>
+			{
+				gateB.waitForRelease();
+				return std::vector<int>{};
+			});
+		});
+
+		auto responseA = handler.sendRequest<TestRequest>({{"x", 1}});
+		handler.processNextMessage();
+		auto responseB = handler.sendRequest<TestNoParamsRequest>();
+		handler.processNextMessage();
+
+		handler.cancel(responseA.requestId());
+
+		test::check(handler.isCanceled(responseA.requestId()), "aCanceled");
+		test::check(!handler.isCanceled(responseB.requestId()), "bNotCanceled");
+
+		gateA.release();
+		gateB.release();
+		handler.processNextMessage();
+		handler.processNextMessage();
+
+		test::compare(getResult(responseA), 1);
+		test::compare(getResult(responseB), std::vector<int>{});
 	});
 
 	/*

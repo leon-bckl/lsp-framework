@@ -11,7 +11,7 @@ The framework handles serialization and deserialization automatically.
 The generated `<lsp/messages.h>` header has one struct per message, with requests in the `lsp::requests` and notifications in the `lsp::notifications` namespace.
 Each message struct has a `Method` constant and typedefs for its `Params` and `Result` types. All parameter, result and other LSP types are in `<lsp/types.h>`.
 
-Servers and clients are implemented using the generated `lsp::ServerEndpoint` and `lsp::ClientEndpoint` classes (`<lsp/server_endpoint.h>` and `<lsp/client_endpoint.h>`).
+Servers and clients are implemented using the generated `lsp::ServerEndpoint` and `lsp::ClientEndpoint` classes (`<lsp/server_endpoint.h>` and `<lsp/client_endpoint.h>`). Request cancelation and trace logging are supported out of the box.
 The `messages.h` and `types.h` headers also serve as a protocol reference and have documentation comments for all types and properties.
 
 ## Building
@@ -143,7 +143,7 @@ serverEndpoint.textDocumentPublishDiagnostics({
 
 **Requests** come in two forms.
 
-The first returns an `lsp::RequestResult`. Call `get()` to wait for and retrieve the result. It rethrows an `lsp::ResponseError` if the server responded with an error. `get()` blocks, so don't call it on the message-loop thread. `RequestResult` also has `wait(timeoutMs)` and `requestId()`. The request id can be used with `$/cancelRequest` to cancel longer-running tasks on the server, for example.
+The first returns an `lsp::RequestResult`. Call `get()` to wait for and retrieve the result. It rethrows an `lsp::ResponseError` if the server responded with an error. `get()` blocks, so don't call it on the message-loop thread. `RequestResult` also has `wait(timeoutMs)` and `requestId()`. The request id can be used with `$/cancelRequest` to cancel longer-running tasks on the server, for example (see [Cancelation](#cancelation)).
 
 ```cpp
 try
@@ -326,6 +326,37 @@ which returns a `const RequestContext*` that is null when there is no context.
 
 The context is set in regular and [asynchronous](#asynchronous-handlers) request handler callbacks, including the body of a callable returned by an asynchronous handler while it runs on a worker thread.
 It is also available in response and error callbacks. It is not set in notification handlers.
+
+### Cancelation
+
+`ClientEndpoint` and `ServerEndpoint` both handle the `$/cancelRequest` notification by default: receiving one marks the request id it references as canceled. This alone doesn't stop anything. A handler has to explicitly check for it and decide what to do, typically inside an [asynchronous handler](#asynchronous-handlers) doing long-running work on a worker thread. `RequestContext::throwIfCanceled()` is a shortcut for the common case of aborting with an `lsp::RequestError(lsp::MessageError::RequestCancelled, ...)`:
+
+```cpp
+serverEndpoint.onTextDocumentDefinition(
+  [](lsp::DefinitionParams&& params)
+  {
+    return [params = std::move(params)]() -> lsp::TextDocumentDefinitionResult
+    {
+      const auto& ctx = lsp::RequestContext::get();
+
+      for(auto& step : longRunningWork(params))
+      {
+        ctx.throwIfCanceled();
+        processStep(step);
+      }
+
+      return result;
+    };
+  });
+```
+
+Throwing isn't the only option. For requests where a partial answer is still useful, check `ctx.isCanceled()` and return the best result computed so far instead of aborting with an error.
+
+If you register your own handler for `$/cancelRequest`, it replaces the default one entirely, so cancelation stops working unless you call `messageHandler().cancel(id)` yourself.
+
+### Trace Logging
+
+`ServerEndpoint` supports LSP trace logging automatically. Once the client enables it, via the `trace` field of the `initialize` request or the `$/setTrace` notification, the server sends `$/logTrace` notifications describing the messages it processes.
 
 ## Starting a Server Process
 

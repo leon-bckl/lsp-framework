@@ -106,6 +106,13 @@ public:
 	void sendCustomNotification(std::string_view method);
 
 	/*
+	 * Cancelation
+	 */
+
+	void cancel(const RequestId& id);
+	[[nodiscard]] auto isCanceled(const RequestId& id) -> bool;
+
+	/*
 	 * RequestContext
 	 */
 
@@ -122,9 +129,12 @@ public:
 		[[nodiscard]] auto method() const -> std::string_view{ return m_method; }
 		[[nodiscard]] auto id() const -> const RequestId&{ return m_requestId; }
 		[[nodiscard]] auto timestamp() const -> RequestTimestamp{ return m_requestTimestamp; }
+		[[nodiscard]] auto isCanceled() const -> bool{ return m_messageHandler->isCanceled(id()); }
+
+		void throwIfCanceled() const;
 
 	private:
-		[[maybe_unused]] MessageHandler* m_messageHandler = nullptr;
+		MessageHandler*  m_messageHandler = nullptr;
 		std::string_view m_method;
 		const RequestId& m_requestId;
 		RequestTimestamp m_requestTimestamp;
@@ -174,6 +184,11 @@ private:
 	using PendingRequestPtr = std::unique_ptr<PendingRequestBase>;
 	using HandlerWrapper    = std::function<void(json::Value&&, Connection::BatchSender*)>;
 
+	struct ActiveRequest{
+		RequestId id;
+		bool      canceled = false;
+	};
+
 	// General
 	Connection                                      m_connection;
 	ThreadPool                                      m_threadPool;
@@ -181,10 +196,14 @@ private:
 	std::vector<MessageLogCallback>                 m_msgLogCallbacks;
 	// Incoming requests
 	std::unordered_map<std::string, HandlerWrapper> m_requestHandlersByMethod;
+	std::mutex                                      m_activeRequestMutex;
+	std::vector<ActiveRequest>                      m_activeRequests;
 	// Outgoing requests
 	std::mutex                                      m_pendingRequestsMutex;
 	std::vector<PendingRequestPtr>                  m_pendingRequests;
 
+	void addActive(const RequestId& id);
+	void removeActive(const RequestId& id);
 	auto shouldLog() const -> bool;
 
 	template<typename T>

@@ -1,5 +1,6 @@
+#include <algorithm>
 #include <cassert>
-#include <lsp/message_handler.h>
+#include "message_handler.h"
 
 namespace lsp{
 namespace{
@@ -43,6 +44,12 @@ auto MessageHandler::RequestContext::get() -> const RequestContext&
 auto MessageHandler::RequestContext::tryGet() -> const RequestContext*
 {
 	return t_requestContext;
+}
+
+void MessageHandler::RequestContext::throwIfCanceled() const
+{
+	if(isCanceled())
+		throw RequestError(MessageError::RequestCancelled, "Canceled");
 }
 
 /*
@@ -95,6 +102,22 @@ void MessageHandler::remove(const std::string& method)
 {
 	if(const auto it = m_requestHandlersByMethod.find(method); it != m_requestHandlersByMethod.end())
 		m_requestHandlersByMethod.erase(it);
+}
+
+void MessageHandler::cancel(const RequestId& id)
+{
+	const auto lock = std::lock_guard(m_activeRequestMutex);
+	const auto it   = std::ranges::find_if(m_activeRequests, [&id](const auto& r){ return r.id == id; });
+
+	if(it != m_activeRequests.end())
+		it->canceled = true;
+}
+
+auto MessageHandler::isCanceled(const RequestId& id) -> bool
+{
+	const auto lock = std::lock_guard(m_activeRequestMutex);
+	const auto it   = std::ranges::find_if(m_activeRequests, [&id](const auto& r){ return r.id == id; });
+	return it != m_activeRequests.end() && it->canceled;
 }
 
 void MessageHandler::setMessageLogLevel(MessageLogLevel msgLogLevel)
@@ -150,6 +173,7 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 			}
 			else
 			{
+				addActive(*request.id); // Removed again in sendResponse or on error
 				// Instantiate request context for request handler
 				auto context = RequestContext(*this, request.method, *request.id, requestTimestamp);
 
@@ -161,6 +185,8 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 		catch(const RequestError& e)
 		{
 			if(!request.isNotification())
+			{
+				removeActive(*request.id);
 				sendErrorResponse(
 					request.method,
 					requestTimestamp,
@@ -168,11 +194,13 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 					e.code(),
 					e.what(),
 					e.data(), batchSender);
+			}
 		}
 		catch(const std::exception& e)
 		{
 			if(!request.isNotification())
 			{
+				removeActive(*request.id);
 				sendErrorResponse(
 					request.method,
 					requestTimestamp,
@@ -270,6 +298,21 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handlerFunc)
 {
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
+}
+
+void MessageHandler::addActive(const RequestId& id)
+{
+	const auto lock = std::lock_guard(m_activeRequestMutex);
+	assert(std::ranges::find_if(m_activeRequests, [&id](const auto& r){ return r.id == id; }) == m_activeRequests.end());
+	m_activeRequests.push_back({id});
+}
+
+void MessageHandler::removeActive(const RequestId& id)
+{
+	const auto lock = std::lock_guard(m_activeRequestMutex);
+	const auto it   = std::ranges::find_if(m_activeRequests, [&id](const auto& r){ return r.id == id; });
+	assert(it != m_activeRequests.end());
+	m_activeRequests.erase(it);
 }
 
 void MessageHandler::addPendingRequest(PendingRequestPtr pendingRequest)
