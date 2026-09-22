@@ -337,7 +337,6 @@ void ServerEndpointBase::registerBaseHandlers()
 			else if(traceStr == "verbose")
 				messageHandler().setMessageLogLevel(MessageHandler::MessageLogLevel::InfoAndPayload);
 		});
-
 }
 
 } // namespace lsp

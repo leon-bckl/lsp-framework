@@ -195,6 +195,7 @@ private:
 	std::atomic<MessageLogLevel>                    m_msgLogLevel = MessageHandler::MessageLogLevel::Off;
 	std::vector<MessageLogCallback>                 m_msgLogCallbacks;
 	// Incoming requests
+	std::mutex                                      m_requestHandlersMutex;
 	std::unordered_map<std::string, HandlerWrapper> m_requestHandlersByMethod;
 	std::mutex                                      m_activeRequestMutex;
 	std::vector<ActiveRequest>                      m_activeRequests;

@@ -100,6 +100,8 @@ void MessageHandler::setConnection(Connection connection)
 
 void MessageHandler::remove(const std::string& method)
 {
+	const auto lock = std::lock_guard(m_requestHandlersMutex);
+
 	if(const auto it = m_requestHandlersByMethod.find(method); it != m_requestHandlersByMethod.end())
 		m_requestHandlersByMethod.erase(it);
 }
@@ -159,6 +161,8 @@ void MessageHandler::processRequest(jsonrpc::Request&& request, Connection::Batc
 		else
 			dispatchMessageLog(msgLog);
 	}
+
+	const auto lock = std::lock_guard(m_requestHandlersMutex);
 
 	if(const auto handlerIt = m_requestHandlersByMethod.find(request.method);
 	   handlerIt != m_requestHandlersByMethod.end() && handlerIt->second)
@@ -297,6 +301,7 @@ void MessageHandler::processResponse(jsonrpc::Response&& response)
 
 void MessageHandler::addHandler(std::string_view method, HandlerWrapper&& handlerFunc)
 {
+	const auto lock = std::lock_guard(m_requestHandlersMutex);
 	m_requestHandlersByMethod[std::string(method)] = std::move(handlerFunc);
 }
 
